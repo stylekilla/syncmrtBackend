@@ -64,8 +64,8 @@ class importCT:
 
 		# Patient imaging orientation. (Rotation happens in [row,col,depth]).
 		if self.orientation == 'HFS':
-			self.rot, self.pix0 = gpu.rotate(180,-90,0)
-			self.rot90, self.pix90 = gpu.rotate(180,-180,0)
+			self.rot, self.pix0 = gpu.rotate(-90,-180,0)
+			self.rot90, self.pix90 = gpu.rotate(-90,-90,0)
 		elif self.orientation == 'HFP':
 			self.rot, self.pix0 = gpu.rotate(0,-90,0)
 			self.rot90, self.pix90  = gpu.rotate(0,-180,0)
