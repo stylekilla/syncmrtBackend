@@ -31,6 +31,8 @@ class mask:
 			points.append([x,y])
 		points.append(points[0])
 
+		# NEED TO ROTATE POINTS BY 90 CCW
+
 		# Create dwg and add lines.
 		fn = 'BeamPort'+str(index)+'.dxf'
 		dwg = dxf.drawing(fn)
