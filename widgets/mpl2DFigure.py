@@ -19,12 +19,10 @@ class mpl2DFigure:
 	- eventFilter(event): Based on the event identifier we can tell it to do something.
 	'''
 
-	# def __init__(self):
 	def __init__(self,model):
 		self.logMessage = ()
 		self.logRank = ()
 		self.image = None
-		# self.adjusted = None
 		self.plotDimensions = None
 		self.pointsX = []
 		self.pointsY = []
@@ -32,6 +30,7 @@ class mpl2DFigure:
 		self.markersMaximum = 0
 		self.markersList = []
 		self.markerModel = model
+		self._radiographMode = 'sum'
 
 		self.fig = plt.figure()
 		self.fig.patch.set_facecolor('#FFFFFF')
@@ -96,7 +95,13 @@ class mpl2DFigure:
 		conditions = conditions[:-1]
 		mask = eval(conditions)
 		self.data2d = self.data3d*mask
-		self.data2d = np.sum(self.data2d,axis=2)
+
+		if self._radiographMode == 'max':
+			self.data2d = np.amax(self.data2d,axis=2)
+		else:
+			# Assuming radiographMode == 'sum'
+			self.data2d = np.sum(self.data2d,axis=2)
+
 		self.image.set_data(self.data2d)
 		self.image.set_clim(vmin=self.data2d.min())
 		self.image.set_clim(vmax=self.data2d.max())
