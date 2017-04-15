@@ -47,7 +47,7 @@ class affineTransform:
 		self.R = np.reshape(self.R,(3,3))
 
 		# Extract individual angles in degrees.
-		self.theta, self.phi, self.gamma = extractangles(self.R)
+		self.theta, self.phi, self.gamma = extractangles(self.R,self.l,self.r)
 
 		# Extract scale.
 		self.getscale()
@@ -101,9 +101,9 @@ def quaternion(l,r):
 
 	# Calculate N
 	N = np.array([[sxx+syy+szz, syz-szy, szx-sxz, sxy-syx],
-    [syz-szy, sxx-syy-szz, sxy+syx, szx+sxz],
-    [szx-sxz, sxy+syx, -sxx+syy-szz, syz+szy],
-    [sxy-syx, szx+sxz, syz+szy, -sxx-syy+szz]])
+	[syz-szy, sxx-syy-szz, sxy+syx, szx+sxz],
+	[szx-sxz, sxy+syx, -sxx+syy-szz, syz+szy],
+	[sxy-syx, szx+sxz, syz+szy, -sxx-syy+szz]])
 
 	# Return the matrix N
 	return N
@@ -126,26 +126,101 @@ def eigensolve(arr):
 def rotationmatrix(q):
 	#  Calculate rotation matrix, R, based off quarternion input. This should be the eigenvector solution to N.
 	R = np.array([[(q[0]**2+q[1]**2-q[2]**2-q[3]**2), 2*(q[1]*q[2]-q[0]*q[3]), 2*(q[1]*q[3]+q[0]*q[2])],
-    [2*(q[2]*q[1]+q[0]*q[3]), (q[0]**2-q[1]**2+q[2]**2-q[3]**2), 2*(q[2]*q[3]-q[0]*q[1])],
-    [2*(q[3]*q[1]-q[0]*q[2]), 2*(q[3]*q[2]+q[0]*q[1]), (q[0]**2-q[1]**2-q[2]**2+q[3]**2)]])
+	[2*(q[2]*q[1]+q[0]*q[3]), (q[0]**2-q[1]**2+q[2]**2-q[3]**2), 2*(q[2]*q[3]-q[0]*q[1])],
+	[2*(q[3]*q[1]-q[0]*q[2]), 2*(q[3]*q[2]+q[0]*q[1]), (q[0]**2-q[1]**2-q[2]**2+q[3]**2)]])
 
 	# Return the rotation matrix, R.
+	print('Calculated Rotation matrix: ',R.reshape(3,3))
 	return R
 
 # Extract individual rotations around the x, y and z axis seperately. 
-def extractangles(R):
-	# Angles theta about x, phi about y, gamma about z. 
-	phi = np.arcsin(R[2][0])
-	theta = np.arcsin(R[2][1]/np.cos(phi))
-	gamma = np.arcsin(R[1][0]/np.cos(phi))
-	
-	phi = np.rad2deg(phi)
-	theta = np.rad2deg(theta)
-	gamma = np.rad2deg(gamma)
+def extractangles(R,l,r):
+	# x -> H2
+	# y -> H1
+	# z -> vertical
+	# Two possible angles for x.
+	y = []
+	y.append(-np.arcsin(R[2][0]))
+	y.append(np.pi-np.arcsin(R[2][0]))
 
-	# Return angles around x, y and z in DEGREES.
-	return theta, phi, gamma
+	# Angle for Z
+	z = []
+	for i in range(len(y)):
+		z.append(-np.arctan2(R[0][1]/np.cos(y[i]),R[0][0]/np.cos(y[i])))
 
-# x -> H2
-# y -> H1
-# z -> vertical
+	# Angle for X
+	x = []
+	for i in range(len(y)):
+		# x.append(np.arctan2(R[2][1]/np.cos(y[i]),R[2][2]/np.cos(y[i])))
+		x.append(-np.arctan2(R[1][2]/np.cos(y[i]),R[2][2]/np.cos(y[i])))
+
+	oy = np.arcsin(R[2][0])
+	ox = np.arcsin(R[2][1]/np.cos(oy))
+	oz = np.arcsin(R[1][0]/np.cos(oy))
+	print('Original solns: ',np.rad2deg(ox),np.rad2deg(oy),np.rad2deg(oz))
+
+	solutions = []
+
+	for i in range(len(y)):
+		rotation = np.array([x[i],y[i],z[i]])
+
+		rotationVector = np.array([[np.cos(rotation[1])*np.cos(rotation[2]), 
+			np.cos(rotation[1])*np.sin(rotation[2]), 
+			-np.sin(rotation[1])],
+			[np.sin(rotation[0])*np.sin(rotation[1])*np.cos(rotation[2])-np.cos(rotation[0])*np.sin(rotation[2]), 
+			np.sin(rotation[0])*np.sin(rotation[1])*np.sin(rotation[2])+np.cos(rotation[0])*np.cos(rotation[2]), 
+			np.sin(rotation[0])*np.cos(rotation[1])],
+			[np.cos(rotation[0])*np.sin(rotation[1])*np.cos(rotation[2])+np.sin(rotation[0])*np.sin(rotation[2]), 
+			np.cos(rotation[0])*np.sin(rotation[1])*np.sin(rotation[2])-np.sin(rotation[0])*np.cos(rotation[2]), 
+			np.cos(rotation[0])*np.cos(rotation[1])]])
+
+		value = []
+		value.append(x[i])
+		value.append(y[i])
+		value.append(z[i])
+		error = 0
+		for i in range(len(l)):
+			# error += np.sum(np.square(np.absolute( (l[i].T - np.dot(R,r[i].T)) )))
+			error += np.sum(np.absolute( (l[i].T - np.dot(rotationVector,r[i].T)) ))
+
+		value.append(error)
+		solutions.append(value)
+
+	print('solution list: ',np.rad2deg(solutions))
+
+	# Find minimum error.
+	errorList = []
+	for i in range(len(solutions)):
+		errorList.append(solutions[i][3])
+
+	success = False
+	while (success == False):
+		index = np.argmin(errorList)
+		print(index, errorList)
+		v = np.rad2deg(y[index])
+		h2 = np.rad2deg(x[index])
+		h1 = np.rad2deg(z[index])
+
+		if ((-360 < v < 360) & (-90 < h2 < 90) & (-90 < h1 < 90)):
+			success = True
+		else:
+			try:
+				del errorList[index]
+				del x[index]
+				del y[index]
+				del z[index]
+			except:
+				print('Please select the points properly.')
+				return 0, 0, 0
+
+	print('Chosen angles: ',h2,v,h1)
+	return h2, v, h1
+
+
+
+
+
+	# print('wcs2wcs 196: Angles in Deg: ',x,y,z)
+
+	# # Return angles around x, y and z in DEGREES.
+	# return x, y, z

@@ -144,8 +144,6 @@ class mpl2DFigure:
 						self.markersList.remove(self.markersList[key*2])
 						# Insert new.
 						self.markersList[key*2:key*2] = scatter,text
-						print('Keys: ', key*2, key*2+1)
-						print(self.markersList)
 						self.canvas.draw()
 						# Update pointsXY lists.
 						self.pointsX[key] = x
