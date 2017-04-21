@@ -52,7 +52,6 @@ class affineTransform:
 		# Extract scale.
 		self.getscale()
 
-		# Get userOrigin and rtpIsoc as arrays and define isoc with respect to userOrigin.
 		userOrigin = np.array(userOrigin)
 		rtpIsoc = np.array(rtpIsoc)
 		ptvIsoc = np.array((0,0,0)) - (userOrigin - rtpIsoc)
@@ -168,7 +167,6 @@ def extractangles(R,l,r):
 		value.append(x[i])
 		value.append(y[i])
 		value.append(z[i])
-		print('Solution list: ',value)
 		error = 0
 		for i in range(len(l)):
 			# error += np.sum(np.square(np.absolute( (l[i].T - np.dot(R,r[i].T)) )))
