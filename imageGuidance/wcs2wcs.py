@@ -54,17 +54,13 @@ class affineTransform:
 
 		# Get userOrigin and rtpIsoc as arrays and define isoc with respect to userOrigin.
 		userOrigin = np.array(userOrigin)
-		rtpIsoc = np.absolute(np.array(rtpIsoc))
-		newisoc = rtpIsoc - userOrigin
-
-		# CT Centroid to Isoc in mm.
-		pts2isoc = newisoc - self.l_ctd
-
-		# XR Centroid to Isoc in mm.
-		xrCurrent = self.r_ctd + pts2isoc
-
-		# The goal is the xray isocenter.
-		self.translation = xrCurrent - xrIsoc
+		rtpIsoc = np.array(rtpIsoc)
+		ptvIsoc = np.array((0,0,0)) - (userOrigin - rtpIsoc)
+		ptvIsocHam = np.array((ptvIsoc[0],-ptvIsoc[2],ptvIsoc[1]))
+		ctd2ptv = ptvIsocHam - self.l_ctd
+		xrPtv = self.r_ctd + ctd2ptv
+		translation = xrIsoc - xrPtv
+		self.translation = np.array((translation[0],-translation[1],translation[2]))
 
 	# Obtain scale factor between coordinate systems. Requires left and right points in reference to centroids.
 	def getscale(self):
@@ -130,7 +126,6 @@ def rotationmatrix(q):
 	[2*(q[3]*q[1]-q[0]*q[2]), 2*(q[3]*q[2]+q[0]*q[1]), (q[0]**2-q[1]**2-q[2]**2+q[3]**2)]])
 
 	# Return the rotation matrix, R.
-	print('Calculated Rotation matrix: ',R.reshape(3,3))
 	return R
 
 # Extract individual rotations around the x, y and z axis seperately. 
@@ -154,11 +149,6 @@ def extractangles(R,l,r):
 		# x.append(np.arctan2(R[2][1]/np.cos(y[i]),R[2][2]/np.cos(y[i])))
 		x.append(-np.arctan2(R[1][2]/np.cos(y[i]),R[2][2]/np.cos(y[i])))
 
-	oy = np.arcsin(R[2][0])
-	ox = np.arcsin(R[2][1]/np.cos(oy))
-	oz = np.arcsin(R[1][0]/np.cos(oy))
-	print('Original solns: ',np.rad2deg(ox),np.rad2deg(oy),np.rad2deg(oz))
-
 	solutions = []
 
 	for i in range(len(y)):
@@ -178,6 +168,7 @@ def extractangles(R,l,r):
 		value.append(x[i])
 		value.append(y[i])
 		value.append(z[i])
+		print('Solution list: ',value)
 		error = 0
 		for i in range(len(l)):
 			# error += np.sum(np.square(np.absolute( (l[i].T - np.dot(R,r[i].T)) )))
@@ -185,8 +176,6 @@ def extractangles(R,l,r):
 
 		value.append(error)
 		solutions.append(value)
-
-	print('solution list: ',np.rad2deg(solutions))
 
 	# Find minimum error.
 	errorList = []
@@ -196,10 +185,9 @@ def extractangles(R,l,r):
 	success = False
 	while (success == False):
 		index = np.argmin(errorList)
-		print(index, errorList)
-		v = np.rad2deg(y[index])
-		h2 = np.rad2deg(x[index])
-		h1 = np.rad2deg(z[index])
+		v = -np.rad2deg(y[index])
+		h2 = -np.rad2deg(x[index])
+		h1 = -np.rad2deg(z[index])
 
 		if ((-360 < v < 360) & (-90 < h2 < 90) & (-90 < h1 < 90)):
 			success = True
@@ -213,14 +201,4 @@ def extractangles(R,l,r):
 				print('Please select the points properly.')
 				return 0, 0, 0
 
-	print('Chosen angles: ',h2,v,h1)
 	return h2, v, h1
-
-
-
-
-
-	# print('wcs2wcs 196: Angles in Deg: ',x,y,z)
-
-	# # Return angles around x, y and z in DEGREES.
-	# return x, y, z

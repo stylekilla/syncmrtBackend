@@ -30,13 +30,14 @@ class importCT:
 		self.dims = np.array([int(self.ref.Rows), int(self.ref.Columns), len(self.ds)])
 
 		# Make numpy array container for vals the size of the 3d volume.
-		self.arr = np.zeros(self.dims, dtype=np.result_type(self.ref.pixel_array))
+		self.arr = np.zeros(self.dims, dtype=np.result_type(self.ref.pixel_array))-1000
 
 		# For each file extract the pixel data and put in respective slice. 
 		for fn in self.ds:
 			data = dicom.read_file(fn)
 			# Flip UD or LR??? Not sure of orientation yet...
-			self.arr[:,:, self.ds.index(fn)] = np.fliplr(data.pixel_array)
+			# self.arr[:,:, self.ds.index(fn)] = np.fliplr(data.pixel_array)
+			self.arr[:331,:, self.ds.index(fn)] = np.fliplr(data.pixel_array[:331,:])
 
 		# Get the patient orientation.
 		self.userOrigin = self.ref.ImagePositionPatient
@@ -149,9 +150,24 @@ class importRTP:
 			self.beam[i].pitchAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].TableTopPitchAngle)
 			self.beam[i].rollAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].TableTopRollAngle)
 			self.beam[i].isocenter = np.array(self.rtp.BeamSequence[i].ControlPointSequence[0].IsocenterPosition)
-			# self.rtp.beam[i].yawAngle = dicomData.file.BeamSequence[i].ControlPointSequence[0].PatientSupportAngle
-			arrayNormal, self.beam[i].arrayNormalPixelSize = gpu.rotate(self.beam[i].pitchAngle,self.beam[i].gantryAngle,self.beam[i].rollAngle)
-			arrayOrthogonal, self.beam[i].arrayOrthogonalPixelSize = gpu.rotate(self.beam[i].pitchAngle,(self.beam[i].gantryAngle-90),self.beam[i].rollAngle)
+			self.beam[i].patientSupportAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].PatientSupportAngle)
+
+			if self.beam[i].patientSupportAngle == 0:
+				arrayNormal, self.beam[i].arrayNormalPixelSize = gpu.rotate(self.beam[i].pitchAngle,self.beam[i].gantryAngle,self.beam[i].rollAngle)
+				arrayOrthogonal, self.beam[i].arrayOrthogonalPixelSize = gpu.rotate(self.beam[i].pitchAngle,(self.beam[i].gantryAngle-90),self.beam[i].rollAngle)
+			
+			elif self.beam[i].patientSupportAngle == 270:
+				arrayNormal, self.beam[i].arrayNormalPixelSize = gpu.rotate(self.beam[i].gantryAngle,self.beam[i].pitchAngle,self.beam[i].rollAngle)
+				arrayOrthogonal, self.beam[i].arrayOrthogonalPixelSize = gpu.rotate(self.beam[i].gantryAngle,(self.beam[i].pitchAngle+90),self.beam[i].rollAngle)
+
+			elif self.beam[i].patientSupportAngle == 5:
+				arrayNormal, self.beam[i].arrayNormalPixelSize = gpu.rotate(float(6),self.beam[i].gantryAngle,self.beam[i].rollAngle)
+				arrayOrthogonal, self.beam[i].arrayOrthogonalPixelSize = gpu.rotate(float(6),(self.beam[i].gantryAngle-90),self.beam[i].rollAngle)
+				
+			else:
+				arrayNormal, self.beam[i].arrayNormalPixelSize = gpu.rotate(0,self.beam[i].gantryAngle,0)
+				arrayOrthogonal, self.beam[i].arrayOrthogonalPixelSize = gpu.rotate(0,(self.beam[i].gantryAngle-90),0)
+				
 			# Didn't change pixel size??? Why does it work???
 			self.beam[i].arrayNormalPixelSize = pixelSize
 			self.beam[i].arrayOrthogonalPixelSize = pixelSize

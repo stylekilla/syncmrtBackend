@@ -98,9 +98,10 @@ class mpl2DFigure:
 
 		if self._radiographMode == 'max':
 			self.data2d = np.amax(self.data2d,axis=2)
-		else:
-			# Assuming radiographMode == 'sum'
+		elif self._radiographMode == 'sum':
 			self.data2d = np.sum(self.data2d,axis=2)
+		else:
+			pass
 
 		self.image.set_data(self.data2d)
 		self.image.set_clim(vmin=self.data2d.min())
