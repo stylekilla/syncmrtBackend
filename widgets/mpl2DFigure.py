@@ -29,17 +29,27 @@ class mpl2DFigure:
 		self.i = 0
 		self.markersMaximum = 0
 		self.markersList = []
+		self.markersListOptimised = []
 		self.markerModel = model
 		self._radiographMode = 'sum'
 
 		self.fig = plt.figure()
-		self.fig.patch.set_facecolor('#FFFFFF')
-		self.ax = self.fig.add_subplot(111, axisbg='#FFFFFF')
-		self.fig.tight_layout()
-		self.ax.tick_params(colors='#000000')
-		self.ax.title.set_color('#000000')
-		self.ax.xaxis.label.set_color('#000000')
-		self.ax.yaxis.label.set_color('#000000')
+		self.fig.patch.set_facecolor('#000000')
+		self.ax = self.fig.add_axes([0,0,1,1])
+		self.ax.set_axis_bgcolor('#000000')
+		self.ax.title.set_color('#FFFFFF')
+		self.ax.xaxis.label.set_color('#FFFFFF')
+		self.ax.yaxis.label.set_color('#FFFFFF')
+		self.ax.xaxis.set_label_coords(0.5,0.12)
+		self.ax.yaxis.set_label_coords(0.12,0.5)
+		self.ax.xaxis.label.set_size(20)
+		self.ax.yaxis.label.set_size(20)
+		# self.ax.yaxis.label.set_rotation(90)
+		self.ax.spines['left'].set_visible(False)
+		self.ax.spines['top'].set_visible(False)
+		self.ax.spines['right'].set_visible(False)
+		self.ax.spines['bottom'].set_visible(False)
+		self.ax.tick_params('both',which='both',length=7,width=1,pad=-30,direction='in',colors='#FFFFFF')
 
 		# Create a canvas widget for Qt to use.
 		self.canvas = FigureCanvas(self.fig)
@@ -73,15 +83,19 @@ class mpl2DFigure:
 				self.ax.set_title('FHS2 lol?')
 		else:
 			if imageIndex == 1:
-				self.ax.set_title('Unknown')
-				self.ax.set_xlabel('Unknown')
-				self.ax.set_ylabel('Unknown')
+				self.ax.set_title('Normal')
+				self.ax.set_xlabel('S')
+				self.ax.set_ylabel('L')
+				self.ax.text(0.95, 0.5, 'R',transform=self.ax.transAxes,color='green', fontsize=20)
 			if imageIndex == 2:
-				self.ax.set_title('Unknown')
-				self.ax.set_xlabel('Unknown')
-				self.ax.set_ylabel('Unknown')
+				self.ax.set_title('Orthogonal')
+				self.ax.set_xlabel('S')
+				self.ax.set_ylabel('A')
 
 		self.image = self.ax.imshow(self.data2d, cmap='bone', extent=self.plotDimensions)
+		self.ax.set_xlim(self.plotDimensions[0:2])
+		self.ax.set_ylim(self.plotDimensions[2:4])
+		# self.ax.margins(0.1) Not doing anything currently... because of the two lines above.
 		self.ax.set_autoscale_on(False)
 		self.canvas.draw()
 		# Start Callback ID
@@ -152,32 +166,51 @@ class mpl2DFigure:
 
 	def markerRemove(self,marker=-1):
 		'''Clear the specified marker. Else clear all markers.'''
-		self.i = 0
-		self.pointsX = []
-		self.pointsY = []
-		for index in range(len(self.markersList)):
-			self.markersList[index].remove()
-		self.markersList = []
-		self.markerModel.clearMarkers(self.markersMaximum)
+		# Remove all markers:
+		if marker == -1:
+			self.i = 0
+			self.pointsX = []
+			self.pointsY = []
+			if range(len(self.markersList)) > 0:
+				for index in range(len(self.markersList)):
+					self.markersList[index].remove()
+			self.markersList = []
+			# Reset table values.
+			self.markerModel.clearMarkers(self.markersMaximum)
+			# Set to -2 to remove optimised markers as well.
+			marker = -2
+
+		if marker == -2:
+			# Remove optimised markers, if any.
+			self.pointsXoptimised = []
+			self.pointsYoptimised = []
+			if range(len(self.markersListOptimised)) > 0:
+				for index in range(len(self.markersListOptimised)):
+					self.markersListOptimised[index].remove()
+
 		self.canvas.draw()
 
 	def markerOptimise(self,fiducialSize):
-		'''Call syncMRT optimise points module. Send points,data,dims,markersize.'''
-		pointsIn = np.column_stack((self.pointsX,self.pointsY))
+		'''Optimise markers that are selected in plot.'''
+		# Remove any existing markers.
+		self.markerRemove(marker=-2)
 
+		# Call syncMRT optimise points module. Send points,data,dims,markersize.
+		pointsIn = np.column_stack((self.pointsX,self.pointsY))
 		points = optimiseFiducials(pointsIn,self.data2d,self.pixelSize,fiducialSize)
+		print('Optimised points and got back ,',points)
 		self.pointsXoptimised = points[:,0]
 		self.pointsYoptimised = points[:,1]
 
 		# Re-plot with optimised points over the top (in blue).
-		self.markerListOptimsed = []
+		self.markersListOptimised = []
 		for i in range(len(self.pointsXoptimised)):
 			x = self.pointsXoptimised[i]
 			y = self.pointsYoptimised[i]
 			# Plot marker list.
 			scatter = self.ax.scatter(x,y,c='b',marker='+',s=50)
 			text = self.ax.text(x+1,y-3,i+1,color='b')
-			self.markerListOptimsed += scatter,text
+			self.markersListOptimised += scatter,text
 
 		self.canvas.draw()
 

@@ -35,9 +35,8 @@ class importCT:
 		# For each file extract the pixel data and put in respective slice. 
 		for fn in self.ds:
 			data = dicom.read_file(fn)
-			# Flip UD or LR??? Not sure of orientation yet...
-			# self.arr[:,:, self.ds.index(fn)] = np.fliplr(data.pixel_array)
-			self.arr[:331,:, self.ds.index(fn)] = np.fliplr(data.pixel_array[:331,:])
+			self.arr[:,:, self.ds.index(fn)] = np.fliplr(data.pixel_array)
+			# self.arr[:331,:, self.ds.index(fn)] = np.fliplr(data.pixel_array[:331,:])
 
 		# Get the patient orientation.
 		self.userOrigin = self.ref.ImagePositionPatient

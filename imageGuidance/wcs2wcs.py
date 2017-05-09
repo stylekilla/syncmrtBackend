@@ -12,6 +12,7 @@ class affineTransform:
 	# Initiate class with set of points, p and solve for transition vars.
 	# def __init__(self,l,r,ctdims,xrdims,rtpIsoc,userOrigin,xrIsoc):
 	def __init__(self,leftCS,rightCS,rtpIsoc,userOrigin,xrIsoc):
+		'''Points should come in as xyz cols and n-points rows: np.array((n,xyz))'''
 		self.n = np.shape(leftCS)[0]
 		# L and R in mm.
 		self.l = leftCS
