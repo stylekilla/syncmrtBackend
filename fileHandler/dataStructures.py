@@ -10,8 +10,10 @@ class dataDicom:
 		self.pixelSize = None
 		self.arrayNormal = None
 		self.arrayNormalPixelSize = None
+		self.arrayNormalExtent = None
 		self.arrayOrthogonal = None
 		self.arrayOrthogonalPixelSize = None
+		self.arrayOrthogonalExtent = None
 		self.rescaleIntercept = None
 		self.rescaleSlope = None
 		self.patientOrientation = None
@@ -32,11 +34,15 @@ class dataXray:
 		self.ds = None
 		self.arrayNormal = None
 		self.arrayNormalPixelSize = None
+		self.arrayNormalExtent = None
 		self.arrayOrthogonal = None
 		self.arrayOrthogonalPixelSize = None
+		self.arrayOrthogonalExtent = None
 		self.patientOrientation = None
 		self.patientIsoc = None
 		self.alignmentIsoc = None
+		self.imageSize = None
+		self.imagePixelSize = None
 		'''Classes'''
 		self.plotEnvironment = None
 		self.tableModel = None

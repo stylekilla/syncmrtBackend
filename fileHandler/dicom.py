@@ -21,26 +21,34 @@ def importDicom(ds,modality):
 
 class importCT:
 	def __init__(self,ds,arrayFormat='npy'):
+		'''importCT: Import the CT dataset and all it's relevant DICOM tags.'''
+		# Set list of filenames for dataset, reference file (first file in stack) and the filepath to the folder containing the dataset.
 		self.ds = ds
 		self.path = os.path.dirname(ds[0])
 		self.ref = dicom.read_file(self.ds[0])
+
+		# Specify the array format to save in. Typically this is a numpy array, tif's or jpg's are possible but not built in.
 		self.format = arrayFormat
 
 		# Dimensions are based on rows and cols in reference file, and the number of files in the dataset.
 		self.dims = np.array([int(self.ref.Rows), int(self.ref.Columns), len(self.ds)])
 
-		# Make numpy array container for vals the size of the 3d volume.
+		# Make numpy array of -1000 HU (air), this should be the size of the 3d volume.
 		self.arr = np.zeros(self.dims, dtype=np.result_type(self.ref.pixel_array))-1000
 
-		# For each file extract the pixel data and put in respective slice. 
+		# For each slice extract the pixel data and put in respective z slice in array. 
 		for fn in self.ds:
 			data = dicom.read_file(fn)
 			self.arr[:,:, self.ds.index(fn)] = np.fliplr(data.pixel_array)
-			# self.arr[:331,:, self.ds.index(fn)] = np.fliplr(data.pixel_array[:331,:])
 
 		# Get the patient orientation.
 		self.userOrigin = self.ref.ImagePositionPatient
 		self.orientation = self.ref.PatientPosition
+
+		# Patient setup variables.
+		self.imageOrientationPatient = self.ref.ImageOrientationPatient
+		self.imagePositionPatient = self.ref.ImagePositionPatient
+
 		# HU vars.
 		self.rescaleType = self.ref.RescaleType
 		self.rescaleSlope = self.ref.RescaleSlope
@@ -64,8 +72,21 @@ class importCT:
 
 		# Patient imaging orientation. (Rotation happens in [row,col,depth]).
 		if self.orientation == 'HFS':
+			# Head First, Supine.
 			self.rot, self.pix0 = gpu.rotate(-90,-180,0)
 			self.rot90, self.pix90 = gpu.rotate(-90,-90,0)
+			# Set matching extent (in mm) for 2D plot in DRR.
+			left = self.ref.ImagePositionPatient[0]
+			right = self.ref.ImagePositionPatient[0]+self.ref.Rows*self.ref.PixelSpacing[0]
+			bottom = self.ref.ImagePositionPatient[2]-(self.dims[2]-1)*self.spacingBetweenSlices
+			top = self.ref.ImagePositionPatient[2]
+			self.normalExtent = np.array([left,right,bottom,top])
+			# Set matching extent (in mm) for 2D plot in DRR.
+			left = self.ref.ImagePositionPatient[1]
+			right = self.ref.ImagePositionPatient[1]+self.ref.Rows*self.ref.PixelSpacing[1]
+			bottom = self.ref.ImagePositionPatient[2]-(self.dims[2]-1)*self.spacingBetweenSlices
+			top = self.ref.ImagePositionPatient[2]
+			self.orthogonalExtent = np.array([left,right,bottom,top])
 		elif self.orientation == 'HFP':
 			self.rot, self.pix0 = gpu.rotate(0,-90,0)
 			self.rot90, self.pix90  = gpu.rotate(0,-180,0)
@@ -131,11 +152,11 @@ class importRTP:
 
 		# Check for an accompanying RS file?
 
-	def extractTreatmentBeams(self,ctFile,pixelSize):
+	def extractTreatmentBeams(self,ctArray,pixelSize):
 		'''Iterate through number of beams and rotate ct data to match beam view.'''
 		self.beam = np.empty(self.rtp.FractionGroupSequence[0].NumberOfBeams,dtype=object)
 
-		array = np.load(ctFile)
+		array = np.load(ctArray)
 		gpu = gpuInterface()
 		gpu.copyTexture(array,pixelSize)
 
@@ -150,6 +171,19 @@ class importRTP:
 			self.beam[i].rollAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].TableTopRollAngle)
 			self.beam[i].isocenter = np.array(self.rtp.BeamSequence[i].ControlPointSequence[0].IsocenterPosition)
 			self.beam[i].patientSupportAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].PatientSupportAngle)
+
+			# Normal view extent for plotting (in mm),
+			left = self.ref.ImagePositionPatient[0]
+			right = self.ref.ImagePositionPatient[0]+self.ref.Rows*self.ref.PixelSpacing[0]
+			bottom = self.ref.ImagePositionPatient[2]-(self.dims[2]-1)*self.spacingBetweenSlices
+			top = self.ref.ImagePositionPatient[2]
+			self.normalExtent = np.array([left,right,bottom,top])
+			# Orthogonal view extent for plotting (in mm),
+			left = self.ref.ImagePositionPatient[0]
+			right = self.ref.ImagePositionPatient[0]+self.ref.Rows*self.ref.PixelSpacing[0]
+			bottom = self.ref.ImagePositionPatient[2]-(self.dims[2]-1)*self.spacingBetweenSlices
+			top = self.ref.ImagePositionPatient[2]
+			self.orthogonalExtent = np.array([left,right,bottom,top])
 
 			if self.beam[i].patientSupportAngle == 0:
 				arrayNormal, self.beam[i].arrayNormalPixelSize = gpu.rotate(self.beam[i].pitchAngle,self.beam[i].gantryAngle,self.beam[i].rollAngle)

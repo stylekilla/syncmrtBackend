@@ -36,7 +36,8 @@ class mpl2DFigure:
 		self.fig = plt.figure()
 		self.fig.patch.set_facecolor('#000000')
 		self.ax = self.fig.add_axes([0,0,1,1])
-		self.ax.set_axis_bgcolor('#000000')
+		# self.ax.set_axis_bgcolor('#000000')
+		self.ax.set_facecolor('#000000')
 		self.ax.title.set_color('#FFFFFF')
 		self.ax.xaxis.label.set_color('#FFFFFF')
 		self.ax.yaxis.label.set_color('#FFFFFF')
@@ -58,43 +59,43 @@ class mpl2DFigure:
 
 		self.canvas._pickerActive = False
 
-	def imageLoad(self,fn,pixelSize,imageOrientation='HFS',imageIndex=1):
-		'''Load numpy file in, convert to 2D. Connect callbacks and plot.'''		
+	def imageLoad(self,fn,extent=np.array([-1,1,-1,1]),imageOrientation='',imageIndex=0):
+		'''imageLoad: Load numpy file in, convert to 2D. Connect callbacks and plot.'''		
 		self.data3d = np.load(fn)
 		if len(self.data3d.shape) == 3:
+			# 3D Image (CT/MRI etc).
 			self.data2d = np.sum(self.data3d,axis=2)
-			self.pixelSize = pixelSize[0:2]
 		else:
+			# 2D Image (General X-ray).
 			self.data2d = np.array(self.data3d)
-			self.pixelSize = pixelSize
 
 		# Image extent (dimensions - Left Right Bottom Top).
-		self.plotDimensions = np.array([0, np.shape(self.data2d)[1]*self.pixelSize[1], np.shape(self.data2d)[0]*self.pixelSize[0], 0])
+		# self.plotDimensions = np.array([0, np.shape(self.data2d)[1]*self.pixelSize[1], np.shape(self.data2d)[0]*self.pixelSize[0], 0])
 
-		if imageOrientation == 'HFS':
-			if imageIndex == 1:
-				self.ax.set_title('HFS')
-			if imageIndex == 2:
-				self.ax.set_title('HFS2 lol?')
-		elif imageOrientation == 'FHS':
-			if imageIndex == 1:
-				self.ax.set_title('FHS')
-			if imageIndex == 2:
-				self.ax.set_title('FHS2 lol?')
-		else:
-			if imageIndex == 1:
-				self.ax.set_title('Normal')
-				self.ax.set_xlabel('S')
-				self.ax.set_ylabel('L')
-				self.ax.text(0.95, 0.5, 'R',transform=self.ax.transAxes,color='green', fontsize=20)
-			if imageIndex == 2:
-				self.ax.set_title('Orthogonal')
-				self.ax.set_xlabel('S')
-				self.ax.set_ylabel('A')
+		# if imageOrientation == 'HFS':
+		# 	if imageIndex == 0:
+		# 		self.ax.set_title('HFS')
+		# 	if imageIndex == 1:
+		# 		self.ax.set_title('HFS1 lol?')
+		# elif imageOrientation == 'FHS':
+		# 	if imageIndex == 0:
+		# 		self.ax.set_title('FHS')
+		# 	if imageIndex == 1:
+		# 		self.ax.set_title('FHS1 lol?')
+		# else:
+		# 	if imageIndex == 0:
+		# 		self.ax.set_title('Normal')
+		# 		self.ax.set_xlabel('S')
+		# 		self.ax.set_ylabel('L')
+		# 		self.ax.text(0.95, 0.5, 'R',transform=self.ax.transAxes,color='green', fontsize=10)
+		# 	if imageIndex == 1:
+		# 		self.ax.set_title('Orthogonal')
+		# 		self.ax.set_xlabel('S')
+		# 		self.ax.set_ylabel('A')
 
-		self.image = self.ax.imshow(self.data2d, cmap='bone', extent=self.plotDimensions)
-		self.ax.set_xlim(self.plotDimensions[0:2])
-		self.ax.set_ylim(self.plotDimensions[2:4])
+		self.image = self.ax.imshow(self.data2d, cmap='bone', extent=extent)
+		self.ax.set_xlim(extent[0:2])
+		self.ax.set_ylim(extent[2:4])
 		# self.ax.margins(0.1) Not doing anything currently... because of the two lines above.
 		self.ax.set_autoscale_on(False)
 		self.canvas.draw()
@@ -171,7 +172,7 @@ class mpl2DFigure:
 			self.i = 0
 			self.pointsX = []
 			self.pointsY = []
-			if range(len(self.markersList)) > 0:
+			if len(self.markersList) > 0:
 				for index in range(len(self.markersList)):
 					self.markersList[index].remove()
 			self.markersList = []
@@ -184,7 +185,7 @@ class mpl2DFigure:
 			# Remove optimised markers, if any.
 			self.pointsXoptimised = []
 			self.pointsYoptimised = []
-			if range(len(self.markersListOptimised)) > 0:
+			if len(self.markersListOptimised) > 0:
 				for index in range(len(self.markersListOptimised)):
 					self.markersListOptimised[index].remove()
 

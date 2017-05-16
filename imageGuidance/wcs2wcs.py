@@ -9,11 +9,12 @@ ASSUMPTIONS:
 
 # Create a class to find the transform between two WCS's.
 class affineTransform:
-	def __init__(self,leftCS,rightCS,rtpIsoc,userOrigin,xrIsoc):
+	# def __init__(self,leftCS,rightCS,rtpIsoc,userOrigin,xrIsoc):
+	def __init__(self,leftCS,rightCS,rtpIsoc):
 		self.advance = True
 
-		if leftCS == 0:
-			'''If zero, then pass back all zeroes.'''
+		if type(leftCS) == type(int()):
+			'''If single integer, then pass back all zeroes.'''
 			self.theta = 0
 			self.phi = 0
 			self.gamma = 0
@@ -29,15 +30,16 @@ class affineTransform:
 
 		'''Points should come in as xyz cols and n-points rows: np.array((n,xyz))'''
 		self.n = np.shape(leftCS)[0]
-		# L and R in mm.
+
+		# LEFT and RIGHT points should be in mm.
 		self.l = leftCS
 		self.r = rightCS
 
-		# Find the centroids of the LEFT and RIGHT WCS in mm.
+		# Find the centroids of the LEFT and RIGHT WCS.
 		self.l_ctd = centroid(self.l)
 		self.r_ctd = centroid(self.r)
 
-		# Find the LEFT and RIGHT points in terms of their centroids. (Left Prime, Right Prime)
+		# Find the LEFT and RIGHT points in terms of their centroids (notation: LEFT Prime, RIGHT Prime)
 		self.lp = np.zeros([self.n,3])
 		self.rp = np.zeros([self.n,3])
 
@@ -45,13 +47,13 @@ class affineTransform:
 			self.lp[i,:] = np.subtract(self.l[i,:],self.l_ctd)
 			self.rp[i,:] = np.subtract(self.r[i,:],self.r_ctd)
 
-		# Find the matrix, N.
+		# Find the quaternion matrix, N.
 		self.N = quaternion(self.lp,self.rp)
 
 		# Solve eigenvals and vec that maximises rotation.
 		val, self.vec = eigensolve(self.N)
 
-		# Extract quarternion from evec
+		# Extract transformation quarternion from evec.
 		self.q = np.zeros((4,1))
 		self.q[0] = self.vec[0][0]
 		self.q[1] = self.vec[1][0]
@@ -65,17 +67,41 @@ class affineTransform:
 		# Extract individual angles in degrees.
 		self.theta, self.phi, self.gamma = extractangles(self.R,self.l,self.r)
 
+		# The xray goal is always 0,0,0. The isoc of the coordinate system at IMBL.
+		xrayIsoc = np.array([0,0,0])
+
+		# Apply rotation and solve translation between centroids.
+		r_ctd_rotated = np.dot(self.R,self.r_ctd.traspose())
+
+		# Centroid to ptv isoc (according to the treatment plan).
+		ctd2ptv = rtpIsoc - self.l_ctd
+
+		# Move x-ray centroid to x-ray isocenter.
+		ctdTranslation = xrayIsoc - r_ctd_rotated
+
+		# Final translation is a combination of the ctd and ptv isocenter translations.
+		self.translation = ctdTranslation + ctd2ptv
+
+		# userOrigin = np.array(userOrigin)
+		# rtpIsoc = np.array(rtpIsoc)
+		# ptvIsoc = np.array((0,0,0)) - (userOrigin - rtpIsoc)
+		# ptvIsocHam = np.array((ptvIsoc[0],-ptvIsoc[2],ptvIsoc[1]))
+		# ctd2ptv = ptvIsocHam - self.l_ctd
+		# xrPtv = self.r_ctd + ctd2ptv
+		# translation = xrIsoc - xrPtv
+		# self.translation = np.array((translation[0],-translation[1],translation[2]))
+
 		# Extract scale.
 		self.getscale()
 
-		userOrigin = np.array(userOrigin)
-		rtpIsoc = np.array(rtpIsoc)
-		ptvIsoc = np.array((0,0,0)) - (userOrigin - rtpIsoc)
-		ptvIsocHam = np.array((ptvIsoc[0],-ptvIsoc[2],ptvIsoc[1]))
-		ctd2ptv = ptvIsocHam - self.l_ctd
-		xrPtv = self.r_ctd + ctd2ptv
-		translation = xrIsoc - xrPtv
-		self.translation = np.array((translation[0],-translation[1],translation[2]))
+
+		print('=====================================')
+		print('ctd2ctd',ctd2ctd)
+		print('xrCtd',self.r_ctd)
+		print('ctCtd',self.l_ctd)
+		print('ctd2ptv',ctd2ptv)
+		print('ptvIsocHam',ptvIsocHam)
+		print('xrPtv',xrPtv)
 
 	# Obtain scale factor between coordinate systems. Requires left and right points in reference to centroids.
 	def getscale(self):
@@ -192,6 +218,9 @@ def extractangles(R,l,r):
 		solutions.append(value)
 
 	# Find minimum error.
+	print('Solution List')
+	print(np.rad2deg(solutions))
+
 	errorList = []
 	for i in range(len(solutions)):
 		errorList.append(solutions[i][3])

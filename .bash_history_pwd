@@ -29,3 +29,29 @@
 30482  2017-04-18_11:13:28 git pull syncmrt master
 30536  2017-04-21_12:13:25 git status
 30535  2017-04-21_12:13:31 git branch
+30535  2017-04-21_12:13:34 git add .
+30536  2017-04-21_12:13:46 git commit -m "Work in progress during beamtime."
+30537  2017-04-21_12:13:57 git push syncmrt imbl
+30537  2017-04-21_12:14:12 git status
+30538  2017-04-21_16:31:31 git pull syncmrt imbl
+30539  2017-04-21_16:31:49 git diff imageGuidance/wcs2wcs.py
+30578  2017-05-16_11:46:47 git status
+30578  2017-05-16_11:46:52 git pull syncmrt imbl
+30579  2017-05-16_11:47:10 subl
+30580  2017-05-16_11:57:22 top
+30576  2017-05-16_12:00:25 nvidia-smi
+30577  2017-05-16_12:01:35 watch -n 1 nvidia-smi
+30578  2017-05-16_12:02:46 watch -n 1 "nvidia-settings -q GPUUtilization -q useddedicatedgpumemory"
+30579  2017-05-16_12:04:52 pip3 install gpustat
+30580  2017-05-16_12:05:03 sudo pip3 install gpustat
+30581  2017-05-16_12:05:16 gpustat
+30582  2017-05-16_12:05:23 cpustat
+30583  2017-05-16_12:06:48 sudo -H pip3 install gpustat
+30583  2017-05-16_12:06:52 gpustat
+30584  2017-05-16_12:07:16 gpustat -cp
+30585  2017-05-16_12:08:08 nvidia-smi -q -x
+30621  2017-05-16_12:09:49 cd /usr/local/lib/python3.5/dist-packages/syncmrt/
+30617  2017-05-16_12:09:51 cd .
+30262  2017-05-16_12:09:53 cd ..
+30567  2017-05-16_15:55:03 reset
+29618  2017-05-16_18:06:07 git status
