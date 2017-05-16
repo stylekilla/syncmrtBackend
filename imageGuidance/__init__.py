@@ -2,4 +2,5 @@
 
 from .optimise import optimiseFiducials
 from .wcs2wcs import affineTransform
+from . import patientPositioningSystems
 from syncmrt.tools.cuda import gpuInterface

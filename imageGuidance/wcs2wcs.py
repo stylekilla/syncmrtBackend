@@ -9,9 +9,24 @@ ASSUMPTIONS:
 
 # Create a class to find the transform between two WCS's.
 class affineTransform:
-	# Initiate class with set of points, p and solve for transition vars.
-	# def __init__(self,l,r,ctdims,xrdims,rtpIsoc,userOrigin,xrIsoc):
 	def __init__(self,leftCS,rightCS,rtpIsoc,userOrigin,xrIsoc):
+		self.advance = True
+
+		if leftCS == 0:
+			'''If zero, then pass back all zeroes.'''
+			self.theta = 0
+			self.phi = 0
+			self.gamma = 0
+			self.translation = np.array([0,0,0])
+			self.scale = 0
+
+			self.advance = False
+
+		if self.advance == True:
+			pass
+		else:
+			return
+
 		'''Points should come in as xyz cols and n-points rows: np.array((n,xyz))'''
 		self.n = np.shape(leftCS)[0]
 		# L and R in mm.
