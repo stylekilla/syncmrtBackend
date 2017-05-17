@@ -73,11 +73,12 @@ class importCT:
 		# Patient imaging orientation. (Rotation happens in [row,col,depth]).
 		if self.orientation == 'HFS':
 			# Head First, Supine.
-			self.rot, self.pix0 = gpu.rotate(-90,-180,0)
-			self.rot90, self.pix90 = gpu.rotate(-90,-90,0)
+			# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
+			self.rot, self.pix0 = gpu.rotate(0,90,0)
+			self.rot90, self.pix90  = gpu.rotate(90,90,0)
 			# Set matching extent (in mm) for 2D plot in DRR.
-			left = self.ref.ImagePositionPatient[0]
-			right = self.ref.ImagePositionPatient[0]+self.ref.Rows*self.ref.PixelSpacing[0]
+			left = self.ref.ImagePositionPatient[0]+self.ref.Rows*self.ref.PixelSpacing[0]
+			right = self.ref.ImagePositionPatient[0]
 			bottom = self.ref.ImagePositionPatient[2]-(self.dims[2]-1)*self.spacingBetweenSlices
 			top = self.ref.ImagePositionPatient[2]
 			self.normalExtent = np.array([left,right,bottom,top])
@@ -97,7 +98,7 @@ class importCT:
 			self.rot, self.pix0 = gpu.rotate(-90,180,180)
 			self.rot90, self.pix90  = gpu.rotate(-180,180,180)
 		else:
-			# special case for testing or other...
+			# Special case for sitting objects on CT table in upright position (essentially a sitting patient).
 			print('Executed special case in syncmrt.fileHandler.dicom.py')
 			self.rot, self.pix0 = gpu.rotate(-90,0,0)
 			self.rot90, self.pix90 = gpu.rotate(-90,90,0)
@@ -136,9 +137,6 @@ class importCT:
 			print('Cannot save 3D images, must be numpy filetype.')
 
 class importRTP:
-	'''
-	Currently only accepts 1 RTPLAN file. This reads the file and sends it back.
-	'''
 	def __init__(self,ds):
 		'''Only accepts dicom files.'''
 		self.rtp = None
@@ -166,44 +164,64 @@ class importRTP:
 			self.beam[i].numberOfBlocks = np.empty(self.rtp.BeamSequence[i].NumberOfBlocks,dtype=object)
 			self.beam[i].blockData = self.rtp.BeamSequence[i].BlockSequence[0].BlockData
 			self.beam[i].blockThickness = self.rtp.BeamSequence[i].BlockSequence[0].BlockThickness
-			self.beam[i].gantryAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].GantryAngle)
-			self.beam[i].pitchAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].TableTopPitchAngle)
-			self.beam[i].rollAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].TableTopRollAngle)
-			self.beam[i].isocenter = np.array(self.rtp.BeamSequence[i].ControlPointSequence[0].IsocenterPosition)
-			self.beam[i].patientSupportAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].PatientSupportAngle)
 
-			# Normal view extent for plotting (in mm),
-			left = self.ref.ImagePositionPatient[0]
-			right = self.ref.ImagePositionPatient[0]+self.ref.Rows*self.ref.PixelSpacing[0]
-			bottom = self.ref.ImagePositionPatient[2]-(self.dims[2]-1)*self.spacingBetweenSlices
-			top = self.ref.ImagePositionPatient[2]
-			self.normalExtent = np.array([left,right,bottom,top])
-			# Orthogonal view extent for plotting (in mm),
-			left = self.ref.ImagePositionPatient[0]
-			right = self.ref.ImagePositionPatient[0]+self.ref.Rows*self.ref.PixelSpacing[0]
-			bottom = self.ref.ImagePositionPatient[2]-(self.dims[2]-1)*self.spacingBetweenSlices
-			top = self.ref.ImagePositionPatient[2]
-			self.orthogonalExtent = np.array([left,right,bottom,top])
-
-			if self.beam[i].patientSupportAngle == 0:
-				arrayNormal, self.beam[i].arrayNormalPixelSize = gpu.rotate(self.beam[i].pitchAngle,self.beam[i].gantryAngle,self.beam[i].rollAngle)
-				arrayOrthogonal, self.beam[i].arrayOrthogonalPixelSize = gpu.rotate(self.beam[i].pitchAngle,(self.beam[i].gantryAngle-90),self.beam[i].rollAngle)
-			
-			elif self.beam[i].patientSupportAngle == 270:
-				arrayNormal, self.beam[i].arrayNormalPixelSize = gpu.rotate(self.beam[i].gantryAngle,self.beam[i].pitchAngle,self.beam[i].rollAngle)
-				arrayOrthogonal, self.beam[i].arrayOrthogonalPixelSize = gpu.rotate(self.beam[i].gantryAngle,(self.beam[i].pitchAngle+90),self.beam[i].rollAngle)
-
-			elif self.beam[i].patientSupportAngle == 5:
-				arrayNormal, self.beam[i].arrayNormalPixelSize = gpu.rotate(float(6),self.beam[i].gantryAngle,self.beam[i].rollAngle)
-				arrayOrthogonal, self.beam[i].arrayOrthogonalPixelSize = gpu.rotate(float(6),(self.beam[i].gantryAngle-90),self.beam[i].rollAngle)
-				
+			# Beam limiting device angle (collimator rotation angle) of Clinical LINAC. Rotation about BEV.
+			test = float(self.rtp.BeamSequence[i].ControlPointSequence[0].BeamLimitingDeviceAngle)
+			if 181 < test < 359:
+				# Turn into a negative angle > -180.
+				self.beam[i].collimatorAngle = -360+test
 			else:
-				arrayNormal, self.beam[i].arrayNormalPixelSize = gpu.rotate(0,self.beam[i].gantryAngle,0)
-				arrayOrthogonal, self.beam[i].arrayOrthogonalPixelSize = gpu.rotate(0,(self.beam[i].gantryAngle-90),0)
-				
-			# Didn't change pixel size??? Why does it work???
-			self.beam[i].arrayNormalPixelSize = pixelSize
-			self.beam[i].arrayOrthogonalPixelSize = pixelSize
+				# It is within 0-180 deg and can remain a positive value. 
+				self.beam[i].collimatorAngle = test	
+
+			# Gantry Angle of Clinical LINAC. Rotation about DICOM Z-axis.
+			test = float(self.rtp.BeamSequence[i].ControlPointSequence[0].GantryAngle)
+			if 181 < test < 359:
+				# Turn into a negative angle > -180.
+				self.beam[i].gantryAngle = -360+test
+			else:
+				# It is within 0-180 deg and can remain a positive value. 
+				self.beam[i].gantryAngle = test
+
+			# Patient support angle (table rotation angle) of Clinical LINAC. Rotation about DICOM Y-axis.
+			test = float(self.rtp.BeamSequence[i].ControlPointSequence[0].PatientSupportAngle)
+			if 181 < test < 359:
+				# Turn into a negative angle > -180.
+				self.beam[i].patientSupportAngle = -360+test
+			else:
+				# It is within 0-180 deg and can remain a positive value. 
+				self.beam[i].patientSupportAngle = test	
+
+			# self.beam[i].pitchAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].TableTopPitchAngle)
+			# self.beam[i].rollAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].TableTopRollAngle)
+			# self.beam[i].patientSupportAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].PatientSupportAngle)
+			self.beam[i].isocenter = np.array(self.rtp.BeamSequence[i].ControlPointSequence[0].IsocenterPosition)
+
+			# # Normal view extent for plotting (in mm),
+			# left = self.ref.ImagePositionPatient[0]
+			# right = self.ref.ImagePositionPatient[0]+self.ref.Rows*self.ref.PixelSpacing[0]
+			# bottom = self.ref.ImagePositionPatient[2]-(self.dims[2]-1)*self.spacingBetweenSlices
+			# top = self.ref.ImagePositionPatient[2]
+			# self.normalExtent = np.array([left,right,bottom,top])
+			# # Orthogonal view extent for plotting (in mm),
+			# left = self.ref.ImagePositionPatient[0]
+			# right = self.ref.ImagePositionPatient[0]+self.ref.Rows*self.ref.PixelSpacing[0]
+			# bottom = self.ref.ImagePositionPatient[2]-(self.dims[2]-1)*self.spacingBetweenSlices
+			# top = self.ref.ImagePositionPatient[2]
+			# self.orthogonalExtent = np.array([left,right,bottom,top])
+
+			# Apply euler rotations (x,y,z).
+			arrayNormal, self.beam[i].arrayNormalPixelSize = gpu.rotate(float(-4.97),float(0),float(-90),order='zxz',z1=float(90))
+			# Save, reload onto to GPU, or find a way to use current GPU results to work off.
+			arrayOrthogonal, self.beam[i].arrayOrthogonalPixelSize = gpu.rotate(90,0,0)
+
+			# arrayNormal, self.beam[i].arrayNormalPixelSize = gpu.rotate(float(0),self.beam[i].patientSupportAngle,self.beam[i].gantryAngle,order='yzx')
+			# arrayOrthogonal, self.beam[i].arrayOrthogonalPixelSize = gpu.rotate(self.beam[i].collimatorAngle,self.beam[i].patientSupportAngle,self.beam[i].gantryAngle,order='yzx')
+			
+
+			# # Didn't change pixel size??? Why does it work???
+			# self.beam[i].arrayNormalPixelSize = pixelSize
+			# self.beam[i].arrayOrthogonalPixelSize = pixelSize
 
 			# Hold file path to each plot and save.
 			self.beam[i].arrayNormal = self.path+'/beam%i'%(i+1)+'normal.npy'

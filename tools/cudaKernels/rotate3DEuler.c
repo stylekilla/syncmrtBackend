@@ -1,11 +1,10 @@
 // #include <math.h>
 #include <stdio.h>
-
 #include <cmath>
 
 texture<float, 3, cudaReadModeElementType> tex;
 
-__global__ void rotate(
+__global__ void rotateXYZ(
 	float *out,
 	float rotX,
 	float rotY,
@@ -35,16 +34,16 @@ __global__ void rotate(
 		float j = y - texOrigin[1];
 		float k = z - texOrigin[2];
 
-		// Calculate rotation matrix (Rx*Ry*Rz).
+		// Rotation matrix R = Rx * Ry * Rz.
 		float R[3][3] = {
 			{ 	cos(rotY)*cos(rotZ),
-				cos(rotY)*sin(rotZ),
-				-sin(rotY) } ,
-			{   sin(rotX)*sin(rotY)*cos(rotZ)-cos(rotX)*sin(rotZ),
-				sin(rotX)*sin(rotY)*sin(rotZ)+cos(rotX)*cos(rotZ),
-				sin(rotX)*cos(rotY) } ,
-			{	cos(rotX)*sin(rotY)*cos(rotZ)+sin(rotX)*sin(rotZ),
-				cos(rotX)*sin(rotY)*sin(rotZ)-sin(rotX)*cos(rotZ),
+				-cos(rotY)*sin(rotZ),
+				sin(rotY) } ,
+			{   sin(rotX)*sin(rotY)*cos(rotZ)+cos(rotX)*sin(rotZ),
+				-sin(rotX)*sin(rotY)*sin(rotZ)+cos(rotX)*cos(rotZ),
+				-sin(rotX)*cos(rotY) } ,
+			{	-cos(rotX)*sin(rotY)*cos(rotZ)+sin(rotX)*sin(rotZ),
+				cos(rotX)*sin(rotY)*sin(rotZ)+sin(rotX)*cos(rotZ),
 				cos(rotX)*cos(rotY) }
 		};
 
@@ -77,17 +76,8 @@ __global__ void rotate(
 
 		if (idx < (outX*outY*outZ)) {
 			out[idx] = tex3D(tex, z, y, x);
-			// printf("Coordinate %i %i %i Destination %i %i %i, Idx %i \n",x,y,z, newPoint[0],newPoint[1],newPoint[2],idx);
-			// printf("val %f \n",tex3D(tex,8,0,0));
-			// float value = tex3D(tex, z, y, x);
-			// printf("Coordinate %i %i %i Value %f Destination %i %i %i, Idx %i \n",x,y,z,value, newPoint[0],newPoint[1],newPoint[2],idx);
-			// printf("%f\n",tex3D(tex,0,0,2));
 		}
 		else {
-			// printf("Vertex rotation failed with coordinate %i %i %i Destination %i %i %i, Idx %i \n",x,y,z, newPoint[0],newPoint[1],newPoint[2],idx);
-			// printf("%f %f %f, %f %f %f, %f %f %f \n ",R[0][0],R[0][1],R[0][2],R[1][0],R[1][1],R[1][2],R[2][0],R[2][1],R[2][2]);
-			// printf("Hello from coord %i %i %i Destination: %i %i %i \n",x,y,z, newPoint[0],newPoint[1],newPoint[2]);
-			// printf("Accessing %i %i %i with constraints: %f %f %f \n",x,y,z, texX,texY,texZ);
 		}
 
 	}

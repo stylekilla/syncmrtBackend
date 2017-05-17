@@ -9,8 +9,8 @@ ASSUMPTIONS:
 
 # Create a class to find the transform between two WCS's.
 class affineTransform:
-	# def __init__(self,leftCS,rightCS,rtpIsoc,userOrigin,xrIsoc):
-	def __init__(self,leftCS,rightCS,rtpIsoc):
+	def __init__(self,leftCS,rightCS,rtpIsoc,userOrigin,xrIsoc):
+	# def __init__(self,leftCS,rightCS,rtpIsoc):
 		self.advance = True
 
 		if type(leftCS) == type(int()):

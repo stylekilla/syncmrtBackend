@@ -67,6 +67,7 @@ class dataBeam:
 		self.gantryAngle = None
 		self.pitchAngle = None
 		self.rollAngle = None
+		self.collimatorAngle = None
 		self.arrayNormal = None
 		self.arrayNormalPixelSize = None
 		self.arrayOrthogonal = None

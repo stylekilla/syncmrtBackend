@@ -55,3 +55,7 @@
 30262  2017-05-16_12:09:53 cd ..
 30567  2017-05-16_15:55:03 reset
 29618  2017-05-16_18:06:07 git status
+29616  2017-05-16_18:06:14 git add .
+29617  2017-05-16_18:06:28 git commit -m "Major updates to plotting and wcs definitions."
+29617  2017-05-16_18:06:37 git push syncmrt imbl
+29632  2017-05-17_18:31:51 git status

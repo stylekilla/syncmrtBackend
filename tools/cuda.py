@@ -7,7 +7,9 @@ import site
 from math import sin, cos
 
 '''
-The intention is to start a GPU interface for CUDA with a dataset. 
+Starts a GPU interface that we can run kernels from.
+	copyTexture(data,dimensions)			Copies data over the GPU for processing. This is copied as a texture which can be referenced.
+	rotate(x,y,z,order='xyz',others...)		X controls vertical axis rotation, Y controls horizontal axis rotation, Z controls into page axis rotation.
 '''
 
 class gpuInterface:
@@ -46,31 +48,81 @@ class gpuInterface:
 
 		self.pixelDimensions = np.array(dimensions)
 
-	def rotate(self,y,x,z):
-		# Rotate assumings x y z angle input, x and y have been swapped to adjust for col/row.
+	def rotate(self,x,y,z,order='xyz',x1=None,y1=None,z1=None):
 		# Initialise Kernel
 		fp = site.getsitepackages()[0]
-		mod = SourceModule(open(fp+"/syncmrt/tools/cudaKernels/image.c", "r").read(),keep=True)
-		func = mod.get_function("rotate")
+		mod = SourceModule(open(fp+"/syncmrt/tools/cudaKernels/rotate3D.c", "r").read(),keep=True)
+
+		# Convert x,y,z to float32 radians.
+		x = np.deg2rad(x).astype(np.float32)
+		y = np.deg2rad(y).astype(np.float32)
+		z = np.deg2rad(z).astype(np.float32)
+
+		# Calculate rotation vectors.
+		Rx = np.array([
+			[1, 0, 0],
+			[0, cos(x),-sin(x)],
+			[0, sin(x), cos(x)]
+			])
+		Ry = np.array([
+			[ cos(y), 0, sin(y)],
+			[0, 1, 0],
+			[-sin(y), 0, cos(y)]
+			])
+		Rz = np.array([
+			[ cos(z),-sin(z), 0],
+			[ sin(z), cos(z), 0],
+			[0, 0, 1]
+			])
+
+		# If second axis rotations are required, compute their rotation vectors here.
+		if x1 != None:
+			x1 = np.deg2rad(x1).astype(np.float32)
+			Rx1 = np.array([
+				[1, 0, 0],
+				[0, cos(x1),-sin(x1)],
+				[0, sin(x1), cos(x1)]
+				])
+		if y1 != None:
+			y1 = np.deg2rad(y1).astype(np.float32)
+			Ry1 = np.array([
+				[ cos(y1), 0, sin(y1)],
+				[0, 1, 0],
+				[-sin(y1), 0, cos(y1)]
+				])
+		if z1 != None:
+			z1 = np.deg2rad(z1).astype(np.float32)
+			Rz1 = np.array([
+				[ cos(z1),-sin(z1), 0],
+				[ sin(z1), cos(z1), 0],
+				[0, 0, 1]
+				])
+
+		# Calculate final rotation vector as per order of application of rotations.
+		if order=='yzx':
+			func = mod.get_function("rotateYZX")
+			R = np.dot(Ry,Rz,Rx)
+		if order=='yzy':
+			func = mod.get_function("rotateYZY")
+			R = np.dot(Ry,Rz,Ry1)
+			# x is not being used so replace that with y1.
+			x = y1
+		if order=='zxz':
+			func = mod.get_function("rotateZXZ")
+			R = np.dot(Rz,Rx,Rz1)
+			# y is not being used so replace that with z1.
+			y = z1
+		else:
+			# Default to XYZ order.
+			func = mod.get_function("rotateXYZ")
+			R = np.dot(Rx,Ry,Rz)
 
 		# Set texture (3D array).
 		tex = mod.get_texref("tex")
 		tex.set_array(self.gpuTexture)
 
 		# Input elements.
-		rotation = np.deg2rad(np.array([x,y,z])).astype(np.float32)
 		texShape = np.array(self.arrIn.shape).astype(np.float32)
-
-		# Get 3D rotation vector, R.
-		R = np.array([[cos(rotation[1])*cos(rotation[2]), 
-			cos(rotation[1])*sin(rotation[2]), 
-			-sin(rotation[1])],
-			[sin(rotation[0])*sin(rotation[1])*cos(rotation[2])-cos(rotation[0])*sin(rotation[2]), 
-			sin(rotation[0])*sin(rotation[1])*sin(rotation[2])+cos(rotation[0])*cos(rotation[2]), 
-			sin(rotation[0])*cos(rotation[1])],
-			[cos(rotation[0])*sin(rotation[1])*cos(rotation[2])+sin(rotation[0])*sin(rotation[2]), 
-			cos(rotation[0])*sin(rotation[1])*sin(rotation[2])-sin(rotation[0])*cos(rotation[2]), 
-			cos(rotation[0])*cos(rotation[1])]])
 
 		# Get outshape by taking bounding box of maximum vertice points.
 		vert100 = np.absolute(np.dot(R, np.array((texShape[0],0,0)).T ))
@@ -86,6 +138,8 @@ class gpuInterface:
 		outShape = np.rint(vert).astype(np.int32)
 
 		newPixelDimensions = np.absolute(np.dot(R,self.pixelDimensions.reshape(3,1))).T[0]
+		print('pixelDimensions',self.pixelDimensions)
+		print('newPixelDimensions',newPixelDimensions)
 		self.arrOut = np.zeros(outShape,dtype=np.float32,order='C')
 
 		# Block and grid size.
@@ -95,20 +149,12 @@ class gpuInterface:
 			int(bestFit[0][1]+(bestFit[1][1]>0)),
 			int(bestFit[0][2]+(bestFit[1][2]>0)))
 
-		# Call function.
+		# Call cuda function.
 		func(cuda.InOut(self.arrOut),
-			rotation[0],rotation[1],rotation[2],
+			x,y,z,
 			texShape[0],texShape[1],texShape[2],
 			outShape[0],outShape[1],outShape[2],
 			block=blockDim,grid=gridDim,
 			texrefs=[tex])
 
-
-		inMax = np.amax(self.arrIn)
-		inMin = np.amax(self.arrIn)
-
 		return self.arrOut, newPixelDimensions
-
-	def LUTstuff(self):
-		pass
-
