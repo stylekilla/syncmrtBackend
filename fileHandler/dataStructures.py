@@ -69,9 +69,13 @@ class dataBeam:
 		self.rollAngle = None
 		self.collimatorAngle = None
 		self.arrayNormal = None
-		self.arrayNormalPixelSize = None
+		self.arrayNormalAxes = None
+		self.arrayNormalPosition = None
+		# self.arrayNormalPixelSize = None
 		self.arrayOrthogonal = None
-		self.arrayOrthogonalPixelSize = None
+		self.arrayOrthogonalAxes = None
+		self.arrayOrthogonalPosition = None
+		# self.arrayOrthogonalPixelSize = None
 
 # class dataXR:
 # 	def __init__(self):

@@ -21,7 +21,7 @@ class gpuInterface:
 		Do a device check?
 		'''
 
-	def copyTexture(self,data, dimensions):
+	def copyTexture(self,data, arrayAxes, patientPosition):
 		# Convert data to float32 array in Contiguous ordering.
 		self.arrIn = np.array(data,dtype=np.float32,order='C')
 		d,h,w = self.arrIn.shape
@@ -46,7 +46,9 @@ class gpuInterface:
 		copy.src_height = h
 		copy()
 
-		self.pixelDimensions = np.array(dimensions)
+		# self.pixelDimensions = np.array(dimensions)
+		self.arrayAxes = np.array(arrayAxes)
+		self.patientPosition = np.array(patientPosition)
 
 	def rotate(self,x,y,z,order='xyz',x1=None,y1=None,z1=None):
 		# Initialise Kernel
@@ -112,10 +114,19 @@ class gpuInterface:
 			R = np.dot(Rz,Rx,Rz1)
 			# y is not being used so replace that with z1.
 			y = z1
+		if order=='zyz':
+			func = mod.get_function("rotateZYZ")
+			R = np.dot(Rz,Ry,Rz1)
+			# x is not being used so replace that with z1.
+			x = z1
 		else:
 			# Default to XYZ order.
 			func = mod.get_function("rotateXYZ")
 			R = np.dot(Rx,Ry,Rz)
+
+		# Calculate new axes.
+		axes = np.dot(R,self.arrayAxes)
+		position = np.dot(R,self.patientPosition)
 
 		# Set texture (3D array).
 		tex = mod.get_texref("tex")
@@ -137,9 +148,6 @@ class gpuInterface:
 
 		outShape = np.rint(vert).astype(np.int32)
 
-		newPixelDimensions = np.absolute(np.dot(R,self.pixelDimensions.reshape(3,1))).T[0]
-		print('pixelDimensions',self.pixelDimensions)
-		print('newPixelDimensions',newPixelDimensions)
 		self.arrOut = np.zeros(outShape,dtype=np.float32,order='C')
 
 		# Block and grid size.
@@ -157,4 +165,5 @@ class gpuInterface:
 			block=blockDim,grid=gridDim,
 			texrefs=[tex])
 
-		return self.arrOut, newPixelDimensions
+		# return self.arrOut, newPixelDimensions
+		return self.arrOut, axes, position
