@@ -66,7 +66,7 @@ class importCT:
 
 		self.pixelSize = np.array([self.ref.PixelSpacing[0], self.ref.PixelSpacing[1], self.spacingBetweenSlices])
 		# ArrayAxes is a 1x3 array of pixels and their direction.
-		self.arrayAxes = np.dot(np.array([[-1,0,0],[0,-1,0],[0,0,1]]),self.pixelSize)
+		self.arrayAxes = np.dot(np.array([[1,0,0],[0,1,0],[0,0,1]]),self.pixelSize)
 
 		# GPU drivers.
 		gpu = gpuInterface()
@@ -92,21 +92,21 @@ class importCT:
 
 		# Set matching extent (in mm) for 2D plot in DRR.
 		left = self.normalPosition[1]
-		right = self.normalPosition[1]-self.normal.shape[1]*self.normalAxes[1]
+		right = self.normalPosition[1]+self.normal.shape[1]*self.normalAxes[1]
 		bottom = self.normalPosition[0]-self.normal.shape[0]*self.normalAxes[0]
 		top = self.normalPosition[0]
 		self.normalExtent = np.array([left,right,bottom,top])
 		# Set matching extent (in mm) for 2D plot in DRR.
 		left = self.orthogonalPosition[1]
-		right = self.orthogonalPosition[1]-self.orthogonal.shape[1]*self.orthogonalAxes[1]
+		right = self.orthogonalPosition[1]+self.orthogonal.shape[1]*self.orthogonalAxes[1]
 		bottom = self.orthogonalPosition[0]-self.orthogonal.shape[0]*self.orthogonalAxes[0]
 		top = self.orthogonalPosition[0]
 		self.orthogonalExtent = np.array([left,right,bottom,top])
 
 		print('CT normal Extent, shape, position')
-		print(self.normalExtent)
 		print(self.normal.shape)
 		print(self.normalPosition)
+		print(self.normalExtent)
 
 		# Save
 		self.save3D(['ct_3d','ct_normal','ct_orthogonal'])
@@ -202,34 +202,34 @@ class importRTP:
 			self.beam[i].isocenter = np.array(self.rtp.BeamSequence[i].ControlPointSequence[0].IsocenterPosition)
 
 			# Apply euler rotations (x,y,z).
-			arrayNormal, self.beam[i].normalAxes,self.beam[i].normalPosition = gpu.rotate(0,4.97,-90,order='zyz',z1=0)
-			# arrayNormal, self.beam[i].normalAxes,self.beam[i].normalPosition = 
+			# arrayNormal, self.beam[i].normalAxes,self.beam[i].normalPosition = gpu.rotate(0,4.97,-90,order='zyz',z1=90)
+			arrayNormal, self.beam[i].normalAxes,self.beam[i].normalPosition = gpu.rotate(0,0,-90,order='zxz',z1=90)
 
 			# Save, reload onto to GPU, or find a way to use current GPU results to work off??
-			# arrayOrthogonal, self.beam[i].orthogonalAxes,self.beam[i].orthogonalPosition = gpu.rotate(-4.97,0,-90,order='zxz',z1=90)
-			arrayOrthogonal, self.beam[i].orthogonalAxes,self.beam[i].orthogonalPosition = gpu.rotate(0,4.97,-90,order='zyz',z1=90)
+			arrayOrthogonal, self.beam[i].orthogonalAxes,self.beam[i].orthogonalPosition = gpu.rotate(0,0,-90,order='zyz',z1=90)
+			# arrayOrthogonal, self.beam[i].orthogonalAxes,self.beam[i].orthogonalPosition = gpu.rotate(0,-4.97,-90,order='zyz',z1=90)
 
 			# Set matching extent (in mm) for 2D plot in DRR.
 			left = self.beam[i].normalPosition[1]
-			right = self.beam[i].normalPosition[1]-arrayNormal.shape[1]*self.beam[i].normalAxes[1]
+			right = self.beam[i].normalPosition[1]+arrayNormal.shape[1]*self.beam[i].normalAxes[1]
 			bottom = self.beam[i].normalPosition[0]-arrayNormal.shape[0]*self.beam[i].normalAxes[0]
 			top = self.beam[i].normalPosition[0]
 			self.beam[i].normalExtent = np.array([left,right,bottom,top])
 			# Set matching extent (in mm) for 2D plot in DRR.
 			left = self.beam[i].orthogonalPosition[1]
-			right = self.beam[i].orthogonalPosition[1]-arrayOrthogonal.shape[1]*self.beam[i].orthogonalAxes[1]
+			right = self.beam[i].orthogonalPosition[1]+arrayOrthogonal.shape[1]*self.beam[i].orthogonalAxes[1]
 			bottom = self.beam[i].orthogonalPosition[0]-arrayOrthogonal.shape[0]*self.beam[i].orthogonalAxes[0]
 			top = self.beam[i].orthogonalPosition[0]
 			self.beam[i].orthogonalExtent = np.array([left,right,bottom,top])
 
-			print('Normal Extent, shape, position')
-			print(self.beam[i].normalExtent)
+			print('Normal shape,pos,extn')
 			print(arrayNormal.shape)
 			print(self.beam[i].normalPosition)
-			print('Orthogonal Extent, shape, position')
-			print(self.beam[i].orthogonalExtent)
+			print(self.beam[i].normalExtent)
+			print('Orthogonal shape,pos,extn')
 			print(arrayOrthogonal.shape)
 			print(self.beam[i].orthogonalPosition)
+			print(self.beam[i].orthogonalExtent)
 
 			# Hold file path to each plot and save.
 			self.beam[i].arrayNormal = self.path+'/beam%i'%(i+1)+'normal.npy'

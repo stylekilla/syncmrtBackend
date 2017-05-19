@@ -103,20 +103,20 @@ class gpuInterface:
 		# Calculate final rotation vector as per order of application of rotations.
 		if order=='yzx':
 			func = mod.get_function("rotateYZX")
-			R = np.dot(Ry,Rz,Rx)
+			R = Ry @ Rz @ Rx
 		if order=='yzy':
 			func = mod.get_function("rotateYZY")
-			R = np.dot(Ry,Rz,Ry1)
+			R = Ry @ Rz @ Ry1
 			# x is not being used so replace that with y1.
 			x = y1
 		if order=='zxz':
 			func = mod.get_function("rotateZXZ")
-			R = np.dot(Rz,Rx,Rz1)
+			R = Rz @ Rx @ Rz1
 			# y is not being used so replace that with z1.
 			y = z1
 		if order=='zyz':
 			func = mod.get_function("rotateZYZ")
-			R = np.dot(Rz,Ry,Rz1)
+			R = Rz @ Ry @ Rz1
 			# x is not being used so replace that with z1.
 			x = z1
 		else:
@@ -127,6 +127,9 @@ class gpuInterface:
 		# Calculate new axes.
 		axes = np.dot(R,self.arrayAxes)
 		position = np.dot(R,self.patientPosition)
+
+		print('Rotation matrix')
+		print(R)
 
 		# Set texture (3D array).
 		tex = mod.get_texref("tex")
