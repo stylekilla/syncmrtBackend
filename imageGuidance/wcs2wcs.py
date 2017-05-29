@@ -71,7 +71,7 @@ class affineTransform:
 		xrayIsoc = np.array([0,0,0])
 
 		# Apply rotation and solve translation between centroids.
-		r_ctd_rotated = np.dot(self.R,self.r_ctd.traspose())
+		r_ctd_rotated = np.dot(self.R,self.r_ctd.transpose())
 
 		# Centroid to ptv isoc (according to the treatment plan).
 		ctd2ptv = rtpIsoc - self.l_ctd
@@ -95,13 +95,13 @@ class affineTransform:
 		self.getscale()
 
 
-		print('=====================================')
-		print('ctd2ctd',ctd2ctd)
-		print('xrCtd',self.r_ctd)
-		print('ctCtd',self.l_ctd)
-		print('ctd2ptv',ctd2ptv)
-		print('ptvIsocHam',ptvIsocHam)
-		print('xrPtv',xrPtv)
+		# print('=====================================')
+		# print('ctd2ctd',ctd2ctd)
+		# print('xrCtd',self.r_ctd)
+		# print('ctCtd',self.l_ctd)
+		# print('ctd2ptv',ctd2ptv)
+		# print('ptvIsocHam',ptvIsocHam)
+		# print('xrPtv',xrPtv)
 
 	# Obtain scale factor between coordinate systems. Requires left and right points in reference to centroids.
 	def getscale(self):
@@ -227,7 +227,12 @@ def extractangles(R,l,r):
 
 	success = False
 	while (success == False):
-		index = np.argmin(errorList)
+		try:
+			index = np.argmin(errorList)
+		except:
+			print("Unable to solve for the alignment.")
+			return 0,0,0
+
 		v = -np.rad2deg(y[index])
 		h2 = -np.rad2deg(x[index])
 		h1 = -np.rad2deg(z[index])

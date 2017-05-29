@@ -31,19 +31,18 @@ class importCT:
 		self.format = arrayFormat
 
 		# Dimensions are based on rows and cols in reference file, and the number of files in the dataset.
-		self.dims = np.array([int(self.ref.Rows), int(self.ref.Columns), len(self.ds)])
+		ctArrayDimensions = np.array([int(self.ref.Rows), int(self.ref.Columns), len(self.ds)])
 
 		# Make numpy array of -1000 HU (air), this should be the size of the 3d volume.
-		self.arr = np.zeros(self.dims, dtype=np.result_type(self.ref.pixel_array))-1000
+		self.ctArray = np.zeros(ctArrayDimensions, dtype=np.result_type(self.ref.pixel_array))-1000
 
 		# For each slice extract the pixel data and put in respective z slice in array. 
 		for fn in self.ds:
 			data = dicom.read_file(fn)
-			self.arr[:,:, self.ds.index(fn)] = np.fliplr(data.pixel_array)
+			self.ctArray[:,:, self.ds.index(fn)] = np.fliplr(data.pixel_array)
 
 		# Get the patient orientation.
-		self.userOrigin = self.ref.ImagePositionPatient
-		self.orientation = self.ref.PatientPosition
+		self.patientPosition = self.ref.PatientPosition
 
 		# Patient setup variables.
 		self.imageOrientationPatient = self.ref.ImageOrientationPatient
@@ -54,7 +53,8 @@ class importCT:
 		self.rescaleSlope = self.ref.RescaleSlope
 		self.rescaleIntercept = self.ref.RescaleIntercept
 		self.rescaleHU()
-		# self.patientIsoc = self.ref.PatientIsoc
+
+		# Sometimes the spacing between slices tag doesn't exist, if it doesn't, create it.
 		try:
 			self.spacingBetweenSlices = self.ref.SpacingBetweenSlices
 		except:
@@ -64,58 +64,47 @@ class importCT:
 
 			self.spacingBetweenSlices = abs(end-start)/(len(self.ds)-1)
 
+		# Voxel shape determined by detector element sizes and CT slice thickness.
 		self.pixelSize = np.array([self.ref.PixelSpacing[0], self.ref.PixelSpacing[1], self.spacingBetweenSlices])
-		# ArrayAxes is a 1x3 array of pixels and their direction.
-		self.arrayAxes = np.dot(np.array([[1,0,0],[0,1,0],[0,0,1]]),self.pixelSize)
+
+		# CT array extent (from bottom left corner of array); x->Cols, y->Rows z->Depth.
+		x1 = self.imagePositionPatient[0]
+		x2 = self.imagePositionPatient[0]+self.ctArray.shape[1]*self.pixelSize[0]
+		y1 = self.imagePositionPatient[1]+self.ctArray.shape[0]*self.pixelSize[1]
+		y2 = self.imagePositionPatient[1]
+		z1 = self.imagePositionPatient[2]+self.ctArray.shape[2]*self.pixelSize[2]
+		z2 = self.imagePositionPatient[2]
+		self.ctExtent = np.array([x1,x2,y1,y2,z1,z2])
 
 		# GPU drivers.
 		gpu = gpuInterface()
-		gpu.copyTexture(self.arr,self.arrayAxes,self.imagePositionPatient)
+		gpu.copyTexture(self.ctArray,pixelSize=self.pixelSize,extent=self.ctExtent)
 
 		# Patient imaging orientation. (Rotation happens in [row,col,depth]).
-		if self.orientation == 'HFS':
+		if self.patientPosition == 'HFS':
 			# Head First, Supine.
 			# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
-			self.normal, self.normalAxes,self.normalPosition = gpu.rotate(0,90,0)
-			self.orthogonal, self.orthogonalAxes,self.orthogonalPosition = gpu.rotate(90,90,0)
-		elif self.orientation == 'HFP':
+			self.array, self.arrayExtent = gpu.rotate(0,90,0)
+		elif self.patientPosition == 'HFP':
 			pass
-		elif self.orientation == 'FFS':
+		elif self.patientPosition == 'FFS':
 			pass
-		elif self.orientation == 'FFP':
+		elif self.patientPosition == 'FFP':
 			pass
 		else:
 			# Special case for sitting objects on CT table in upright position (essentially a sitting patient).
 			print('Executed special case in syncmrt.fileHandler.dicom.py')
-			self.normal, self.normalAxes,self.normalPosition = gpu.rotate(0,-90,0)
-			self.orthogonal, self.orthogonalAxes,self.orthogonalPosition = gpu.rotate(90,-90,0)
-
-		# Set matching extent (in mm) for 2D plot in DRR.
-		left = self.normalPosition[1]
-		right = self.normalPosition[1]+self.normal.shape[1]*self.normalAxes[1]
-		bottom = self.normalPosition[0]-self.normal.shape[0]*self.normalAxes[0]
-		top = self.normalPosition[0]
-		self.normalExtent = np.array([left,right,bottom,top])
-		# Set matching extent (in mm) for 2D plot in DRR.
-		left = self.orthogonalPosition[1]
-		right = self.orthogonalPosition[1]+self.orthogonal.shape[1]*self.orthogonalAxes[1]
-		bottom = self.orthogonalPosition[0]-self.orthogonal.shape[0]*self.orthogonalAxes[0]
-		top = self.orthogonalPosition[0]
-		self.orthogonalExtent = np.array([left,right,bottom,top])
-
-		print('CT normal Extent, shape, position')
-		print(self.normal.shape)
-		print(self.normalPosition)
-		print(self.normalExtent)
+			self.array, self.arrayExtent = gpu.rotate(0,-90,0)
 
 		# Save
-		self.save3D(['ct_3d','ct_normal','ct_orthogonal'])
+		self.save3D(['ct0_dicom','ct1_correctlyOrientated'])
 
 	def rescaleHU(self):
 		# Rescale the Hounsfield Units.
-		# self.arr = self.arr*self.rescaleSlope + self.rescaleIntercept
-		self.arr[self.arr == -2000] = 0
+		# self.ctArray = self.ctArray*self.rescaleSlope + self.rescaleIntercept
+		self.ctArray[self.ctArray == -2000] = 0
 
+	'''
 	def flatten(self):
 		# Flatten the images along the z axis.
 		self.flat = np.sum(self.normal,axis=2)
@@ -130,13 +119,13 @@ class importCT:
 		else:
 			tiff.imsave(self.path+'/'+fn0+'.'+self.format, self.flat.astype('float32'))
 			tiff.imsave(self.path+'/'+fn90+'.'+self.format, self.flat90.astype('float32'))
+	'''
 
 	def save3D(self,fn):
 		# Save as file.
 		if self.format == 'npy':
-			np.save(self.path+'/'+fn[0]+'.'+self.format, self.arr)
-			np.save(self.path+'/'+fn[1]+'.'+self.format, self.normal)
-			np.save(self.path+'/'+fn[2]+'.'+self.format, self.orthogonal)
+			np.save(self.path+'/'+fn[0]+'.'+self.format, self.ctArray)
+			np.save(self.path+'/'+fn[1]+'.'+self.format, self.array)
 		else:
 			print('Cannot save 3D images, must be numpy filetype.')
 
@@ -154,13 +143,13 @@ class importRTP:
 
 		# Check for an accompanying RS file?
 
-	def extractTreatmentBeams(self,ctArray,axes,patientPosition):
+	def extractTreatmentBeams(self,ctData):
 		'''Iterate through number of beams and rotate ct data to match beam view.'''
 		self.beam = np.empty(self.rtp.FractionGroupSequence[0].NumberOfBeams,dtype=object)
 
-		array = np.load(ctArray)
+		ctArray = np.load(ctData.array)
 		gpu = gpuInterface()
-		gpu.copyTexture(array,axes,patientPosition)
+		gpu.copyTexture(ctArray,extent=ctData.arrayExtent,pixelSize=ctData.pixelSize)
 
 		# Assume single control point sequence...
 		for i in range(len(self.beam)):
@@ -198,42 +187,14 @@ class importRTP:
 
 			# self.beam[i].pitchAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].TableTopPitchAngle)
 			# self.beam[i].rollAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].TableTopRollAngle)
-			# self.beam[i].patientSupportAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].PatientSupportAngle)
+
 			self.beam[i].isocenter = np.array(self.rtp.BeamSequence[i].ControlPointSequence[0].IsocenterPosition)
+			# Consider updating isocenter parameter before each rotation:
+			# gpu.isocenter = self.beam[i].isocenter
 
 			# Apply euler rotations (x,y,z).
-			# arrayNormal, self.beam[i].normalAxes,self.beam[i].normalPosition = gpu.rotate(0,4.97,-90,order='zyz',z1=90)
-			arrayNormal, self.beam[i].normalAxes,self.beam[i].normalPosition = gpu.rotate(0,0,-90,order='zxz',z1=90)
-
-			# Save, reload onto to GPU, or find a way to use current GPU results to work off??
-			arrayOrthogonal, self.beam[i].orthogonalAxes,self.beam[i].orthogonalPosition = gpu.rotate(0,0,-90,order='zyz',z1=90)
-			# arrayOrthogonal, self.beam[i].orthogonalAxes,self.beam[i].orthogonalPosition = gpu.rotate(0,-4.97,-90,order='zyz',z1=90)
-
-			# Set matching extent (in mm) for 2D plot in DRR.
-			left = self.beam[i].normalPosition[1]
-			right = self.beam[i].normalPosition[1]+arrayNormal.shape[1]*self.beam[i].normalAxes[1]
-			bottom = self.beam[i].normalPosition[0]-arrayNormal.shape[0]*self.beam[i].normalAxes[0]
-			top = self.beam[i].normalPosition[0]
-			self.beam[i].normalExtent = np.array([left,right,bottom,top])
-			# Set matching extent (in mm) for 2D plot in DRR.
-			left = self.beam[i].orthogonalPosition[1]
-			right = self.beam[i].orthogonalPosition[1]+arrayOrthogonal.shape[1]*self.beam[i].orthogonalAxes[1]
-			bottom = self.beam[i].orthogonalPosition[0]-arrayOrthogonal.shape[0]*self.beam[i].orthogonalAxes[0]
-			top = self.beam[i].orthogonalPosition[0]
-			self.beam[i].orthogonalExtent = np.array([left,right,bottom,top])
-
-			print('Normal shape,pos,extn')
-			print(arrayNormal.shape)
-			print(self.beam[i].normalPosition)
-			print(self.beam[i].normalExtent)
-			print('Orthogonal shape,pos,extn')
-			print(arrayOrthogonal.shape)
-			print(self.beam[i].orthogonalPosition)
-			print(self.beam[i].orthogonalExtent)
+			array, self.beam[i].arrayExtent = gpu.rotate(-4.97,0,-90,order='zxz',z1=90)
 
 			# Hold file path to each plot and save.
-			self.beam[i].arrayNormal = self.path+'/beam%i'%(i+1)+'normal.npy'
-			self.beam[i].arrayOrthogonal = self.path+'/beam%i'%(i+1)+'orthogonal.npy'
-
-			np.save(self.beam[i].arrayNormal, arrayNormal)
-			np.save(self.beam[i].arrayOrthogonal, arrayOrthogonal)
+			self.beam[i].array = self.path+'/beam%i'%(i+1)+'_array.npy'
+			np.save(self.beam[i].array, array)

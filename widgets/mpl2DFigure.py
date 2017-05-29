@@ -64,14 +64,16 @@ class mpl2DFigure:
 		self.data3d = np.load(fn)
 		if len(self.data3d.shape) == 3:
 			# 3D Image (CT/MRI etc).
-			self.data2d = np.sum(self.data3d,axis=2)
+			if imageIndex == 0:
+				self.data2d = np.sum(self.data3d,axis=2)
+				extent = extent[:4]
+			elif imageIndex == 1:
+				self.data2d = np.fliplr(np.sum(self.data3d,axis=1))
+				extent = np.concatenate((extent[4:6],extent[2:4]))
 		else:
 			# 2D Image (General X-ray).
 			self.data2d = np.array(self.data3d)
-
-		# Image extent (dimensions - Left Right Bottom Top).
-		# self.plotDimensions = np.array([0, np.shape(self.data2d)[1]*self.pixelSize[1], np.shape(self.data2d)[0]*self.pixelSize[0], 0])
-
+			
 		# if imageOrientation == 'HFS':
 		# 	if imageIndex == 0:
 		# 		self.ax.set_title('HFS')

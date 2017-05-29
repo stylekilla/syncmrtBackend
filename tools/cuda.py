@@ -21,7 +21,7 @@ class gpuInterface:
 		Do a device check?
 		'''
 
-	def copyTexture(self,data, arrayAxes, patientPosition):
+	def copyTexture(self,data, patientPosition=None, pixelSize=None, extent=None, isocenter=None):
 		# Convert data to float32 array in Contiguous ordering.
 		self.arrIn = np.array(data,dtype=np.float32,order='C')
 		d,h,w = self.arrIn.shape
@@ -46,11 +46,15 @@ class gpuInterface:
 		copy.src_height = h
 		copy()
 
-		# self.pixelDimensions = np.array(dimensions)
-		self.arrayAxes = np.array(arrayAxes)
 		self.patientPosition = np.array(patientPosition)
+		self.pixelSize = pixelSize
+		self.isocenter = isocenter
+		# 3D extent, not 2D.
+		self.extent = extent
 
 	def rotate(self,x,y,z,order='xyz',x1=None,y1=None,z1=None):
+		# Eventually send a list xyz and compute R based on order dynamically...
+
 		# Initialise Kernel
 		fp = site.getsitepackages()[0]
 		mod = SourceModule(open(fp+"/syncmrt/tools/cudaKernels/rotate3D.c", "r").read(),keep=True)
@@ -102,34 +106,27 @@ class gpuInterface:
 
 		# Calculate final rotation vector as per order of application of rotations.
 		if order=='yzx':
-			func = mod.get_function("rotateYZX")
 			R = Ry @ Rz @ Rx
-		if order=='yzy':
-			func = mod.get_function("rotateYZY")
+		elif order=='yzy':
 			R = Ry @ Rz @ Ry1
-			# x is not being used so replace that with y1.
-			x = y1
-		if order=='zxz':
-			func = mod.get_function("rotateZXZ")
+		elif order=='zxz':
 			R = Rz @ Rx @ Rz1
-			# y is not being used so replace that with z1.
-			y = z1
-		if order=='zyz':
-			func = mod.get_function("rotateZYZ")
+		elif order=='zyz':
 			R = Rz @ Ry @ Rz1
-			# x is not being used so replace that with z1.
-			x = z1
+		elif order=='zxzx':
+			R = Rz @ Rx @ Rz1 @ Rx1
 		else:
 			# Default to XYZ order.
-			func = mod.get_function("rotateXYZ")
-			R = np.dot(Rx,Ry,Rz)
+			R = Rx @ Ry @ Rz
+
+		# Force float32 before we send to c.
+		R = np.float32(R)
 
 		# Calculate new axes.
-		axes = np.dot(R,self.arrayAxes)
-		position = np.dot(R,self.patientPosition)
+		# position = np.dot(R,self.patientPosition)
 
-		print('Rotation matrix')
-		print(R)
+		# Load the *.c function.
+		func = mod.get_function("rotate")
 
 		# Set texture (3D array).
 		tex = mod.get_texref("tex")
@@ -160,13 +157,37 @@ class gpuInterface:
 			int(bestFit[0][1]+(bestFit[1][1]>0)),
 			int(bestFit[0][2]+(bestFit[1][2]>0)))
 
-		# Call cuda function.
 		func(cuda.InOut(self.arrOut),
-			x,y,z,
+			R[0][0],
+			R[0][1],
+			R[0][2],
+			R[1][0],
+			R[1][1],
+			R[1][2],
+			R[2][0],
+			R[2][1],
+			R[2][2],
 			texShape[0],texShape[1],texShape[2],
 			outShape[0],outShape[1],outShape[2],
 			block=blockDim,grid=gridDim,
 			texrefs=[tex])
 
-		# return self.arrOut, newPixelDimensions
-		return self.arrOut, axes, position
+		# Find new extent with respect to isocenter.
+		if (not(self.isocenter is None)) & (not(self.pixelSize is None)) & (not(self.extent is None)):
+			# Rotate isoc to match output shape geometry.
+			isocenter = np.dot(R,self.isocenter)
+			pixelSize = np.dot(R,self.pixelSize)
+			row,col,depth = self.arrOut.shape
+			x,y,z = pixelSize
+
+			extent = np.array([0,col*x,0,row*y,0,depth*z])			
+
+		if (not(self.pixelSize is None)) & (not(self.extent is None)):
+			pixelSize = np.dot(R,self.pixelSize)
+			row,col,depth = self.arrOut.shape
+			x,y,z = pixelSize
+			extent = np.array([0,col*x,0,row*y,0,depth*z])
+
+
+		 # Send back array out, extent of axes [x1,x2,y1,y2,z1,z2]
+		return self.arrOut, extent
