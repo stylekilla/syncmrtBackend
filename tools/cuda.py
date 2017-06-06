@@ -21,7 +21,7 @@ class gpuInterface:
 		Do a device check?
 		'''
 
-	def copyTexture(self,data, patientPosition=None, pixelSize=None, extent=None, isocenter=None):
+	def copyTexture(self,data, pixelSize=None, extent=None, isocenter=None):
 		# Convert data to float32 array in Contiguous ordering.
 		self.arrIn = np.array(data,dtype=np.float32,order='C')
 		d,h,w = self.arrIn.shape
@@ -46,11 +46,12 @@ class gpuInterface:
 		copy.src_height = h
 		copy()
 
-		self.patientPosition = np.array(patientPosition)
 		self.pixelSize = pixelSize
 		self.isocenter = isocenter
-		# 3D extent, not 2D.
+		# Extent[l,r,b,t,f,b]
 		self.extent = extent
+		# Trigger for setting bottom left corner as 0,0,0.
+		self.zeroExtent = False
 
 	def rotate(self,x,y,z,order='xyz',x1=None,y1=None,z1=None):
 		# Eventually send a list xyz and compute R based on order dynamically...
@@ -122,9 +123,6 @@ class gpuInterface:
 		# Force float32 before we send to c.
 		R = np.float32(R)
 
-		# Calculate new axes.
-		# position = np.dot(R,self.patientPosition)
-
 		# Load the *.c function.
 		func = mod.get_function("rotate")
 
@@ -135,18 +133,22 @@ class gpuInterface:
 		# Input elements.
 		texShape = np.array(self.arrIn.shape).astype(np.float32)
 
-		# Get outshape by taking bounding box of maximum vertice points.
-		vert100 = np.absolute(np.dot(R, np.array((texShape[0],0,0)).T ))
-		vert010 = np.absolute(np.dot(R, np.array((0,texShape[1],0)).T ))
-		vert110 = np.absolute(np.dot(R, np.array((texShape[0],texShape[1],0)).T ))
-		vert001 = np.absolute(np.dot(R, np.array((0,0,texShape[2])).T ))
-		vert101 = np.absolute(np.dot(R, np.array((texShape[0],0,texShape[2])).T ))
-		vert011 = np.absolute(np.dot(R, np.array((0,texShape[1],texShape[2])).T ))
-		vert111 = np.absolute(np.dot(R, texShape.T ))
-		vert = np.vstack([vert100,vert010,vert110,vert001,vert101,vert011,vert111])
-		vert = np.amax(vert,axis=0)
+		# Get outshape by taking bounding box of vertice points.
+		vert100 = np.dot(np.array((texShape[0],0,0)),R)
+		vert010 = np.dot(np.array((0,texShape[1],0)),R)
+		vert110 = np.dot(np.array((texShape[0],texShape[1],0)),R)
+		vert001 = np.dot(np.array((0,0,texShape[2])),R)
+		vert101 = np.dot(np.array((texShape[0],0,texShape[2])),R)
+		vert011 = np.dot(np.array((0,texShape[1],texShape[2])),R)
+		vert111 = np.dot(texShape,R)
+		vertices = np.vstack([vert100,vert010,vert110,vert001,vert101,vert011,vert111])
 
-		outShape = np.rint(vert).astype(np.int32)
+		# Find minimum and maximum vertice points.
+		minimum = np.amin(vertices,axis=0)
+		maximum = np.amax(vertices,axis=0)
+		# Find the difference between the two.
+		shape = maximum-minimum
+		outShape = np.rint(shape).astype(np.int32)
 
 		self.arrOut = np.zeros(outShape,dtype=np.float32,order='C')
 
@@ -173,21 +175,44 @@ class gpuInterface:
 			texrefs=[tex])
 
 		# Find new extent with respect to isocenter.
-		if (not(self.isocenter is None)) & (not(self.pixelSize is None)) & (not(self.extent is None)):
+		if (not(self.isocenter is None)):
 			# Rotate isoc to match output shape geometry.
-			isocenter = np.dot(R,self.isocenter)
-			pixelSize = np.dot(R,self.pixelSize)
-			row,col,depth = self.arrOut.shape
-			x,y,z = pixelSize
-
-			extent = np.array([0,col*x,0,row*y,0,depth*z])			
+			self.isocenter = np.dot(self.isocenter,R)
 
 		if (not(self.pixelSize is None)) & (not(self.extent is None)):
-			pixelSize = np.dot(R,self.pixelSize)
+			# Pixel size is YXZ.
+			pixelSize = np.absolute(np.dot(self.pixelSize,R))
+			y,x,z = pixelSize
+			# Row col depth is YXZ.
 			row,col,depth = self.arrOut.shape
-			x,y,z = pixelSize
-			extent = np.array([0,col*x,0,row*y,0,depth*z])
 
+			# New vertices.
+			v000 = np.dot(np.array([self.extent[2],self.extent[0],self.extent[4]]),R)
+			v001 = np.dot(np.array([self.extent[2],self.extent[0],self.extent[5]]),R)
+			v010 = np.dot(np.array([self.extent[3],self.extent[0],self.extent[4]]),R)
+			v011 = np.dot(np.array([self.extent[3],self.extent[0],self.extent[5]]),R)
+			v100 = np.dot(np.array([self.extent[2],self.extent[1],self.extent[4]]),R)
+			v101 = np.dot(np.array([self.extent[2],self.extent[1],self.extent[5]]),R)
+			v110 = np.dot(np.array([self.extent[3],self.extent[1],self.extent[4]]),R)
+			v111 = np.dot(np.array([self.extent[3],self.extent[1],self.extent[5]]),R)
 
-		 # Send back array out, extent of axes [x1,x2,y1,y2,z1,z2]
+			vertices = np.vstack([v000,v001,v010,v011,v100,v101,v110,v111])
+
+			# Bottom Left Front position (YXZ).
+			blf = np.amin(vertices,axis=0)
+
+			# New extent (l,r,b,t,f,b).
+			extent = np.array([
+				blf[1],	blf[1]+col*y,
+				blf[0],	blf[0]+row*x,
+				blf[2],	blf[2]+depth*z
+				])
+
+			print('Original extent: ',self.extent)
+			print('BLF corner (yxz): ',blf)
+			print('Pixel Size: ',pixelSize)
+			print('Out Shape: ',self.arrOut.shape)
+			print('New extent: ',extent)
+
+		 # Send back array out, extent.
 		return self.arrOut, extent

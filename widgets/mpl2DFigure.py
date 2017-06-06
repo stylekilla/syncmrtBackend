@@ -66,9 +66,10 @@ class mpl2DFigure:
 			# 3D Image (CT/MRI etc).
 			if imageIndex == 0:
 				self.data2d = np.sum(self.data3d,axis=2)
+				# Extent is L,R,B,T
 				extent = extent[:4]
 			elif imageIndex == 1:
-				self.data2d = np.fliplr(np.sum(self.data3d,axis=1))
+				self.data2d = np.sum(self.data3d,axis=1)
 				extent = np.concatenate((extent[4:6],extent[2:4]))
 		else:
 			# 2D Image (General X-ray).

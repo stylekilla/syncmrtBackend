@@ -39,7 +39,7 @@ class importCT:
 		# For each slice extract the pixel data and put in respective z slice in array. 
 		for fn in self.ds:
 			data = dicom.read_file(fn)
-			self.ctArray[:,:, self.ds.index(fn)] = np.fliplr(data.pixel_array)
+			self.ctArray[:,:,ctArrayDimensions[2]-self.ds.index(fn)-1] = np.fliplr(data.pixel_array)
 
 		# Get the patient orientation.
 		self.patientPosition = self.ref.PatientPosition
@@ -68,12 +68,12 @@ class importCT:
 		self.pixelSize = np.array([self.ref.PixelSpacing[0], self.ref.PixelSpacing[1], self.spacingBetweenSlices])
 
 		# CT array extent (from bottom left corner of array); x->Cols, y->Rows z->Depth.
-		x1 = self.imagePositionPatient[0]
-		x2 = self.imagePositionPatient[0]+self.ctArray.shape[1]*self.pixelSize[0]
-		y1 = self.imagePositionPatient[1]+self.ctArray.shape[0]*self.pixelSize[1]
-		y2 = self.imagePositionPatient[1]
-		z1 = self.imagePositionPatient[2]+self.ctArray.shape[2]*self.pixelSize[2]
-		z2 = self.imagePositionPatient[2]
+		x1 = self.imagePositionPatient[0]-0.5*self.pixelSize[0]
+		x2 = self.imagePositionPatient[0]-0.5*self.pixelSize[0] + self.ctArray.shape[1]*self.pixelSize[0]
+		y1 = self.imagePositionPatient[1]-0.5*self.pixelSize[1]
+		y2 = self.imagePositionPatient[1]-0.5*self.pixelSize[1] + self.ctArray.shape[0]*self.pixelSize[1]
+		z1 = self.imagePositionPatient[2]+0.5*self.pixelSize[2] - self.ctArray.shape[2]*self.pixelSize[2]
+		z2 = self.imagePositionPatient[2]+0.5*self.pixelSize[2]
 		self.ctExtent = np.array([x1,x2,y1,y2,z1,z2])
 
 		# GPU drivers.
@@ -84,7 +84,7 @@ class importCT:
 		if self.patientPosition == 'HFS':
 			# Head First, Supine.
 			# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
-			self.array, self.arrayExtent = gpu.rotate(0,90,0)
+			self.array, self.arrayExtent = gpu.rotate(0,-90,0)
 		elif self.patientPosition == 'HFP':
 			pass
 		elif self.patientPosition == 'FFS':
@@ -94,7 +94,7 @@ class importCT:
 		else:
 			# Special case for sitting objects on CT table in upright position (essentially a sitting patient).
 			print('Executed special case in syncmrt.fileHandler.dicom.py')
-			self.array, self.arrayExtent = gpu.rotate(0,-90,0)
+			self.array, self.arrayExtent = gpu.rotate(0,90,0)
 
 		# Save
 		self.save3D(['ct0_dicom','ct1_correctlyOrientated'])
@@ -190,10 +190,14 @@ class importRTP:
 
 			self.beam[i].isocenter = np.array(self.rtp.BeamSequence[i].ControlPointSequence[0].IsocenterPosition)
 			# Consider updating isocenter parameter before each rotation:
-			# gpu.isocenter = self.beam[i].isocenter
+			gpu.isocenter = np.array(self.beam[i].isocenter)
 
 			# Apply euler rotations (x,y,z).
-			array, self.beam[i].arrayExtent = gpu.rotate(-4.97,0,-90,order='zxz',z1=90)
+			# array, self.beam[i].arrayExtent = gpu.rotate(4.97,0,-90,order='zxz',z1=90)
+			array, self.beam[i].arrayExtent = gpu.rotate(self.beam[i].gantryAngle,0,self.beam[i].patientSupportAngle,order='zxz',z1=self.beam[i].collimatorAngle)
+
+			# Get back new isoc location.
+			self.beam[i].isocenter = gpu.isocenter
 
 			# Hold file path to each plot and save.
 			self.beam[i].array = self.path+'/beam%i'%(i+1)+'_array.npy'
