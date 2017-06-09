@@ -33,6 +33,9 @@ class mpl2DFigure:
 		self.markerModel = model
 		self._radiographMode = 'sum'
 
+		self.overlay = {}
+		self.isocenter = [0,0]
+
 		self.fig = plt.figure()
 		self.fig.patch.set_facecolor('#000000')
 		self.ax = self.fig.add_axes([0,0,1,1])
@@ -61,19 +64,21 @@ class mpl2DFigure:
 
 	def imageLoad(self,fn,extent=np.array([-1,1,-1,1]),imageOrientation='',imageIndex=0):
 		'''imageLoad: Load numpy file in, convert to 2D. Connect callbacks and plot.'''		
+		self.imageIndex = imageIndex
 		self.data3d = np.load(fn)
 		if len(self.data3d.shape) == 3:
 			# 3D Image (CT/MRI etc).
 			if imageIndex == 0:
 				self.data2d = np.sum(self.data3d,axis=2)
 				# Extent is L,R,B,T
-				extent = extent[:4]
+				self.extent = extent[:4]
 			elif imageIndex == 1:
 				self.data2d = np.sum(self.data3d,axis=1)
-				extent = np.concatenate((extent[4:6],extent[2:4]))
+				self.extent = np.concatenate((extent[4:6],extent[2:4]))
 		else:
 			# 2D Image (General X-ray).
 			self.data2d = np.array(self.data3d)
+			self.extent = extent
 			
 		# if imageOrientation == 'HFS':
 		# 	if imageIndex == 0:
@@ -96,7 +101,7 @@ class mpl2DFigure:
 		# 		self.ax.set_xlabel('S')
 		# 		self.ax.set_ylabel('A')
 
-		self.image = self.ax.imshow(self.data2d, cmap='bone', extent=extent)
+		self.image = self.ax.imshow(self.data2d, cmap='bone', extent=self.extent)
 		self.ax.set_xlim(extent[0:2])
 		self.ax.set_ylim(extent[2:4])
 		# self.ax.margins(0.1) Not doing anything currently... because of the two lines above.
@@ -114,10 +119,15 @@ class mpl2DFigure:
 		mask = eval(conditions)
 		self.data2d = self.data3d*mask
 
+		if self.imageIndex == 0:
+			direction = 2
+		elif self.imageIndex == 1:
+			direction = 1
+			
 		if self._radiographMode == 'max':
-			self.data2d = np.amax(self.data2d,axis=2)
+			self.data2d = np.amax(self.data2d,axis=direction)
 		elif self._radiographMode == 'sum':
-			self.data2d = np.sum(self.data2d,axis=2)
+			self.data2d = np.sum(self.data2d,axis=direction)
 		else:
 			pass
 
@@ -215,6 +225,19 @@ class mpl2DFigure:
 			scatter = self.ax.scatter(x,y,c='b',marker='+',s=50)
 			text = self.ax.text(x+1,y-3,i+1,color='b')
 			self.markersListOptimised += scatter,text
+
+		self.canvas.draw()
+
+	def overlayIsocenter(self,state=False):
+		if state is True:
+			# Plot overlay lines.
+			self.overlay['isocenterh'] = self.ax.axhline(self.isocenter[1],c='r',alpha=0.5)
+			self.overlay['isocenterv'] = self.ax.axvline(self.isocenter[0],c='r',alpha=0.5)
+
+		else:
+			# Remove overlay lines.
+			self.overlay['isocenterh'].remove()
+			self.overlay['isocenterv'].remove()
 
 		self.canvas.draw()
 

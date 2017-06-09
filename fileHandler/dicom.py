@@ -39,7 +39,7 @@ class importCT:
 		# For each slice extract the pixel data and put in respective z slice in array. 
 		for fn in self.ds:
 			data = dicom.read_file(fn)
-			self.ctArray[:,:,ctArrayDimensions[2]-self.ds.index(fn)-1] = np.fliplr(data.pixel_array)
+			self.ctArray[:,:,ctArrayDimensions[2]-self.ds.index(fn)-1] = data.pixel_array
 
 		# Get the patient orientation.
 		self.patientPosition = self.ref.PatientPosition
@@ -84,7 +84,7 @@ class importCT:
 		if self.patientPosition == 'HFS':
 			# Head First, Supine.
 			# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
-			self.array, self.arrayExtent = gpu.rotate(0,-90,0)
+			self.array, self.arrayExtent = gpu.rotate(0,90,0)
 		elif self.patientPosition == 'HFP':
 			pass
 		elif self.patientPosition == 'FFS':
@@ -94,7 +94,9 @@ class importCT:
 		else:
 			# Special case for sitting objects on CT table in upright position (essentially a sitting patient).
 			print('Executed special case in syncmrt.fileHandler.dicom.py')
-			self.array, self.arrayExtent = gpu.rotate(0,90,0)
+			self.array, self.arrayExtent = gpu.rotate(0,-90,0)
+
+		self.pixelSize = gpu.pixelSize
 
 		# Save
 		self.save3D(['ct0_dicom','ct1_correctlyOrientated'])
@@ -189,13 +191,14 @@ class importRTP:
 			# self.beam[i].rollAngle = float(self.rtp.BeamSequence[i].ControlPointSequence[0].TableTopRollAngle)
 
 			self.beam[i].isocenter = np.array(self.rtp.BeamSequence[i].ControlPointSequence[0].IsocenterPosition)
+			# Rearrange xyz to match imported CT.
+			self.beam[i].isocenter[0],self.beam[i].isocenter[1],self.beam[i].isocenter[2] = self.beam[i].isocenter[2],self.beam[i].isocenter[0],self.beam[i].isocenter[1]
 			# Consider updating isocenter parameter before each rotation:
 			gpu.isocenter = np.array(self.beam[i].isocenter)
 
-			# Apply euler rotations (x,y,z).
-			# array, self.beam[i].arrayExtent = gpu.rotate(4.97,0,-90,order='zxz',z1=90)
-			array, self.beam[i].arrayExtent = gpu.rotate(self.beam[i].gantryAngle,0,self.beam[i].patientSupportAngle,order='zxz',z1=self.beam[i].collimatorAngle)
-
+			# Apply euler rotations. Collimator first (variable rotation axis, z), then gantry (fixed x), then table (fixed z).
+			# Rotations happen in CCW directions.
+			array, self.beam[i].arrayExtent = gpu.rotate(self.beam[i].gantryAngle,0,-self.beam[i].patientSupportAngle,order='zxz',z1=-self.beam[i].collimatorAngle)
 			# Get back new isoc location.
 			self.beam[i].isocenter = gpu.isocenter
 

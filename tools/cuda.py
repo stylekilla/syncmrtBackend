@@ -5,6 +5,7 @@ from pycuda.compiler import SourceModule
 import numpy as np
 import site
 from math import sin, cos
+from syncmrt.tools.quaternions import quaternionMath as q
 
 '''
 Starts a GPU interface that we can run kernels from.
@@ -55,17 +56,17 @@ class gpuInterface:
 
 	def rotate(self,x,y,z,order='xyz',x1=None,y1=None,z1=None):
 		# Eventually send a list xyz and compute R based on order dynamically...
-
 		# Initialise Kernel
 		fp = site.getsitepackages()[0]
 		mod = SourceModule(open(fp+"/syncmrt/tools/cudaKernels/rotate3D.c", "r").read(),keep=True)
 
-		# Convert x,y,z to float32 radians.
-		x = np.deg2rad(x).astype(np.float32)
-		y = np.deg2rad(y).astype(np.float32)
-		z = np.deg2rad(z).astype(np.float32)
+		'''
+		# Convert x,y,z to radians.
+		x = np.deg2rad(x)
+		y = np.deg2rad(y)
+		z = np.deg2rad(z)
 
-		# Calculate rotation vectors.
+		# Calculate rotation vectors (all directions are CCW).
 		Rx = np.array([
 			[1, 0, 0],
 			[0, cos(x),-sin(x)],
@@ -77,8 +78,8 @@ class gpuInterface:
 			[-sin(y), 0, cos(y)]
 			])
 		Rz = np.array([
-			[ cos(z),-sin(z), 0],
-			[ sin(z), cos(z), 0],
+			[ cos(z), sin(z), 0],
+			[-sin(z), cos(z), 0],
 			[0, 0, 1]
 			])
 
@@ -104,23 +105,53 @@ class gpuInterface:
 				[ sin(z1), cos(z1), 0],
 				[0, 0, 1]
 				])
-
+		
 		# Calculate final rotation vector as per order of application of rotations.
-		if order=='yzx':
-			R = Ry @ Rz @ Rx
-		elif order=='yzy':
-			R = Ry @ Rz @ Ry1
-		elif order=='zxz':
-			R = Rz @ Rx @ Rz1
+		# For the MRT setup it's global z (table), gobal x (gantry), local z (collimator)
+		if order=='zxz':
+			rz = q.rotation(z,axis=np.array(([0,0,1])))
+			rx = q.rotation(x,axis=np.array(([1,0,0])))
+
 		elif order=='zyz':
-			R = Rz @ Ry @ Rz1
-		elif order=='zxzx':
-			R = Rz @ Rx @ Rz1 @ Rx1
+			# Global rotations in quaternions.
+			ganCol = Ry @ Rz1
+			R = Rz @ ganCol
 		else:
 			# Default to XYZ order.
 			R = Rx @ Ry @ Rz
+			'''
+		xaxis = np.array(([1,0,0]))
+		yaxis = np.array(([0,1,0]))
+		zaxis = np.array(([0,0,1]))
+
+		if order =='zxz':
+			rz = q.rotation(z,axis=zaxis)
+			rx = q.rotation(x,axis=xaxis)
+			rxi = q.inverse(rx)
+			tempaxis = q.quaternion(zaxis)
+			newaxis = q.product(q.product(rx,tempaxis),rxi)
+			rz1 = q.rotation(z1,axis=newaxis[1:])
+
+			rotation = q.product(q.product(rz,rx),rz1)
+			R = q.euler(rotation)
+
+			print('tempaxis',tempaxis)
+			print('newaxis',newaxis)
+			print('rz',rz)
+			print('rx',rx)
+			print('rz1',rz1)
+			print('rotation',rotation)
+		else:
+			# Assume xyz.
+			rx = q.rotation(x,axis=np.array(([1,0,0])))
+			ry = q.rotation(-y,axis=np.array(([0,1,0])))
+			rz = q.rotation(z,axis=np.array(([0,0,1])))
+
+			rotation = q.product(q.product(rx,ry),rz)
+			R = q.euler(rotation)
 
 		# Force float32 before we send to c.
+		print(R)
 		R = np.float32(R)
 
 		# Load the *.c function.
@@ -146,10 +177,10 @@ class gpuInterface:
 		# Find minimum and maximum vertice points.
 		minimum = np.amin(vertices,axis=0)
 		maximum = np.amax(vertices,axis=0)
-		# Find the difference between the two.
+		# Find the difference between the two as a whole number.
 		shape = maximum-minimum
 		outShape = np.rint(shape).astype(np.int32)
-
+		# Set shape (as float32 for cuda)
 		self.arrOut = np.zeros(outShape,dtype=np.float32,order='C')
 
 		# Block and grid size.
@@ -159,6 +190,7 @@ class gpuInterface:
 			int(bestFit[0][1]+(bestFit[1][1]>0)),
 			int(bestFit[0][2]+(bestFit[1][2]>0)))
 
+		# Call cuda kernel with inputs/outputs.
 		func(cuda.InOut(self.arrOut),
 			R[0][0],
 			R[0][1],
@@ -174,15 +206,12 @@ class gpuInterface:
 			block=blockDim,grid=gridDim,
 			texrefs=[tex])
 
-		# Find new extent with respect to isocenter.
+		# Find new isocenter.
 		if (not(self.isocenter is None)):
-			# Rotate isoc to match output shape geometry.
 			self.isocenter = np.dot(self.isocenter,R)
 
-		if (not(self.pixelSize is None)) & (not(self.extent is None)):
-			# Pixel size is YXZ.
-			pixelSize = np.absolute(np.dot(self.pixelSize,R))
-			y,x,z = pixelSize
+		# Find new extent.
+		if (not(self.pixelSize is None)) & (not(self.extent is None)):			
 			# Row col depth is YXZ.
 			row,col,depth = self.arrOut.shape
 
@@ -200,19 +229,19 @@ class gpuInterface:
 
 			# Bottom Left Front position (YXZ).
 			blf = np.amin(vertices,axis=0)
+			trb = np.amax(vertices,axis=0)
 
 			# New extent (l,r,b,t,f,b).
 			extent = np.array([
-				blf[1],	blf[1]+col*y,
-				blf[0],	blf[0]+row*x,
-				blf[2],	blf[2]+depth*z
+				blf[1],	trb[1],
+				blf[0],	trb[0],
+				blf[2],	trb[2]
 				])
 
-			print('Original extent: ',self.extent)
-			print('BLF corner (yxz): ',blf)
-			print('Pixel Size: ',pixelSize)
-			print('Out Shape: ',self.arrOut.shape)
-			print('New extent: ',extent)
+		print('#####################################')
+		print('Extent', extent)
+		print('Isocenter', self.isocenter)
+		print('Shape', outShape)
 
 		 # Send back array out, extent.
 		return self.arrOut, extent
