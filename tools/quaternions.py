@@ -36,7 +36,7 @@ class quaternionMath:
 	def inverse(a):
 		# Inverse of quaternion a
 		a0,a1,a2,a3 = a
-		q = np.array(([a0,-a1,-a2,-a3])) / (a0**2 + a1**2 + a2**2 + a3**2)
+		q = (np.array(([a0,-a1,-a2,-a3])) / (a0**2 + a1**2 + a2**2 + a3**2))
 
 		return q
 

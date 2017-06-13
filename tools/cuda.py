@@ -60,98 +60,38 @@ class gpuInterface:
 		fp = site.getsitepackages()[0]
 		mod = SourceModule(open(fp+"/syncmrt/tools/cudaKernels/rotate3D.c", "r").read(),keep=True)
 
-		'''
-		# Convert x,y,z to radians.
-		x = np.deg2rad(x)
-		y = np.deg2rad(y)
-		z = np.deg2rad(z)
-
-		# Calculate rotation vectors (all directions are CCW).
-		Rx = np.array([
-			[1, 0, 0],
-			[0, cos(x),-sin(x)],
-			[0, sin(x), cos(x)]
-			])
-		Ry = np.array([
-			[ cos(y), 0, sin(y)],
-			[0, 1, 0],
-			[-sin(y), 0, cos(y)]
-			])
-		Rz = np.array([
-			[ cos(z), sin(z), 0],
-			[-sin(z), cos(z), 0],
-			[0, 0, 1]
-			])
-
-		# If second axis rotations are required, compute their rotation vectors here.
-		if x1 != None:
-			x1 = np.deg2rad(x1).astype(np.float32)
-			Rx1 = np.array([
-				[1, 0, 0],
-				[0, cos(x1),-sin(x1)],
-				[0, sin(x1), cos(x1)]
-				])
-		if y1 != None:
-			y1 = np.deg2rad(y1).astype(np.float32)
-			Ry1 = np.array([
-				[ cos(y1), 0, sin(y1)],
-				[0, 1, 0],
-				[-sin(y1), 0, cos(y1)]
-				])
-		if z1 != None:
-			z1 = np.deg2rad(z1).astype(np.float32)
-			Rz1 = np.array([
-				[ cos(z1),-sin(z1), 0],
-				[ sin(z1), cos(z1), 0],
-				[0, 0, 1]
-				])
-		
-		# Calculate final rotation vector as per order of application of rotations.
-		# For the MRT setup it's global z (table), gobal x (gantry), local z (collimator)
-		if order=='zxz':
-			rz = q.rotation(z,axis=np.array(([0,0,1])))
-			rx = q.rotation(x,axis=np.array(([1,0,0])))
-
-		elif order=='zyz':
-			# Global rotations in quaternions.
-			ganCol = Ry @ Rz1
-			R = Rz @ ganCol
-		else:
-			# Default to XYZ order.
-			R = Rx @ Ry @ Rz
-			'''
 		xaxis = np.array(([1,0,0]))
 		yaxis = np.array(([0,1,0]))
 		zaxis = np.array(([0,0,1]))
 
 		if order =='zxz':
+			# All angles should go in opposite direction to DICOM standard.
+			# z 	patient support angle
+			# x 	gantry angle
+			# z1 	collimator angle
 			rz = q.rotation(z,axis=zaxis)
 			rx = q.rotation(x,axis=xaxis)
 			rxi = q.inverse(rx)
 			tempaxis = q.quaternion(zaxis)
 			newaxis = q.product(q.product(rx,tempaxis),rxi)
+			newaxis = np.absolute(newaxis)
 			rz1 = q.rotation(z1,axis=newaxis[1:])
 
-			rotation = q.product(q.product(rz,rx),rz1)
-			R = q.euler(rotation)
+			world = q.product(rx,rz)
+			rotation = q.product(world,rz1)
 
-			print('tempaxis',tempaxis)
-			print('newaxis',newaxis)
-			print('rz',rz)
-			print('rx',rx)
-			print('rz1',rz1)
-			print('rotation',rotation)
+			R = q.euler(rotation)	
+
 		else:
 			# Assume xyz.
 			rx = q.rotation(x,axis=np.array(([1,0,0])))
-			ry = q.rotation(-y,axis=np.array(([0,1,0])))
+			ry = q.rotation(y,axis=np.array(([0,1,0])))
 			rz = q.rotation(z,axis=np.array(([0,0,1])))
 
 			rotation = q.product(q.product(rx,ry),rz)
 			R = q.euler(rotation)
 
 		# Force float32 before we send to c.
-		print(R)
 		R = np.float32(R)
 
 		# Load the *.c function.
@@ -215,7 +155,50 @@ class gpuInterface:
 			# Row col depth is YXZ.
 			row,col,depth = self.arrOut.shape
 
-			# New vertices.
+			# # Bounding box orientation.
+			# o000 = np.dot(np.array([-1,-1,-1]),R)
+			# o001 = np.dot(np.array([-1,-1,1]),R)
+			# o010 = np.dot(np.array([1,-1,-1]),R)
+			# o011 = np.dot(np.array([1,-1,1]),R)
+			# o100 = np.dot(np.array([-1,1,-1]),R)
+			# o101 = np.dot(np.array([-1,1,1]),R)
+			# o110 = np.dot(np.array([1,1,-1]),R)
+			# o111 = np.dot(np.array([1,1,1]),R)
+			# orientation = np.rint(np.vstack([o000,o001,o010,o011,o100,o101,o110,o111]))
+
+			# testMin = np.amin(orientation,axis=0)
+			# testMax = np.amax(orientation,axis=0)
+			# x = []
+			# y = []
+			# smallestVertex = 0
+			# largestVertex = 0
+
+			# # Find smallest vertex.
+			# for i in range(8):
+			# 	if orientation[i,0] == testMin[0]:
+			# 		x.append(i)
+			# for j in range(len(x)):
+			# 	if orientation[x[j],1] == testMin[1]:
+			# 		y.append(x[j])
+			# for k in range(len(y)):
+			# 	if orientation[y[k],2] == testMin[2]:
+			# 		smallestVertex = y[k]
+
+			# x = []
+			# y = []
+
+			# # Find largest vertex.
+			# for i in range(8):
+			# 	if orientation[i,0] == testMax[0]:
+			# 		x.append(i)
+			# for j in range(len(x)):
+			# 	if orientation[x[j],1] == testMax[1]:
+			# 		y.append(x[j])
+			# for k in range(len(y)):
+			# 	if orientation[y[k],2] == testMax[2]:
+			# 		largestVertex = y[k]
+
+			# New extent vertices.
 			v000 = np.dot(np.array([self.extent[2],self.extent[0],self.extent[4]]),R)
 			v001 = np.dot(np.array([self.extent[2],self.extent[0],self.extent[5]]),R)
 			v010 = np.dot(np.array([self.extent[3],self.extent[0],self.extent[4]]),R)
@@ -224,12 +207,29 @@ class gpuInterface:
 			v101 = np.dot(np.array([self.extent[2],self.extent[1],self.extent[5]]),R)
 			v110 = np.dot(np.array([self.extent[3],self.extent[1],self.extent[4]]),R)
 			v111 = np.dot(np.array([self.extent[3],self.extent[1],self.extent[5]]),R)
-
 			vertices = np.vstack([v000,v001,v010,v011,v100,v101,v110,v111])
+
+			# Axis directions.
+			rotationi = q.inverse(rotation)
+			newx = q.product(q.product(rotation,q.quaternion(xaxis)),rotationi)[1:]
+			newy = q.product(q.product(rotation,q.quaternion(yaxis)),rotationi)[1:]
+			newz = q.product(q.product(rotation,q.quaternion(zaxis)),rotationi)[1:]
+
+			print('new xyz axes',newx,newy,newz)
 
 			# Bottom Left Front position (YXZ).
 			blf = np.amin(vertices,axis=0)
 			trb = np.amax(vertices,axis=0)
+			# blf = vertices[smallestVertex,:]
+			# trb = vertices[largestVertex,:]
+
+			# print('orientation')
+			# print(orientation)
+			print('vertices')
+			print(vertices)
+			# print('sml/lrg indices',smallestVertex,largestVertex)
+			print('blf/trb: ',blf,trb)
+			print('')
 
 			# New extent (l,r,b,t,f,b).
 			extent = np.array([
@@ -237,11 +237,6 @@ class gpuInterface:
 				blf[0],	trb[0],
 				blf[2],	trb[2]
 				])
-
-		print('#####################################')
-		print('Extent', extent)
-		print('Isocenter', self.isocenter)
-		print('Shape', outShape)
 
 		 # Send back array out, extent.
 		return self.arrOut, extent

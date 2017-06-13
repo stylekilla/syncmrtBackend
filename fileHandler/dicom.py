@@ -84,7 +84,7 @@ class importCT:
 		if self.patientPosition == 'HFS':
 			# Head First, Supine.
 			# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
-			self.array, self.arrayExtent = gpu.rotate(0,90,0)
+			self.array, self.arrayExtent = gpu.rotate(0,-90,0)
 		elif self.patientPosition == 'HFP':
 			pass
 		elif self.patientPosition == 'FFS':
@@ -94,7 +94,7 @@ class importCT:
 		else:
 			# Special case for sitting objects on CT table in upright position (essentially a sitting patient).
 			print('Executed special case in syncmrt.fileHandler.dicom.py')
-			self.array, self.arrayExtent = gpu.rotate(0,-90,0)
+			self.array, self.arrayExtent = gpu.rotate(0,90,0)
 
 		self.pixelSize = gpu.pixelSize
 
@@ -198,7 +198,7 @@ class importRTP:
 
 			# Apply euler rotations. Collimator first (variable rotation axis, z), then gantry (fixed x), then table (fixed z).
 			# Rotations happen in CCW directions.
-			array, self.beam[i].arrayExtent = gpu.rotate(self.beam[i].gantryAngle,0,-self.beam[i].patientSupportAngle,order='zxz',z1=-self.beam[i].collimatorAngle)
+			array, self.beam[i].arrayExtent = gpu.rotate(-self.beam[i].gantryAngle,0,-self.beam[i].patientSupportAngle,order='zxz',z1=-self.beam[i].collimatorAngle)
 			# Get back new isoc location.
 			self.beam[i].isocenter = gpu.isocenter
 
