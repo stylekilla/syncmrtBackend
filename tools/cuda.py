@@ -60,33 +60,51 @@ class gpuInterface:
 		fp = site.getsitepackages()[0]
 		mod = SourceModule(open(fp+"/syncmrt/tools/cudaKernels/rotate3D.c", "r").read(),keep=True)
 
+		# Default axes.
 		xaxis = np.array(([1,0,0]))
 		yaxis = np.array(([0,1,0]))
 		zaxis = np.array(([0,0,1]))
 
-		if order =='zxz':
+		if order == 'pat-gant-col':
 			# All angles should go in opposite direction to DICOM standard.
 			# z 	patient support angle
 			# x 	gantry angle
 			# z1 	collimator angle
+
 			rz = q.rotation(z,axis=zaxis)
-			rx = q.rotation(x,axis=xaxis)
-			rxi = q.inverse(rx)
-			tempaxis = q.quaternion(zaxis)
-			newaxis = q.product(q.product(rx,tempaxis),rxi)
-			newaxis = np.absolute(newaxis)
-			rz1 = q.rotation(z1,axis=newaxis[1:])
+			# rx = q.rotation(x,axis=xaxis)
+			# rxi = q.inverse(rx)
+			# tempaxis = q.quaternion(zaxis)
+			# newaxis = q.product(q.product(rx,tempaxis),rxi)
+			# newaxis = np.absolute(newaxis)
+			# rz1 = q.rotation(z1,axis=newaxis[1:])
 
-			world = q.product(rx,rz)
-			rotation = q.product(world,rz1)
+			# print('newaxis')
+			# print(newaxis)
 
-			R = q.euler(rotation)	
+			# world = q.product(rx,rz)
+			# rotation = q.product(world,rz1)
+			
+			rzi = q.inverse(rz)
+			rz1 = q.rotation(z+z1,axis=zaxis)
+			tempaxis = q.quaternion(xaxis)
+			newaxis = q.product(q.product(rz,tempaxis),rzi)
+			print('newaxis')
+			print(newaxis)
+			rx = q.rotation(x,axis=newaxis[1:])
+			rotation = q.product(rz1,rx)
+
+			R = q.euler(rotation)
+
+			print('rotation')
+			print(R)
+			print('')
 
 		else:
 			# Assume xyz.
-			rx = q.rotation(x,axis=np.array(([1,0,0])))
-			ry = q.rotation(y,axis=np.array(([0,1,0])))
-			rz = q.rotation(z,axis=np.array(([0,0,1])))
+			rx = q.rotation(x,axis=xaxis)
+			ry = q.rotation(y,axis=yaxis)
+			rz = q.rotation(z,axis=zaxis)
 
 			rotation = q.product(q.product(rx,ry),rz)
 			R = q.euler(rotation)
@@ -105,6 +123,7 @@ class gpuInterface:
 		texShape = np.array(self.arrIn.shape).astype(np.float32)
 
 		# Get outshape by taking bounding box of vertice points.
+		vert000 = np.array([0,0,0])
 		vert100 = np.dot(np.array((texShape[0],0,0)),R)
 		vert010 = np.dot(np.array((0,texShape[1],0)),R)
 		vert110 = np.dot(np.array((texShape[0],texShape[1],0)),R)
@@ -112,7 +131,7 @@ class gpuInterface:
 		vert101 = np.dot(np.array((texShape[0],0,texShape[2])),R)
 		vert011 = np.dot(np.array((0,texShape[1],texShape[2])),R)
 		vert111 = np.dot(texShape,R)
-		vertices = np.vstack([vert100,vert010,vert110,vert001,vert101,vert011,vert111])
+		vertices = np.vstack([vert000,vert100,vert010,vert110,vert001,vert101,vert011,vert111])
 
 		# Find minimum and maximum vertice points.
 		minimum = np.amin(vertices,axis=0)
@@ -155,49 +174,6 @@ class gpuInterface:
 			# Row col depth is YXZ.
 			row,col,depth = self.arrOut.shape
 
-			# # Bounding box orientation.
-			# o000 = np.dot(np.array([-1,-1,-1]),R)
-			# o001 = np.dot(np.array([-1,-1,1]),R)
-			# o010 = np.dot(np.array([1,-1,-1]),R)
-			# o011 = np.dot(np.array([1,-1,1]),R)
-			# o100 = np.dot(np.array([-1,1,-1]),R)
-			# o101 = np.dot(np.array([-1,1,1]),R)
-			# o110 = np.dot(np.array([1,1,-1]),R)
-			# o111 = np.dot(np.array([1,1,1]),R)
-			# orientation = np.rint(np.vstack([o000,o001,o010,o011,o100,o101,o110,o111]))
-
-			# testMin = np.amin(orientation,axis=0)
-			# testMax = np.amax(orientation,axis=0)
-			# x = []
-			# y = []
-			# smallestVertex = 0
-			# largestVertex = 0
-
-			# # Find smallest vertex.
-			# for i in range(8):
-			# 	if orientation[i,0] == testMin[0]:
-			# 		x.append(i)
-			# for j in range(len(x)):
-			# 	if orientation[x[j],1] == testMin[1]:
-			# 		y.append(x[j])
-			# for k in range(len(y)):
-			# 	if orientation[y[k],2] == testMin[2]:
-			# 		smallestVertex = y[k]
-
-			# x = []
-			# y = []
-
-			# # Find largest vertex.
-			# for i in range(8):
-			# 	if orientation[i,0] == testMax[0]:
-			# 		x.append(i)
-			# for j in range(len(x)):
-			# 	if orientation[x[j],1] == testMax[1]:
-			# 		y.append(x[j])
-			# for k in range(len(y)):
-			# 	if orientation[y[k],2] == testMax[2]:
-			# 		largestVertex = y[k]
-
 			# New extent vertices.
 			v000 = np.dot(np.array([self.extent[2],self.extent[0],self.extent[4]]),R)
 			v001 = np.dot(np.array([self.extent[2],self.extent[0],self.extent[5]]),R)
@@ -209,27 +185,29 @@ class gpuInterface:
 			v111 = np.dot(np.array([self.extent[3],self.extent[1],self.extent[5]]),R)
 			vertices = np.vstack([v000,v001,v010,v011,v100,v101,v110,v111])
 
-			# Axis directions.
-			rotationi = q.inverse(rotation)
-			newx = q.product(q.product(rotation,q.quaternion(xaxis)),rotationi)[1:]
-			newy = q.product(q.product(rotation,q.quaternion(yaxis)),rotationi)[1:]
-			newz = q.product(q.product(rotation,q.quaternion(zaxis)),rotationi)[1:]
+			# New extent vertices.
+			o000 = np.dot(np.array([-1,-1,-1]),R)
+			o001 = np.dot(np.array([-1,-1, 1]),R)
+			o010 = np.dot(np.array([ 1,-1,-1]),R)
+			o011 = np.dot(np.array([ 1,-1, 1]),R)
+			o100 = np.dot(np.array([-1, 1,-1]),R)
+			o101 = np.dot(np.array([-1, 1, 1]),R)
+			o110 = np.dot(np.array([ 1, 1,-1]),R)
+			o111 = np.dot(np.array([ 1, 1, 1]),R)
+			orientation = np.vstack([o000,o001,o010,o011,o100,o101,o110,o111])
 
-			print('new xyz axes',newx,newy,newz)
+			minimum = np.argmin(orientation,axis=0)
+			maximum = np.argmax(orientation,axis=0)
 
-			# Bottom Left Front position (YXZ).
-			blf = np.amin(vertices,axis=0)
-			trb = np.amax(vertices,axis=0)
-			# blf = vertices[smallestVertex,:]
-			# trb = vertices[largestVertex,:]
+			blf = np.array([vertices[minimum[0],0],
+				vertices[minimum[1],1],
+				vertices[minimum[2],2]
+				])
 
-			# print('orientation')
-			# print(orientation)
-			print('vertices')
-			print(vertices)
-			# print('sml/lrg indices',smallestVertex,largestVertex)
-			print('blf/trb: ',blf,trb)
-			print('')
+			trb = np.array([vertices[maximum[0],0],
+				vertices[maximum[1],1],
+				vertices[maximum[2],2]
+				])
 
 			# New extent (l,r,b,t,f,b).
 			extent = np.array([
@@ -237,6 +215,15 @@ class gpuInterface:
 				blf[0],	trb[0],
 				blf[2],	trb[2]
 				])
+
+			# print('Params')
+			# print(vertices)
+			# print(orientation)
+			# print(minimum)
+			# print(maximum)
+			# print(blf)
+			# print(trb)
+			# print('')
 
 		 # Send back array out, extent.
 		return self.arrOut, extent

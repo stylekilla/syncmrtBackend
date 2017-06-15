@@ -3,6 +3,11 @@
 *.pyc
 *.pyo
 
+# QT Creator #
+##############
+*.pro
+*.user
+
 # Compiled source #
 ###################
 *.com
@@ -30,6 +35,11 @@
 *.log
 *.sql
 *.sqlite
+
+# Git files #
+######################
+.fuse*
+.bash_history*
 
 # OS generated files #
 ######################

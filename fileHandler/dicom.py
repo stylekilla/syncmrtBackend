@@ -67,14 +67,15 @@ class importCT:
 		# Voxel shape determined by detector element sizes and CT slice thickness.
 		self.pixelSize = np.array([self.ref.PixelSpacing[0], self.ref.PixelSpacing[1], self.spacingBetweenSlices])
 
-		# CT array extent (from bottom left corner of array); x->Cols, y->Rows z->Depth.
-		x1 = self.imagePositionPatient[0]-0.5*self.pixelSize[0]
-		x2 = self.imagePositionPatient[0]-0.5*self.pixelSize[0] + self.ctArray.shape[1]*self.pixelSize[0]
-		y1 = self.imagePositionPatient[1]-0.5*self.pixelSize[1]
+		# CT array extent (from bottom left corner of array); x->Cols, y->Rows z->Depth. (yyxxzz).
+		y1 = self.imagePositionPatient[1]-0.5*self.pixelSize[1] 
 		y2 = self.imagePositionPatient[1]-0.5*self.pixelSize[1] + self.ctArray.shape[0]*self.pixelSize[1]
+		x1 = self.imagePositionPatient[0]-0.5*self.pixelSize[0] 
+		x2 = self.imagePositionPatient[0]-0.5*self.pixelSize[0] + self.ctArray.shape[1]*self.pixelSize[0]
 		z1 = self.imagePositionPatient[2]+0.5*self.pixelSize[2] - self.ctArray.shape[2]*self.pixelSize[2]
-		z2 = self.imagePositionPatient[2]+0.5*self.pixelSize[2]
-		self.ctExtent = np.array([x1,x2,y1,y2,z1,z2])
+		z2 = self.imagePositionPatient[2]+0.5*self.pixelSize[2] 
+		
+		self.ctExtent = np.array([y1,y2,x1,x2,z1,z2])
 
 		# GPU drivers.
 		gpu = gpuInterface()
@@ -84,7 +85,7 @@ class importCT:
 		if self.patientPosition == 'HFS':
 			# Head First, Supine.
 			# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
-			self.array, self.arrayExtent = gpu.rotate(0,-90,0)
+			self.array, self.arrayExtent = gpu.rotate(0,-90,0,order='ct-hfs')
 		elif self.patientPosition == 'HFP':
 			pass
 		elif self.patientPosition == 'FFS':
@@ -94,7 +95,7 @@ class importCT:
 		else:
 			# Special case for sitting objects on CT table in upright position (essentially a sitting patient).
 			print('Executed special case in syncmrt.fileHandler.dicom.py')
-			self.array, self.arrayExtent = gpu.rotate(0,90,0)
+			self.array, self.arrayExtent = gpu.rotate(0,90,0,order='ct-hfs')
 
 		self.pixelSize = gpu.pixelSize
 
@@ -197,8 +198,9 @@ class importRTP:
 			gpu.isocenter = np.array(self.beam[i].isocenter)
 
 			# Apply euler rotations. Collimator first (variable rotation axis, z), then gantry (fixed x), then table (fixed z).
-			# Rotations happen in CCW directions.
-			array, self.beam[i].arrayExtent = gpu.rotate(-self.beam[i].gantryAngle,0,-self.beam[i].patientSupportAngle,order='zxz',z1=-self.beam[i].collimatorAngle)
+			# array, self.beam[i].arrayExtent = gpu.rotate(-self.beam[i].gantryAngle,0,-self.beam[i].patientSupportAngle,order='pat-gant-col',z1=-self.beam[i].collimatorAngle)
+			array, self.beam[i].arrayExtent = gpu.rotate(self.beam[i].gantryAngle,0,self.beam[i].patientSupportAngle,order='pat-gant-col',z1=self.beam[i].collimatorAngle)
+			# array, self.beam[i].arrayExtent = gpu.rotate(0,0,90,order='pat-gant-col',z1=0)
 			# Get back new isoc location.
 			self.beam[i].isocenter = gpu.isocenter
 

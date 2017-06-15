@@ -57,6 +57,9 @@ class mpl2DFigure:
 
 		# Create a canvas widget for Qt to use.
 		self.canvas = FigureCanvas(self.fig)
+		# self.canvas.setCursor(QtGui.QCursor(QtCore.Qt.CrossCursor))
+		# self.canvas.setCursor(QtCore.Qt.CrossCursor)
+		cursor = mpl.widgets.Cursor(self.ax, useblit=True, color='red', linewidth=2)
 		# Refresh the canvas.
 		self.canvas.draw()
 
