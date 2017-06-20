@@ -166,6 +166,8 @@ def rotationmatrix(q):
 	[2*(q[2]*q[1]+q[0]*q[3]), (q[0]**2-q[1]**2+q[2]**2-q[3]**2), 2*(q[2]*q[3]-q[0]*q[1])],
 	[2*(q[3]*q[1]-q[0]*q[2]), 2*(q[3]*q[2]+q[0]*q[1]), (q[0]**2-q[1]**2-q[2]**2+q[3]**2)]])
 
+	# Order of rotation? XYZ or ZYX?
+
 	# Return the rotation matrix, R.
 	return R
 
@@ -176,31 +178,44 @@ def extractangles(R,l,r):
 	# z -> vertical
 	# Two possible angles for x.
 	y = []
-	y.append(-np.arcsin(R[2][0]))
-	y.append(np.pi-np.arcsin(R[2][0]))
+	# y.append(-np.arcsin(R[2][0]))
+	# y.append(np.pi-np.arcsin(R[2][0]))
+	y.append(np.arcsin(R[0][2]))
+	y.append(np.pi-np.arcsin(R[0][2]))
 
 	# Angle for Z
 	z = []
 	for i in range(len(y)):
-		z.append(-np.arctan2(R[0][1]/np.cos(y[i]),R[0][0]/np.cos(y[i])))
+		# z.append(-np.arctan2(R[0][1]/np.cos(y[i]),R[0][0]/np.cos(y[i])))
+		z.append(np.arctan2(-R[0][1]/np.cos(y[i]),R[0][0]/np.cos(y[i])))
 
 	# Angle for X
 	x = []
 	for i in range(len(y)):
-		# x.append(np.arctan2(R[2][1]/np.cos(y[i]),R[2][2]/np.cos(y[i])))
-		x.append(-np.arctan2(R[1][2]/np.cos(y[i]),R[2][2]/np.cos(y[i])))
+		# x.append(-np.arctan2(R[1][2]/np.cos(y[i]),R[2][2]/np.cos(y[i])))
+		x.append(np.arctan2(-R[1][2]/np.cos(y[i]),R[2][2]/np.cos(y[i])))
 
 	solutions = []
 
 	for i in range(len(y)):
 		rotation = np.array([x[i],y[i],z[i]])
 
+		# rotationVector = np.array([[np.cos(rotation[1])*np.cos(rotation[2]), 
+		# 	np.cos(rotation[1])*np.sin(rotation[2]), 
+		# 	-np.sin(rotation[1])],
+		# 	[np.sin(rotation[0])*np.sin(rotation[1])*np.cos(rotation[2])-np.cos(rotation[0])*np.sin(rotation[2]), 
+		# 	np.sin(rotation[0])*np.sin(rotation[1])*np.sin(rotation[2])+np.cos(rotation[0])*np.cos(rotation[2]), 
+		# 	np.sin(rotation[0])*np.cos(rotation[1])],
+		# 	[np.cos(rotation[0])*np.sin(rotation[1])*np.cos(rotation[2])+np.sin(rotation[0])*np.sin(rotation[2]), 
+		# 	np.cos(rotation[0])*np.sin(rotation[1])*np.sin(rotation[2])-np.sin(rotation[0])*np.cos(rotation[2]), 
+		# 	np.cos(rotation[0])*np.cos(rotation[1])]])
+
 		rotationVector = np.array([[np.cos(rotation[1])*np.cos(rotation[2]), 
-			np.cos(rotation[1])*np.sin(rotation[2]), 
+			-np.cos(rotation[1])*np.sin(rotation[2]), 
 			-np.sin(rotation[1])],
 			[np.sin(rotation[0])*np.sin(rotation[1])*np.cos(rotation[2])-np.cos(rotation[0])*np.sin(rotation[2]), 
 			np.sin(rotation[0])*np.sin(rotation[1])*np.sin(rotation[2])+np.cos(rotation[0])*np.cos(rotation[2]), 
-			np.sin(rotation[0])*np.cos(rotation[1])],
+			-np.sin(rotation[0])*np.cos(rotation[1])],
 			[np.cos(rotation[0])*np.sin(rotation[1])*np.cos(rotation[2])+np.sin(rotation[0])*np.sin(rotation[2]), 
 			np.cos(rotation[0])*np.sin(rotation[1])*np.sin(rotation[2])-np.sin(rotation[0])*np.cos(rotation[2]), 
 			np.cos(rotation[0])*np.cos(rotation[1])]])
@@ -233,9 +248,9 @@ def extractangles(R,l,r):
 			print("Unable to solve for the alignment.")
 			return 0,0,0
 
-		v = -np.rad2deg(y[index])
-		h2 = -np.rad2deg(x[index])
-		h1 = -np.rad2deg(z[index])
+		v = np.rad2deg(y[index])
+		h2 = np.rad2deg(x[index])
+		h1 = np.rad2deg(z[index])
 
 		if ((-360 < v < 360) & (-90 < h2 < 90) & (-90 < h1 < 90)):
 			success = True
@@ -249,4 +264,5 @@ def extractangles(R,l,r):
 				print('Please select the points properly.')
 				return 0, 0, 0
 
+	# Angles must be applied in zyx order.
 	return h2, v, h1

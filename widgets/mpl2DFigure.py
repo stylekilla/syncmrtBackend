@@ -108,7 +108,8 @@ class mpl2DFigure:
 		self.ax.set_xlim(extent[0:2])
 		self.ax.set_ylim(extent[2:4])
 		# self.ax.margins(0.1) Not doing anything currently... because of the two lines above.
-		self.ax.set_autoscale_on(False)
+		# self.ax.set_autoscale_on(False)
+		self.ax.set_aspect("equal", "datalim")
 		self.canvas.draw()
 		# Start Callback ID
 		self.cid = self.canvas.mpl_connect('button_press_event', self.eventFilter)

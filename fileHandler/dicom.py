@@ -95,7 +95,7 @@ class importCT:
 		else:
 			# Special case for sitting objects on CT table in upright position (essentially a sitting patient).
 			print('Executed special case in syncmrt.fileHandler.dicom.py')
-			self.array, self.arrayExtent = gpu.rotate(0,90,0,order='ct-hfs')
+			self.array, self.arrayExtent = gpu.rotate(155,-90,0,order='ct-hfs')
 
 		self.pixelSize = gpu.pixelSize
 
