@@ -82,6 +82,9 @@ class mpl2DFigure:
 			# 2D Image (General X-ray).
 			self.data2d = np.array(self.data3d)
 			self.extent = extent
+
+		# Rescale 2d image between 0 and 65535 (16bit)
+		self.imageNormalise()
 			
 		# if imageOrientation == 'HFS':
 		# 	if imageIndex == 0:
@@ -135,10 +138,21 @@ class mpl2DFigure:
 		else:
 			pass
 
+		# Rescale 2d image between 0 and 65535 (16bit)
+		self.imageNormalise()
 		self.image.set_data(self.data2d)
 		self.image.set_clim(vmin=self.data2d.min())
 		self.image.set_clim(vmax=self.data2d.max())
 		self.canvas.draw()
+
+	def imageNormalise(self,lower=0,upper=65535):
+		# 16-bit image: 65536 levels.
+		maximum = np.amax(self.data2d)
+		# Find second smallest number (assuming smallest is now zero due to earlier masking).
+		minimum = np.unique(self.data2d)[1]
+		scale = (upper-lower)/np.absolute(maximum-minimum)
+		self.data2d[self.data2d == 0] = minimum
+		self.data2d = (self.data2d - minimum)*scale
 
 	def markerAdd(self,x,y):
 		'''Append marker position if it is within the maximum marker limit.'''
