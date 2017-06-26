@@ -70,21 +70,7 @@ class gpuInterface:
 			# z 	patient support angle
 			# x 	gantry angle
 			# z1 	collimator angle
-
 			rz = q.rotation(z,axis=zaxis)
-			# rx = q.rotation(x,axis=xaxis)
-			# rxi = q.inverse(rx)
-			# tempaxis = q.quaternion(zaxis)
-			# newaxis = q.product(q.product(rx,tempaxis),rxi)
-			# newaxis = np.absolute(newaxis)
-			# rz1 = q.rotation(z1,axis=newaxis[1:])
-
-			# print('newaxis')
-			# print(newaxis)
-
-			# world = q.product(rx,rz)
-			# rotation = q.product(world,rz1)
-			
 			rzi = q.inverse(rz)
 			rz1 = q.rotation(z+z1,axis=zaxis)
 			tempaxis = q.quaternion(xaxis)
@@ -216,14 +202,18 @@ class gpuInterface:
 				blf[2],	trb[2]
 				])
 
-			# print('Params')
-			# print(vertices)
-			# print(orientation)
+			print('Params')
+			print('Rotation')
+			print(R)
+			print('vertices',vertices)
+			print('orientation',orientation)
+			print('old extent',self.extent)
+			print('new extent',extent)
 			# print(minimum)
 			# print(maximum)
-			# print(blf)
-			# print(trb)
-			# print('')
+			# print('blf',blf)
+			# print('trb',trb)
+			print('')
 
 		 # Send back array out, extent.
 		return self.arrOut, extent

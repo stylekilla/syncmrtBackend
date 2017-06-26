@@ -1,17 +1,19 @@
 import numpy as np
 from scipy import ndimage
 
-def optimiseFiducials(pts,data,dims,markersize):
+def optimiseFiducials(pts,data,dims,markersize,threshold):
 	'''
 	Optimise fiducials will take an ROI around a point and re-center it based on the pixel values.
 	- Requires points in mm
-	- requires dims in mm
+	- requires dims in mm (rows,cols)
 	- requires markerSize in mm
 	- requires pixel data array
 	- gives out points in mm
 	- input should be [row,col]; we have made exceptions to align x/y and row/col in here
 	'''
 	dims = np.flip(dims,0)
+	print(dims)
+
 	# Create array for optimised points.
 	pts_ctrds = np.zeros((np.shape(pts)))
 
@@ -32,9 +34,9 @@ def optimiseFiducials(pts,data,dims,markersize):
 		roi_cnr = np.array([x-x_roi,y-y_roi])
 
 		# Define thresholds of +/- X% of that value.
-		pct = 3
-		thresh_max = clr+np.absolute(clr*(pct/100))
-		thresh_min = clr-np.absolute(clr*(pct/100))
+		# pct = 3
+		thresh_max = clr+np.absolute(clr*(threshold/100))
+		thresh_min = clr-np.absolute(clr*(threshold/100))
 
 		# Mask the image.
 		roi[(roi<thresh_min)] = 0
@@ -42,8 +44,13 @@ def optimiseFiducials(pts,data,dims,markersize):
 		# Set remaining values to binary 1.
 		roi[(roi>0)] = 1
 
+		print(roi)
+
 		# Find connection maps of each element.
 		labels, index = ndimage.label(roi)
+
+		print(labels)
+		print(index)
 
 		# Create empty array size of indexes.
 		labels_com = np.zeros((index,2))
@@ -59,6 +66,7 @@ def optimiseFiducials(pts,data,dims,markersize):
 		# Test points.
 		test = np.absolute(labels_com-pts[i,:])
 		dist = np.zeros((index,1))
+
 		# Find the length of each set of points.
 		for j in range(index):
 			dist[j,0] = np.sqrt(test[j,0]**2 + test[j,1]**2)

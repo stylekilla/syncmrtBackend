@@ -110,8 +110,6 @@ class mpl2DFigure:
 		self.image = self.ax.imshow(self.data2d, cmap='bone', extent=self.extent)
 		self.ax.set_xlim(extent[0:2])
 		self.ax.set_ylim(extent[2:4])
-		# self.ax.margins(0.1) Not doing anything currently... because of the two lines above.
-		# self.ax.set_autoscale_on(False)
 		self.ax.set_aspect("equal", "datalim")
 		self.canvas.draw()
 		# Start Callback ID
@@ -222,15 +220,23 @@ class mpl2DFigure:
 
 		self.canvas.draw()
 
-	def markerOptimise(self,fiducialSize):
+	def markerOptimise(self,fiducialSize,threshold):
 		'''Optimise markers that are selected in plot.'''
 		# Remove any existing markers.
 		self.markerRemove(marker=-2)
 
 		# Call syncMRT optimise points module. Send points,data,dims,markersize.
 		pointsIn = np.column_stack((self.pointsX,self.pointsY))
-		points = optimiseFiducials(pointsIn,self.data2d,self.pixelSize,fiducialSize)
-		print('Optimised points and got back ,',points)
+		extent = self.image.get_extent()
+		pixelSize = np.array([(extent[3]-extent[2])/self.data2d.shape[0],
+			(extent[1]-extent[0])/self.data2d.shape[1]
+			])
+
+		print(extent)
+		print(self.data2d.shape)
+		print(pixelSize)
+
+		points = optimiseFiducials(pointsIn,self.data2d,pixelSize,fiducialSize,threshold)
 		self.pointsXoptimised = points[:,0]
 		self.pointsYoptimised = points[:,1]
 
