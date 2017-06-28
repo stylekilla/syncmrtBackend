@@ -75,16 +75,10 @@ class gpuInterface:
 			rz1 = q.rotation(z+z1,axis=zaxis)
 			tempaxis = q.quaternion(xaxis)
 			newaxis = q.product(q.product(rz,tempaxis),rzi)
-			print('newaxis')
-			print(newaxis)
 			rx = q.rotation(x,axis=newaxis[1:])
 			rotation = q.product(rz1,rx)
 
 			R = q.euler(rotation)
-
-			print('rotation')
-			print(R)
-			print('')
 
 		else:
 			# Assume xyz.
@@ -201,19 +195,6 @@ class gpuInterface:
 				blf[0],	trb[0],
 				blf[2],	trb[2]
 				])
-
-			print('Params')
-			print('Rotation')
-			print(R)
-			print('vertices',vertices)
-			print('orientation',orientation)
-			print('old extent',self.extent)
-			print('new extent',extent)
-			# print(minimum)
-			# print(maximum)
-			# print('blf',blf)
-			# print('trb',trb)
-			print('')
 
 		 # Send back array out, extent.
 		return self.arrOut, extent

@@ -233,9 +233,6 @@ def extractangles(R,l,r):
 		solutions.append(value)
 
 	# Find minimum error.
-	print('Solution List')
-	print(np.rad2deg(solutions))
-
 	errorList = []
 	for i in range(len(solutions)):
 		errorList.append(solutions[i][3])

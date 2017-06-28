@@ -210,13 +210,16 @@ class mpl2DFigure:
 			# Set to -2 to remove optimised markers as well.
 			marker = -2
 
-		if marker == -2:
+		elif marker == -2:
 			# Remove optimised markers, if any.
 			self.pointsXoptimised = []
 			self.pointsYoptimised = []
 			if len(self.markersListOptimised) > 0:
-				for index in range(len(self.markersListOptimised)):
-					self.markersListOptimised[index].remove()
+				for i in range(len(self.markersListOptimised)):
+					self.markersListOptimised[-1].remove()
+					del(self.markersListOptimised[-1])
+
+		else: return
 
 		self.canvas.draw()
 
@@ -228,15 +231,7 @@ class mpl2DFigure:
 		# Call syncMRT optimise points module. Send points,data,dims,markersize.
 		pointsIn = np.column_stack((self.pointsX,self.pointsY))
 		extent = self.image.get_extent()
-		pixelSize = np.array([(extent[3]-extent[2])/self.data2d.shape[0],
-			(extent[1]-extent[0])/self.data2d.shape[1]
-			])
-
-		print(extent)
-		print(self.data2d.shape)
-		print(pixelSize)
-
-		points = optimiseFiducials(pointsIn,self.data2d,pixelSize,fiducialSize,threshold)
+		points = optimiseFiducials(pointsIn,self.data2d,extent,fiducialSize,threshold)
 		self.pointsXoptimised = points[:,0]
 		self.pointsYoptimised = points[:,1]
 
