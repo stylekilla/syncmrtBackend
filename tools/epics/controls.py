@@ -1,4 +1,4 @@
-from PyQt5 import QtGui, uic, QtWidgets, QtCore
+x	
 from epics import PV
 from functools import partial
 import numpy as np
@@ -111,7 +111,36 @@ class QEMotor(QtWidgets.QWidget):
 		# self.labelMotorName.setText(motor)
 
 	def connectPV(self):
-		pass
+		# Read Back Value
+		try:
+			self.pvRBV = epics.PV(self.pv+'.RBV')
+			self.guiRBV.setEnabled(True)
+		except:
+			self.guiRBV.setEnabled(False)
+		# Value to put to motor
+		try:
+			self.pvVAL = epics.PV(self.pv+'.VAL')
+			self.guiVAL.setEnabled(True)
+		except:
+			self.guiVAL.setEnabled(False)
+		# Tweak Value
+		try:
+			self.pvTWV = epics.PV(self.pv+'.TWV')
+			self.guiTWV.setEnabled(True)
+		except:
+			self.guiTWV.setEnabled(False)
+		# Tweak Reverse/forward
+		try:
+			self.pvTWR = epics.PV(self.pv+'.TWR')
+			self.guiTWR.setEnabled(True)
+		except:
+			self.guiTWR.setEnabled(False)
+		# Tweak Reverse/forward
+		try:
+			self.pvTWF = epics.PV(self.pv+'.TWF')
+			self.guiTWF.setEnabled(True)
+		except:
+			self.guiTWF.setEnabled(False)
 
 	def motorPosition(self):
 		pass
@@ -140,25 +169,70 @@ class QEMotorSimple(QtWidgets.QWidget):
 		uic.loadUi(fp,self)
 
 		# Set text label
-		self.labelMotorName.setText(motor)
+		self.name.setText(motor)
+
+		# Record PV root information and connect to motors.
+		self.pvBase = pv
+		self.pv = {}
+		self.connectPV()
 
 	def connectPV(self):
-		pass
+		try:
+			# Read Back Value
+			self.pv['RBV'] = epics.PV(self.pvBase+'.RBV',callback=self.updateRBV)
+			self.guiRBV.setEnabled(True)
+			self.guiRBV.setText(self.pv['RBV'].get())
+			# self.guiRBV.setValidator(QEFloatValidator)
+			# self.pvRBV.add_callback(self.motorUpdate)
+		except:
+			self.guiRBV.setEnabled(False)
+		try:
+			# Value to put to motor
+			self.pv['VAL'] = epics.PV(self.pvBase+'.VAL')
+			self.guiVAL.setValidator(QEFloatValidator)
+			self.guiVAL.setEnabled(True)
+			self.guiVAL.textChanged.connect(partial(self.writeValue,attribute='VAL',value=float(self.guiVAL.text())))
+		except:
+			self.guiVAL.setEnabled(False)
+		try:
+			# Tweak Value
+			self.pv['TWV'] = epics.PV(self.pvBase+'.TWV')
+			self.guiTWV.setValidator(QEFloatValidator)
+			self.guiTWV.setEnabled(True)
+			self.guiTWV.textChanged.connect(partial(self.writeValue,attribute='TWV',value=float(self.guiTWV.text())))
+		except:
+			self.guiTWV.setEnabled(False)
+		try:
+			# Tweak Reverse/forward
+			self.pv['TWR'] = epics.PV(self.pvBase+'.TWR')
+			self.guiTWR.setEnabled(True)
+			self.guiTWR.clicked.connect(partial(self.writeValue,attribute='TWR',value=1))
+		except:
+			self.guiTWR.setEnabled(False)
+		try:
+			# Tweak Reverse/forward
+			self.pv['TWF'] = epics.PV(self.pvBase+'.TWF')
+			self.guiTWF.setEnabled(True)
+			self.guiTWF.clicked.connect(partial(self.writeValue,attribute='TWR',value=1))
+		except:
+			self.guiTWF.setEnabled(False)
 
-	def motorPosition(self):
-		pass
+	def updateRBV(self,pvname=None,value=None,**kw):
+		'''Callback function for when the motor value updates.'''
+		self.guiRBV.setText(value)
 
-	def moveStep(self,direction,limit=False):
-		if direction == 'forward':
-			if limit:
-				pass
-			else:
-				pass
-		elif direction == 'backward':
-			if limit:
-				pass
-			else:
-				pass
+	def writeValue(self,attribute,value):
+		'''Write a value to a PV.'''
+		# If the motor is currently moving, do nothing. Unless it is the TWV, that doesn't matter.
+		if attribute == 'TWV':
+			# Update tweak value.
+			self.pv[attribute].put(value)
+		elif self.pv['VAL'].status:
+			# If we are moving, do nothing.
+			return
+		else:
+			# If no special case is executed, then write the value.
+			self.pv[attribute].put(value)
 
 class QEMotorComplex(QtWidgets.QWidget):
 	''' A simple layout for epics control in Qt5. Based of a QtWidget.'''
@@ -171,7 +245,36 @@ class QEMotorComplex(QtWidgets.QWidget):
 		# self.labelMotorName.setText(motor)
 
 	def connectPV(self):
-		pass
+		# Read Back Value
+		try:
+			self.pvRBV = epics.PV(self.pv+'.RBV')
+			self.guiRBV.setEnabled(True)
+		except:
+			self.guiRBV.setEnabled(False)
+		# Value to put to motor
+		try:
+			self.pvVAL = epics.PV(self.pv+'.VAL')
+			self.guiVAL.setEnabled(True)
+		except:
+			self.guiVAL.setEnabled(False)
+		# Tweak Value
+		try:
+			self.pvTWV = epics.PV(self.pv+'.TWV')
+			self.guiTWV.setEnabled(True)
+		except:
+			self.guiTWV.setEnabled(False)
+		# Tweak Reverse/forward
+		try:
+			self.pvTWR = epics.PV(self.pv+'.TWR')
+			self.guiTWR.setEnabled(True)
+		except:
+			self.guiTWR.setEnabled(False)
+		# Tweak Reverse/forward
+		try:
+			self.pvTWF = epics.PV(self.pv+'.TWF')
+			self.guiTWF.setEnabled(True)
+		except:
+			self.guiTWF.setEnabled(False)
 
 	def motorPosition(self):
 		pass
@@ -194,55 +297,3 @@ class QEFloatValidator(QtGui.QDoubleValidator):
 		super().__init__()
 		self.setDecimals(3)
 		self.setBottom(0)
-
-
-
-
-
-'''
-import epics
-import time
-def onChanges(pvname=None, value=None, char_value=None, **kw):
-	print 'PV Changed! ', pvname, char_value, time.ctime()
-
-
-mypv = epics.PV(pvname)
-mypv.add_callback(onChanges)
-
-print 'Now wait for changes'
-
-t0 = time.time()
-while time.time() - t0 < 60.0:
-	time.sleep(1.e-3)
-print 'Done.'
-'''
-
-
-'''
-# example of using a connection callback that will be called
-# for any change in connection status
-
-import epics
-import time
-import sys
-from  pvnames import motor1
-
-write = sys.stdout.write
-def onConnectionChange(pvname=None, conn= None, **kws):
-	write('PV connection status changed: %s %s\n' % (pvname,  repr(conn)))
-	sys.stdout.flush()
-
-def onValueChange(pvname=None, value=None, host=None, **kws):
-	write('PV value changed: %s (%s)  %s\n' % ( pvname, host, repr(value)))
-	sys.stdout.flush()
-mypv = epics.PV(motor1, 
-				connection_callback= onConnectionChange,
-				callback= onValueChange)
-
-mypv.get()
-
-write('Now waiting, watching values and connection changes:\n')
-t0 = time.time()
-while time.time()-t0 < 300:
-	time.sleep(0.01)
-'''

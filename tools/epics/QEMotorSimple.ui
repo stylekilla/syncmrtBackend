@@ -48,7 +48,7 @@
     <number>0</number>
    </property>
    <item>
-    <widget class="QLabel" name="labelMotorName">
+    <widget class="QLabel" name="name">
      <property name="text">
       <string>MOTOR NAME</string>
      </property>
@@ -60,7 +60,10 @@
       <number>5</number>
      </property>
      <item>
-      <widget class="QLineEdit" name="currentPosition">
+      <widget class="QLineEdit" name="guiVAL">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -79,7 +82,10 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="limitUpper">
+      <widget class="QLineEdit" name="guiRBV">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -93,7 +99,7 @@
         </size>
        </property>
        <property name="text">
-        <string>0</string>
+        <string>-</string>
        </property>
       </widget>
      </item>
@@ -105,7 +111,10 @@
       <number>5</number>
      </property>
      <item>
-      <widget class="QPushButton" name="pbDecPos">
+      <widget class="QPushButton" name="guiTWR">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -124,7 +133,10 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="stepSize">
+      <widget class="QLineEdit" name="guiTWV">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="sizePolicy">
         <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -149,7 +161,10 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="pbIncPos">
+      <widget class="QPushButton" name="guiTWF">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
