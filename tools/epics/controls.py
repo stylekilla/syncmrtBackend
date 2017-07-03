@@ -1,5 +1,5 @@
-x	
-from epics import PV
+import epics
+from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from functools import partial
 import numpy as np
 import csv
@@ -23,6 +23,7 @@ class controlsPage:
 		parent.setLayout(self.layout)
 		self.motorList = controlsList(fp)
 		self.currentList = []
+		self.currentWidgetList = []
 		# Level changes from simple, normal to complex modes.
 		self.level = level
 		# Set amount of columns in grid layout.
@@ -41,6 +42,7 @@ class controlsPage:
 				elif self.level == 'complex': motorWidget = QEMotorComplex(group,name,pv)
 				self.layout.addWidget(motorWidget)
 				self.currentList.append(motor)
+				self.currentWidgetList.append(motorWidget)
 
 	def addMotorGroup(self,group):
 		# Find and add motors to page.
@@ -53,13 +55,15 @@ class controlsPage:
 				elif self.level == 'complex': motorWidget = QEMotorComplex(group,name,pv)
 				self.layout.addWidget(motorWidget)
 				self.currentList.append(motor)
+				self.currentWidgetList.append(motorWidget)
 
-	def changeLevel(self,level):
+	def setLevel(self,level):
 		self.level = level
 
 		# Remove all widgets and re-add them in level required.
 		for i in reversed(range(self.layout.count())): 
 			self.layout.itemAt(i).widget().setParent(None)
+		self.currentWidgetList = []
 
 		# Add back new ones.
 		for motor in self.currentList:
@@ -71,6 +75,13 @@ class controlsPage:
 			elif self.level == 'complex':
 				motorWidget = QEMotorComplex(group,name,pv)
 			self.layout.addWidget(motorWidget)
+			self.currentWidgetList.append(motorWidget)
+
+	def setReadOnly(self,state):
+		'''If read only then disable components of motor widgets that have moving capabilities.'''
+		for motorWidget in self.currentWidgetList:
+			motorWidget.setReadOnly(state)
+
 
 def controlsList(file):
 	''' CSV files must have three headers, Group Name and PV.'''
@@ -181,25 +192,26 @@ class QEMotorSimple(QtWidgets.QWidget):
 			# Read Back Value
 			self.pv['RBV'] = epics.PV(self.pvBase+'.RBV',callback=self.updateRBV)
 			self.guiRBV.setEnabled(True)
-			self.guiRBV.setText(self.pv['RBV'].get())
-			# self.guiRBV.setValidator(QEFloatValidator)
+			self.guiRBV.setReadOnly(True)
+			self.guiRBV.setText(str(self.pv['RBV'].get()))
+			self.guiRBV.setValidator(QEFloatValidator)
 			# self.pvRBV.add_callback(self.motorUpdate)
 		except:
 			self.guiRBV.setEnabled(False)
 		try:
 			# Value to put to motor
 			self.pv['VAL'] = epics.PV(self.pvBase+'.VAL')
-			self.guiVAL.setValidator(QEFloatValidator)
+			self.guiVAL.setValidator(QEFloatValidator())
 			self.guiVAL.setEnabled(True)
-			self.guiVAL.textChanged.connect(partial(self.writeValue,attribute='VAL',value=float(self.guiVAL.text())))
+			self.guiVAL.returnPressed.connect(partial(self.writeValue,attribute='VAL',value=float(self.guiVAL.text())))
 		except:
 			self.guiVAL.setEnabled(False)
 		try:
 			# Tweak Value
 			self.pv['TWV'] = epics.PV(self.pvBase+'.TWV')
-			self.guiTWV.setValidator(QEFloatValidator)
+			self.guiTWV.setValidator(QEFloatValidator())
 			self.guiTWV.setEnabled(True)
-			self.guiTWV.textChanged.connect(partial(self.writeValue,attribute='TWV',value=float(self.guiTWV.text())))
+			self.guiTWV.returnPressed.connect(partial(self.writeValue,attribute='TWV',value=float(self.guiTWV.text())))
 		except:
 			self.guiTWV.setEnabled(False)
 		try:
@@ -219,7 +231,7 @@ class QEMotorSimple(QtWidgets.QWidget):
 
 	def updateRBV(self,pvname=None,value=None,**kw):
 		'''Callback function for when the motor value updates.'''
-		self.guiRBV.setText(value)
+		self.guiRBV.setText(str(value))
 
 	def writeValue(self,attribute,value):
 		'''Write a value to a PV.'''
@@ -233,6 +245,13 @@ class QEMotorSimple(QtWidgets.QWidget):
 		else:
 			# If no special case is executed, then write the value.
 			self.pv[attribute].put(value)
+
+	def setReadOnly(self,state):
+		# Set all items to state = True/False
+		self.guiVAL.setEnabled(state)
+		self.guiTWV.setEnabled(state)
+		self.guiTWF.setEnabled(state)
+		self.guiTWR.setEnabled(state)
 
 class QEMotorComplex(QtWidgets.QWidget):
 	''' A simple layout for epics control in Qt5. Based of a QtWidget.'''
