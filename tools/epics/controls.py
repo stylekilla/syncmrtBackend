@@ -98,80 +98,6 @@ def controlsList(file):
 
 	return controls
 
-
-class QEMotor(QtWidgets.QWidget):
-	''' A simple layout for epics control in Qt5. Based of a QtWidget.'''
-	def __init__(self,group,motor,pv,parent=None):
-		QtWidgets.QWidget.__init__(self,parent)
-		fp = os.path.join(os.path.dirname(__file__),"QEMotor.ui")
-		uic.loadUi(fp,self)
-
-		# Setup validators for inputs.
-		self.stepSize.setValidator(QEFloatValidator())
-		self.limitLower.setValidator(QEFloatValidator())
-		self.limitUpper.setValidator(QEFloatValidator())
-		self.currentPosition.setValidator(QEFloatValidator())
-
-		# Connect buttons.
-		self.pbStepsizeMuchSmaller.clicked.connect(partial(self.adjustStepSize,0.1))
-		self.pbStepsizeSmaller.clicked.connect(partial(self.adjustStepSize,0.5))
-		self.pbStepsizeLarger.clicked.connect(partial(self.adjustStepSize,2))
-		self.pbStepsizeMuchLarger.clicked.connect(partial(self.adjustStepSize,10))
-
-		# Set text label
-		# self.labelMotorName.setText(motor)
-
-	def connectPV(self):
-		# Read Back Value
-		try:
-			self.pvRBV = epics.PV(self.pv+'.RBV')
-			self.guiRBV.setEnabled(True)
-		except:
-			self.guiRBV.setEnabled(False)
-		# Value to put to motor
-		try:
-			self.pvVAL = epics.PV(self.pv+'.VAL')
-			self.guiVAL.setEnabled(True)
-		except:
-			self.guiVAL.setEnabled(False)
-		# Tweak Value
-		try:
-			self.pvTWV = epics.PV(self.pv+'.TWV')
-			self.guiTWV.setEnabled(True)
-		except:
-			self.guiTWV.setEnabled(False)
-		# Tweak Reverse/forward
-		try:
-			self.pvTWR = epics.PV(self.pv+'.TWR')
-			self.guiTWR.setEnabled(True)
-		except:
-			self.guiTWR.setEnabled(False)
-		# Tweak Reverse/forward
-		try:
-			self.pvTWF = epics.PV(self.pv+'.TWF')
-			self.guiTWF.setEnabled(True)
-		except:
-			self.guiTWF.setEnabled(False)
-
-	def motorPosition(self):
-		pass
-
-	def adjustStepSize(self,amount):
-		value = np.around(float(self.stepSize.text())*amount,decimals=3)
-		self.stepSize.setText(str(value))
-
-	def moveStep(self,direction,limit=False):
-		if direction == 'forward':
-			if limit:
-				pass
-			else:
-				pass
-		elif direction == 'backward':
-			if limit:
-				pass
-			else:
-				pass
-
 class QEMotorSimple(QtWidgets.QWidget):
 	''' A simple layout for epics control in Qt5. Based of a QtWidget.'''
 	def __init__(self,group,motor,pv,parent=None):
@@ -190,61 +116,85 @@ class QEMotorSimple(QtWidgets.QWidget):
 	def connectPV(self):
 		try:
 			# Read Back Value
-			self.pv['RBV'] = epics.PV(self.pvBase+'.RBV',callback=self.updateRBV)
+			self.pv['RBV'] = epics.PV(self.pvBase+'.RBV',callback=partial(self.updateValue, attribute='RBV') )
 			self.guiRBV.setEnabled(True)
 			self.guiRBV.setReadOnly(True)
 			self.guiRBV.setText(str(self.pv['RBV'].get()))
 			self.guiRBV.setValidator(QEFloatValidator)
-			# self.pvRBV.add_callback(self.motorUpdate)
 		except:
 			self.guiRBV.setEnabled(False)
 		try:
+			# Read Back Value
+			self.pv['DMOV'] = epics.PV(self.pvBase+'.DMOV')
+		except:
+			pass
+		try:
 			# Value to put to motor
-			self.pv['VAL'] = epics.PV(self.pvBase+'.VAL')
+			self.pv['VAL'] = epics.PV(self.pvBase+'.VAL',callback=partial(self.updateValue, attribute='VAL') )
 			self.guiVAL.setValidator(QEFloatValidator())
 			self.guiVAL.setEnabled(True)
-			self.guiVAL.returnPressed.connect(partial(self.writeValue,attribute='VAL',value=float(self.guiVAL.text())))
+			self.guiVAL.returnPressed.connect(partial(self.writeValue,attribute='VAL'))
 		except:
 			self.guiVAL.setEnabled(False)
 		try:
 			# Tweak Value
-			self.pv['TWV'] = epics.PV(self.pvBase+'.TWV')
+			self.pv['TWV'] = epics.PV(self.pvBase+'.TWV',callback=partial(self.updateValue, attribute='TWV') )
 			self.guiTWV.setValidator(QEFloatValidator())
 			self.guiTWV.setEnabled(True)
-			self.guiTWV.returnPressed.connect(partial(self.writeValue,attribute='TWV',value=float(self.guiTWV.text())))
+			self.guiTWV.returnPressed.connect(partial(self.writeValue,attribute='TWV'))
 		except:
 			self.guiTWV.setEnabled(False)
 		try:
-			# Tweak Reverse/forward
+			# Tweak Reverse
 			self.pv['TWR'] = epics.PV(self.pvBase+'.TWR')
 			self.guiTWR.setEnabled(True)
-			self.guiTWR.clicked.connect(partial(self.writeValue,attribute='TWR',value=1))
+			self.guiTWR.clicked.connect(partial(self.writeValue,attribute='TWR'))
 		except:
 			self.guiTWR.setEnabled(False)
 		try:
-			# Tweak Reverse/forward
+			# Tweak Forward
 			self.pv['TWF'] = epics.PV(self.pvBase+'.TWF')
 			self.guiTWF.setEnabled(True)
-			self.guiTWF.clicked.connect(partial(self.writeValue,attribute='TWR',value=1))
+			self.guiTWF.clicked.connect(partial(self.writeValue,attribute='TWF'))
 		except:
 			self.guiTWF.setEnabled(False)
 
-	def updateRBV(self,pvname=None,value=None,**kw):
+	def updateValue(self,attribute,pvname=None,value=None,**kw):
 		'''Callback function for when the motor value updates.'''
-		self.guiRBV.setText(str(value))
+		value = str('{0:.4f}'.format(value))
 
-	def writeValue(self,attribute,value):
+		if attribute == 'RBV':
+			self.guiRBV.setText(value)
+		elif attribute == 'VAL':
+			self.guiVAL.setText(value)
+		elif attribute == 'TWV':
+			self.guiTWV.setText(value)
+		else:
+			pass
+
+	def writeValue(self,attribute):
 		'''Write a value to a PV.'''
 		# If the motor is currently moving, do nothing. Unless it is the TWV, that doesn't matter.
 		if attribute == 'TWV':
 			# Update tweak value.
-			self.pv[attribute].put(value)
-		elif self.pv['VAL'].status:
+			self.pv[attribute].put( 
+				float(self.guiTWV.getText())
+				)
+		elif self.pv['DMOV'].get() == 0:
 			# If we are moving, do nothing.
 			return
 		else:
-			# If no special case is executed, then write the value.
-			self.pv[attribute].put(value)
+			if attribute == 'TWF':
+				# Update tweak value.
+				self.pv[attribute].put(1)			
+			elif attribute == 'TWR':
+				# Update tweak value.
+				self.pv[attribute].put(1)
+			elif attribute == 'VAL':
+				# Put motor value.
+				self.pv[attribute].put( float(self.guiVAL.getText()) )
+			else:
+				pass
 
 	def setReadOnly(self,state):
 		# Set all items to state = True/False
@@ -253,63 +203,13 @@ class QEMotorSimple(QtWidgets.QWidget):
 		self.guiTWF.setEnabled(state)
 		self.guiTWR.setEnabled(state)
 
-class QEMotorComplex(QtWidgets.QWidget):
-	''' A simple layout for epics control in Qt5. Based of a QtWidget.'''
+class QEMotor(QEMotorSimple):
 	def __init__(self,group,motor,pv,parent=None):
-		QtWidgets.QWidget.__init__(self,parent)
-		fp = os.path.join(os.path.dirname(__file__),"QEMotorComplex.ui")
-		uic.loadUi(fp,self)
+		super().__init__(group,motor,pv,parent)
 
-		# Set text label
-		# self.labelMotorName.setText(motor)
-
-	def connectPV(self):
-		# Read Back Value
-		try:
-			self.pvRBV = epics.PV(self.pv+'.RBV')
-			self.guiRBV.setEnabled(True)
-		except:
-			self.guiRBV.setEnabled(False)
-		# Value to put to motor
-		try:
-			self.pvVAL = epics.PV(self.pv+'.VAL')
-			self.guiVAL.setEnabled(True)
-		except:
-			self.guiVAL.setEnabled(False)
-		# Tweak Value
-		try:
-			self.pvTWV = epics.PV(self.pv+'.TWV')
-			self.guiTWV.setEnabled(True)
-		except:
-			self.guiTWV.setEnabled(False)
-		# Tweak Reverse/forward
-		try:
-			self.pvTWR = epics.PV(self.pv+'.TWR')
-			self.guiTWR.setEnabled(True)
-		except:
-			self.guiTWR.setEnabled(False)
-		# Tweak Reverse/forward
-		try:
-			self.pvTWF = epics.PV(self.pv+'.TWF')
-			self.guiTWF.setEnabled(True)
-		except:
-			self.guiTWF.setEnabled(False)
-
-	def motorPosition(self):
-		pass
-
-	def moveStep(self,direction,limit=False):
-		if direction == 'forward':
-			if limit:
-				pass
-			else:
-				pass
-		elif direction == 'backward':
-			if limit:
-				pass
-			else:
-				pass
-
+class QEMotorComplex(QEMotor):
+	def __init__(self,group,motor,pv,parent=None):
+		super().__init__(group,motor,pv,parent)
 
 class QEFloatValidator(QtGui.QDoubleValidator):
 	def __init__(self):

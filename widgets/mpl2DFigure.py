@@ -137,28 +137,33 @@ class mpl2DFigure:
 			pass
 
 		# Rescale 2d image between 0 and 65535 (16bit)
-		print('Normalise in image window.')
-		self.imageNormalise()
+		self.imageNormalise(mask=True)
 		self.image.set_data(self.data2d)
 		self.image.set_clim(vmin=self.data2d.min())
 		self.image.set_clim(vmax=self.data2d.max())
 		self.canvas.draw()
 
-	def imageNormalise(self,lower=0,upper=65535):
-		# I seem to be getting vals below 0 after normalisation??? Why?
-
+	def imageNormalise(self,lower=0,upper=65535,mask=False):
 		# 16-bit image: 65536 levels.
 		maximum = np.amax(self.data2d)
-		# Find second smallest number (assuming smallest is now zero due to earlier masking).
-		minimum = np.unique(self.data2d)[1]
-		scale = (upper-lower)/np.absolute(maximum-minimum)
-		self.data2d[self.data2d == 0] = minimum
-		self.data2d = (self.data2d - minimum)*scale
+		if mask:
+			# Find second smallest number (assuming smallest is now zero due to earlier masking).
+			try:
+				minimum = np.unique(self.data2d)[1]
+			except: 
+				minimum = np.amin(self.data2d)
 
-		print('scale:',scale)
-		print('data2d shape:',self.data2d.shape)
-		print('data2d min:',self.data2d.min())
-		print('data2d max:',self.data2d.max())
+		else:
+			minimum = np.amin(self.data2d)
+
+		test = np.absolute(maximum-minimum)
+		if test == 0:
+			test = 1
+
+		scale = (upper-lower)/test
+
+		self.data2d = (self.data2d - minimum)*scale
+		self.data2d[self.data2d<0] = 0
 
 	def markerAdd(self,x,y):
 		'''Append marker position if it is within the maximum marker limit.'''
