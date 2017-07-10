@@ -244,7 +244,8 @@ class mpl2DFigure:
 		# Call syncMRT optimise points module. Send points,data,dims,markersize.
 		pointsIn = np.column_stack((self.pointsX,self.pointsY))
 		extent = self.image.get_extent()
-		points = optimiseFiducials(pointsIn,self.data2d,extent,fiducialSize,threshold)
+		# points = optimiseFiducials(pointsIn,self.data2d,extent,fiducialSize,threshold)
+		points = optimiseFiducials(pointsIn,np.array(self.data2d),extent,fiducialSize,threshold)
 		self.pointsXoptimised = points[:,0]
 		self.pointsYoptimised = points[:,1]
 

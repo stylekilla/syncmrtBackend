@@ -31,6 +31,13 @@ def optimiseFiducials(pts,data,extent,markersize,threshold):
 	x_roi = int(markersize*3/pixelSize[0])
 	y_roi = int(markersize*3/pixelSize[1])
 
+	'''TESTING: saving ims for inspection in imageJ'''
+	from skimage.external import tifffile as tif
+	import datetime
+	time = datetime.datetime.now().time()
+	name = "dump/"+str(time.second)+str(time.microsecond)+"entireImage.tif"
+	tif.imsave(name,data)
+
 	# Iterate over number of points.
 	for i in range(np.shape(pts)[0]):
 		# Select the coordinate in the array and sample the value.
@@ -40,6 +47,13 @@ def optimiseFiducials(pts,data,extent,markersize,threshold):
 
 		# Create ROI to look at.
 		roi = data[(y-y_roi):(y+y_roi),(x-x_roi):(x+x_roi)]
+
+		'''TESTING: saving ims for inspection in imageJ'''
+		from skimage.external import tifffile as tif
+		import datetime
+		time = datetime.datetime.now().time()
+		name = "dump/"+str(time.second)+str(time.microsecond)+"roiColor%i.tif"%i
+		tif.imsave(name,roi)
 
 		# Find ROI corner as y-x (vert-hor). This enables us to put our new values in the context of the larger array later.
 		roi_cnr = np.array([y-y_roi,x-x_roi])
@@ -58,7 +72,7 @@ def optimiseFiducials(pts,data,extent,markersize,threshold):
 		from skimage.external import tifffile as tif
 		import datetime
 		time = datetime.datetime.now().time()
-		name = str(time.second)+str(time.microsecond)+"roi%i.tif"%i
+		name = "dump/"+str(time.second)+str(time.microsecond)+"roiBW%i.tif"%i
 		tif.imsave(name,roi)
 
 		# Find connection maps of each element.

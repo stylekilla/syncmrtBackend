@@ -46,12 +46,14 @@ class affineTransform:
 			self.ct_p[i,:] = np.subtract(self.ct[i,:],self.ct_ctd)
 			self.synch_p[i,:] = np.subtract(self.synch[i,:],self.synch_ctd)
 
+		'''
 		if syncRotIsoc is not None:
 			# Find points in reference to synchrotron rotation isocenter.
 			self.synch_rotctd = synchRotIsoc + self.synch_ctd
 			self.synch_p = np.zeros([self.n,3])
 			for i in range(self.n):
 				self.synch_p[i,:] = np.subtract(self.synch[i,:],self.synch_rotctd)
+		'''
 
 		# Find the quaternion matrix, N.
 		self.N = quaternion(self.ct_p,self.synch_p)
@@ -80,7 +82,12 @@ class affineTransform:
 		ct_ctd2isoc = patientIsoc - self.ct_ctd
 
 		# Move synchrotron centroid to beam isocenter.
-		translation1 = synchBeamIsoc - self.ct_ctd
+		if synchRotIsoc is not None:
+			# Find where the centroid is after rotation.
+			self.synch_rotctd = np.dot(self.synch_ctd,R)
+			translation1 = synchBeamIsoc - self.synch_rotctd
+		else:
+			translation1 = synchBeamIsoc - self.ct_ctd
 
 		# Move patient isocenter to beam isocenter.
 		translation2 = synchBeamIsoc - ct_ctd2isoc
