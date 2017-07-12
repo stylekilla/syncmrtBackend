@@ -5,6 +5,8 @@ import numpy as np
 ASSUMPTIONS:
 	1. That the orientation of the two objects are the same vertically (i.e. one cannot be upside down and the other upright.)
 	2. CT is left points in mm, XR is right points in mm.
+	3. User origin is in relation to Dicom origin.
+	4. All points are relative to the user origin.
 '''
 
 # Create a class to find the transform between two WCS's.
