@@ -11,7 +11,7 @@ ASSUMPTIONS:
 
 # Create a class to find the transform between two WCS's.
 class affineTransform:
-	def __init__(self,ctCS,synchCS,patientIsoc,synchRotIsoc=None):
+	def __init__(self,ctCS,synchCS,patientIsoc=None,synchRotIsoc=None):
 		self.advance = True
 
 		if type(ctCS) == type(int()):
@@ -81,7 +81,10 @@ class affineTransform:
 		synchBeamIsoc = np.array([0,0,0])
 
 		# Centroid to ptv isoc (according to the treatment plan).
-		ct_ctd2isoc = patientIsoc - self.ct_ctd
+		if patientIsoc is not None:
+			ct_ctd2isoc = patientIsoc - self.ct_ctd
+		else:
+			ct_ctd2isoc = np.array([0,0,0])
 
 		# Move synchrotron centroid to beam isocenter.
 		if synchRotIsoc is not None:
@@ -98,14 +101,14 @@ class affineTransform:
 		self.translation = translation1 + translation2
 
 		# Extract scale.
-		if syncRotIsoc is not None:
+		if synchRotIsoc is not None:
 			self.synch_p = np.zeros([self.n,3])
 			for i in range(self.n):
 				self.synch_p[i,:] = np.subtract(self.synch[i,:],self.synch_ctd)
-		self.scale = scale(self.ct_p,self.synch_p,self.R)
+		self.scale = getScale(self.ct_p,self.synch_p,self.R)
 
 # Obtain scale factor between coordinate systems. Requires left and right points in reference to centroids.
-def getscale(self,lp,rp,R):
+def getScale(lp,rp,R):
 	n = np.shape(lp)[0]
 
 	D = np.zeros((n,1))

@@ -64,3 +64,21 @@
 29632  2017-05-17_18:32:31 git push syncmrt imbl
 30719  2017-05-19_15:08:15 git status
 30718  2017-05-19_15:11:01 git pull syncmrt imbl
+30713  2017-05-19_17:12:33 git add .
+30714  2017-05-19_17:12:36 git commit -m "Fixed stuff but still sketchy. Need to fix rotation acceleration."
+30714  2017-05-19_17:12:46 git status
+30712  2017-05-19_17:13:25 git push syncmrt imbl
+29797  2017-07-03_12:28:50 git status
+29795  2017-07-03_12:29:13 git pull syncmrt imbl
+29795  2017-07-03_12:29:25 ls
+29795  2017-07-03_15:36:06 git status
+29796  2017-07-03_15:36:23 git add tools/epics/controls.py
+29797  2017-07-03_15:36:54 git commit -m "Epics integration r/w semi-working. Setting Value doesn't seems to always go back to zero."
+29794  2017-07-03_15:37:01 git push syncmrt imbl
+30205  2017-07-09_14:44:15 git status
+30205  2017-07-09_14:44:22 git pull origin imbl
+30202  2017-07-09_14:44:28 git pull syncmrt imbl
+30197  2017-07-10_11:55:54 cd ~
+31277  2017-07-12_10:04:10 git pull syncmrt imbl
+31307  2017-07-12_12:36:25 cd /mnt/imbl-imaging-data/IMBLstaff/Micah/scripts/
+31231  2017-07-12_15:37:52 git status
