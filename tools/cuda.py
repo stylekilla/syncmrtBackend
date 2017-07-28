@@ -5,7 +5,7 @@ from pycuda.compiler import SourceModule
 import numpy as np
 import site
 from math import sin, cos
-from syncmrt.tools.quaternions import quaternionMath as q
+from syncmrt.tools import quaternion as q
 
 '''
 Starts a GPU interface that we can run kernels from.
@@ -74,9 +74,9 @@ class gpuInterface:
 			rzi = q.inverse(rz)
 			rz1 = q.rotation(z+z1,axis=zaxis)
 			tempaxis = q.quaternion(xaxis)
-			newaxis = q.product(q.product(rz,tempaxis),rzi)
+			newaxis = q.product([rz,tempaxis,rzi])
 			rx = q.rotation(x,axis=newaxis[1:])
-			rotation = q.product(rz1,rx)
+			rotation = q.product([rz1,rx])
 
 			R = q.euler(rotation)
 
@@ -86,7 +86,7 @@ class gpuInterface:
 			ry = q.rotation(y,axis=yaxis)
 			rz = q.rotation(z,axis=zaxis)
 
-			rotation = q.product(q.product(rx,ry),rz)
+			rotation = q.product([rx,ry,rz])
 			R = q.euler(rotation)
 
 		# Force float32 before we send to c.

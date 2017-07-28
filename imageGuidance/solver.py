@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from syncmrt.tools import quaternion as quat
 
 '''
 ASSUMPTIONS:
@@ -7,11 +8,12 @@ ASSUMPTIONS:
 	2. CT is left points in mm, XR is right points in mm.
 	3. User origin is in relation to Dicom origin.
 	4. All points are relative to the user origin.
+	5. Both CT and Synchrotron orthogonal images are the same CW or CCW direction of the image.
 '''
 
 # Create a class to find the transform between two WCS's.
 class affineTransform:
-	def __init__(self,ctCS,synchCS,patientIsoc=None,synchRotIsoc=None):
+	def __init__(self,ctCS,synchCS,patientIsoc=None,synchIsoc=None,synchRotIsoc=None):
 		self.advance = True
 
 		if type(ctCS) == type(int()):
@@ -48,43 +50,35 @@ class affineTransform:
 			self.ct_p[i,:] = np.subtract(self.ct[i,:],self.ct_ctd)
 			self.synch_p[i,:] = np.subtract(self.synch[i,:],self.synch_ctd)
 
-		'''
-		if syncRotIsoc is not None:
-			# Find points in reference to synchrotron rotation isocenter.
-			self.synch_rotctd = synchRotIsoc + self.synch_ctd
-			self.synch_p = np.zeros([self.n,3])
-			for i in range(self.n):
-				self.synch_p[i,:] = np.subtract(self.synch[i,:],self.synch_rotctd)
-		'''
-
 		# Find the quaternion matrix, N.
 		self.N = quaternion(self.ct_p,self.synch_p)
 
 		# Solve eigenvals and vec that maximises rotation.
-		val, self.vec = eigensolve(self.N)
+		val, self.vec = eigen(self.N)
 
 		# Extract transformation quarternion from evec.
-		self.q = np.zeros((4,1))
+		self.q = np.zeros((4,))
 		self.q[0] = self.vec[0][0]
 		self.q[1] = self.vec[1][0]
 		self.q[2] = self.vec[2][0]
 		self.q[3] = self.vec[3][0]
 
 		# Compute rotation matrix, R.
-		self.R = rotationmatrix(self.q)
+		self.R = rotationMatrix(self.q)
 		self.R = np.reshape(self.R,(3,3))
 
 		# Extract individual angles in degrees.
-		self.theta, self.phi, self.gamma = extractangles(self.R,self.ct,self.synch)
+		self.x, self.y, self.z = angles(self.R,self.ct,self.synch)
 
 		# The xray goal is always 0,0,0. The isoc of the coordinate system at IMBL.
 		synchBeamIsoc = np.array([0,0,0])
 
+		# If no patient isocenter is defined, align to the centroid.
+		if patientIsoc is None:
+			patientIsoc = self.ct_ctd
+
 		# Centroid to ptv isoc (according to the treatment plan).
-		if patientIsoc is not None:
-			ct_ctd2isoc = patientIsoc - self.ct_ctd
-		else:
-			ct_ctd2isoc = np.array([0,0,0])
+		ct_ctd2isoc = patientIsoc - self.ct_ctd
 
 		# Move synchrotron centroid to beam isocenter.
 		if synchRotIsoc is not None:
@@ -105,10 +99,10 @@ class affineTransform:
 			self.synch_p = np.zeros([self.n,3])
 			for i in range(self.n):
 				self.synch_p[i,:] = np.subtract(self.synch[i,:],self.synch_ctd)
-		self.scale = getScale(self.ct_p,self.synch_p,self.R)
+		self.scale = scale(self.ct_p,self.synch_p,self.R)
 
 # Obtain scale factor between coordinate systems. Requires left and right points in reference to centroids.
-def getScale(lp,rp,R):
+def scale(lp,rp,R):
 	n = np.shape(lp)[0]
 
 	D = np.zeros((n,1))
@@ -152,7 +146,7 @@ def quaternion(l,r):
 	return N
 
 #  Find the eigenvector and eigenvalue for a given matrix.
-def eigensolve(arr):
+def eigen(arr):
 	#  Find the eigen vector and value of the array, arr.
 	e, v = np.linalg.eig(arr)
 
@@ -160,112 +154,58 @@ def eigensolve(arr):
 	val = np.amax(e)
 	ind = np.argmax(e)
 	i = np.unravel_index(ind,np.shape(e))
+
 	vec = v[:,i]
 
 	# Return the maximum eigenvalue and corresponding eigenvector.
 	return val, vec
 
 # Find the rotation matrix for a given eigen-solution.
-def rotationmatrix(q):
+def rotationMatrix(q):
 	#  Calculate rotation matrix, R, based off quarternion input. This should be the eigenvector solution to N.
 	R = np.array([[(q[0]**2+q[1]**2-q[2]**2-q[3]**2), 2*(q[1]*q[2]-q[0]*q[3]), 2*(q[1]*q[3]+q[0]*q[2])],
 	[2*(q[2]*q[1]+q[0]*q[3]), (q[0]**2-q[1]**2+q[2]**2-q[3]**2), 2*(q[2]*q[3]-q[0]*q[1])],
 	[2*(q[3]*q[1]-q[0]*q[2]), 2*(q[3]*q[2]+q[0]*q[1]), (q[0]**2-q[1]**2-q[2]**2+q[3]**2)]])
 
-	# Order of rotation? XYZ or ZYX?
-
-	# Return the rotation matrix, R.
+	# Return the rotation matrix, R. This is in the form of Rz*Ry*Rx, x -> y -> z. 
+	# This matrix is orthogonal (no translations or reflections.)
 	return R
 
 # Extract individual rotations around the x, y and z axis seperately. 
-def extractangles(R,l,r):
-	# x -> H2
-	# y -> H1
-	# z -> vertical
-	# Two possible angles for x.
+def angles(R,l,r):
+	# Two possible angles for y.
 	y = []
-	# y.append(-np.arcsin(R[2][0]))
-	# y.append(np.pi-np.arcsin(R[2][0]))
-	y.append(np.arcsin(R[0][2]))
-	y.append(np.pi-np.arcsin(R[0][2]))
+	y.append(np.arcsin(R[2][0]))
+	y.append(np.pi-np.arcsin(R[2][0]))
 
 	# Angle for Z
 	z = []
 	for i in range(len(y)):
-		# z.append(-np.arctan2(R[0][1]/np.cos(y[i]),R[0][0]/np.cos(y[i])))
-		z.append(np.arctan2(-R[0][1]/np.cos(y[i]),R[0][0]/np.cos(y[i])))
+		z.append(np.arctan2(R[1][0]/np.cos(y[i]),R[0][0]/np.cos(y[i])))
+
 
 	# Angle for X
 	x = []
 	for i in range(len(y)):
-		# x.append(-np.arctan2(R[1][2]/np.cos(y[i]),R[2][2]/np.cos(y[i])))
-		x.append(np.arctan2(-R[1][2]/np.cos(y[i]),R[2][2]/np.cos(y[i])))
-
-	solutions = []
-
-	for i in range(len(y)):
-		rotation = np.array([x[i],y[i],z[i]])
-
-		# rotationVector = np.array([[np.cos(rotation[1])*np.cos(rotation[2]), 
-		# 	np.cos(rotation[1])*np.sin(rotation[2]), 
-		# 	-np.sin(rotation[1])],
-		# 	[np.sin(rotation[0])*np.sin(rotation[1])*np.cos(rotation[2])-np.cos(rotation[0])*np.sin(rotation[2]), 
-		# 	np.sin(rotation[0])*np.sin(rotation[1])*np.sin(rotation[2])+np.cos(rotation[0])*np.cos(rotation[2]), 
-		# 	np.sin(rotation[0])*np.cos(rotation[1])],
-		# 	[np.cos(rotation[0])*np.sin(rotation[1])*np.cos(rotation[2])+np.sin(rotation[0])*np.sin(rotation[2]), 
-		# 	np.cos(rotation[0])*np.sin(rotation[1])*np.sin(rotation[2])-np.sin(rotation[0])*np.cos(rotation[2]), 
-		# 	np.cos(rotation[0])*np.cos(rotation[1])]])
-
-		rotationVector = np.array([[np.cos(rotation[1])*np.cos(rotation[2]), 
-			-np.cos(rotation[1])*np.sin(rotation[2]), 
-			-np.sin(rotation[1])],
-			[np.sin(rotation[0])*np.sin(rotation[1])*np.cos(rotation[2])-np.cos(rotation[0])*np.sin(rotation[2]), 
-			np.sin(rotation[0])*np.sin(rotation[1])*np.sin(rotation[2])+np.cos(rotation[0])*np.cos(rotation[2]), 
-			-np.sin(rotation[0])*np.cos(rotation[1])],
-			[np.cos(rotation[0])*np.sin(rotation[1])*np.cos(rotation[2])+np.sin(rotation[0])*np.sin(rotation[2]), 
-			np.cos(rotation[0])*np.sin(rotation[1])*np.sin(rotation[2])-np.sin(rotation[0])*np.cos(rotation[2]), 
-			np.cos(rotation[0])*np.cos(rotation[1])]])
-
-		value = []
-		value.append(x[i])
-		value.append(y[i])
-		value.append(z[i])
-		error = 0
-		for i in range(len(l)):
-			# error += np.sum(np.square(np.absolute( (l[i].T - np.dot(R,r[i].T)) )))
-			error += np.sum(np.absolute( (l[i].T - np.dot(rotationVector,r[i].T)) ))
-
-		value.append(error)
-		solutions.append(value)
-
-	# Find minimum error.
-	errorList = []
-	for i in range(len(solutions)):
-		errorList.append(solutions[i][3])
+		x.append(np.arctan2(R[2][1]/np.cos(y[i]),R[2][2]/np.cos(y[i])))
 
 	success = False
-	while (success == False):
-		try:
-			index = np.argmin(errorList)
-		except:
-			print("Unable to solve for the alignment.")
-			return 0,0,0
+	while (success is False):
+		for i in range(len(y)):
+			xx = np.rad2deg(x[i])
+			yy = np.rad2deg(y[i])
+			zz = np.rad2deg(z[i])
 
-		v = np.rad2deg(y[index])
-		h2 = np.rad2deg(x[index])
-		h1 = np.rad2deg(z[index])
-
-		if ((-360 < v < 360) & (-90 < h2 < 90) & (-90 < h1 < 90)):
+		if ((-95 < xx < 95) & (-360 < yy < 360) & (-95 < zz < 95)):
 			success = True
 		else:
 			try:
-				del errorList[index]
-				del x[index]
-				del y[index]
-				del z[index]
+				del x[i]
+				del y[i]
+				del z[i]
 			except:
-				print('Please select the points properly.')
+				print('\033[91m Unable to solve for the alignment. Please select the points properly.')
 				return 0, 0, 0
 
-	# Angles must be applied in zyx order.
-	return h2, v, h1
+	# Angles must be applied in xyz order.
+	return xx,yy,zz

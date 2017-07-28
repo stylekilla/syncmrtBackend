@@ -18,10 +18,11 @@ class controlsPage:
 '''
 
 class controlsPage:
-	def __init__(self,level='simple',parent=None,fp='motorList.txt'):
+	def __init__(self,level='simple',parent=None,stages='motorList.txt',detectors='detectorList.txt'):
 		self.layout = QtWidgets.QGridLayout()
 		parent.setLayout(self.layout)
-		self.motorList = controlsList(fp)
+		self.motorList = importMotorList(stages)
+		self.detectorList = importDetectorList(detectors)
 		self.currentList = []
 		self.currentWidgetList = []
 		# Level changes from simple, normal to complex modes.
@@ -57,6 +58,25 @@ class controlsPage:
 				self.currentList.append(motor)
 				self.currentWidgetList.append(motorWidget)
 
+	def setMotorGroup(self,group):
+		# Remove all existing widgets.
+		for i in reversed(range(self.layout.count())): 
+			self.layout.itemAt(i).widget().setParent(None)
+		self.currentWidgetList = []
+		self.currentList = []
+
+		# Find and add motors to page.
+		for motor in self.motorList:
+			# print(motor)
+			if motor['Group'] == group:
+				group,name,pv = motor['Group'],motor['Name'],motor['PV']
+				if self.level == 'simple': motorWidget = QEMotorSimple(group,name,pv)
+				elif self.level == 'normal': motorWidget = QEMotor(group,name,pv)
+				elif self.level == 'complex': motorWidget = QEMotorComplex(group,name,pv)
+				self.layout.addWidget(motorWidget)
+				self.currentList.append(motor)
+				self.currentWidgetList.append(motorWidget)
+
 	def setLevel(self,level):
 		self.level = level
 
@@ -77,13 +97,17 @@ class controlsPage:
 			self.layout.addWidget(motorWidget)
 			self.currentWidgetList.append(motorWidget)
 
+	def setDetector(self,detector):
+		# self.
+		pass
+
 	def setReadOnly(self,state):
 		'''If read only then disable components of motor widgets that have moving capabilities.'''
 		for motorWidget in self.currentWidgetList:
 			motorWidget.setReadOnly(state)
 
 
-def controlsList(file):
+def importMotorList(file):
 	''' CSV files must have three headers, Group Name and PV.'''
 	''' CSV comments are made with a hashtag #.'''
 	# Open csv/txt file and read in.
@@ -91,13 +115,29 @@ def controlsList(file):
 	r = csv.DictReader(f)
 
 	# Save as ordered dict.
-	controls = []
+	theList = []
 	for row in r:
 		if row['Group'][0] != '#':
-			controls.append(row)
+			theList.append(row)
 
-	return controls
+	return theList
 
+def importDetectorList(file):
+	''' CSV files must have three headers, Group Name and PV.'''
+	''' CSV comments are made with a hashtag #.'''
+	# Open csv/txt file and read in.
+	f = open(os.path.join(os.path.dirname(__file__),file))
+	r = csv.DictReader(f)
+
+	# Save as ordered dict.
+	theList = []
+	for row in r:
+		if row['Name'][0] != '#':
+			theList.append(row)
+
+	return theList
+
+# Motors
 class QEMotorSimple(QtWidgets.QWidget):
 	''' A simple layout for epics control in Qt5. Based of a QtWidget.'''
 	def __init__(self,group,motor,pv,parent=None):
@@ -211,6 +251,22 @@ class QEMotorComplex(QEMotor):
 	def __init__(self,group,motor,pv,parent=None):
 		super().__init__(group,motor,pv,parent)
 
+# Detectors
+class QEDetector(QtWidgets.QWidget):
+	def __init__(self,group,motor,pv,parent=None):
+		QtWidgets.QWidget.__init__(self,parent)
+		# fp = os.path.join(os.path.dirname(__file__),"QEDetector.ui")
+		# uic.loadUi(fp,self)
+
+		# # Set text label
+		# self.name.setText(motor)
+
+		# # Record PV root information and connect to motors.
+		# self.pvBase = pv
+		# self.pv = {}
+		# self.connectPV()
+
+# Validators
 class QEFloatValidator(QtGui.QDoubleValidator):
 	def __init__(self):
 		super().__init__()
