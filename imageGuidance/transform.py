@@ -21,16 +21,16 @@ def secondaryTranslation(rotation,translation):
 	H1 = hyp*np.cos(phi)
 	H2 = hyp*np.sin(phi)
 
-	print('Results:')
-	print('rotation',rotation)
-	print('translation',translation)
-	print('a',a)
-	print('b',b)
-	print('theta',theta)
-	print('phi',np.rad2deg(phi))
-	print('hyp',hyp)
-	print('H1',H1)
-	print('H2',H2)
+	# print('Results:')
+	# print('rotation',rotation)
+	# print('translation',translation)
+	# print('a',a)
+	# print('b',b)
+	# print('theta',theta)
+	# print('phi',np.rad2deg(phi))
+	# print('hyp',hyp)
+	# print('H1',H1)
+	# print('H2',H2)
 
 	return H1, H2
 
