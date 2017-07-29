@@ -5,8 +5,8 @@ def secondaryTranslation(rotation,translation):
 	# Vector a, representing the current coordinate.
 	a = np.array(translation)
 
-	# Rotation happens CW on stage, mathematics requires CCW direction.
-	theta = np.deg2rad(-rotation)
+	# Rotation happens CCW on stage.
+	theta = np.deg2rad(rotation)
 
 	# Vector b, representing the first horizontal motor plane, we assume the second motor plane is orthogonal to it.
 	b = np.array([np.cos(theta),np.sin(theta)])
@@ -33,4 +33,3 @@ def secondaryTranslation(rotation,translation):
 	# print('H2',H2)
 
 	return H1, H2
-
