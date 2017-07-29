@@ -82,3 +82,9 @@
 31277  2017-07-12_10:04:10 git pull syncmrt imbl
 31307  2017-07-12_12:36:25 cd /mnt/imbl-imaging-data/IMBLstaff/Micah/scripts/
 31231  2017-07-12_15:37:52 git status
+31223  2017-07-12_15:37:56 git add .
+31224  2017-07-12_15:38:03 git commit -m "3B dev."
+31220  2017-07-12_15:38:15 git push syncmrt imbl
+31479  2017-07-28_15:39:03 git status
+31474  2017-07-28_15:39:08 git pull syncmrt imbl
+31474  2017-07-29_11:25:17 git status
