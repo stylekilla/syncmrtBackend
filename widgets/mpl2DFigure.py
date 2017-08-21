@@ -35,6 +35,7 @@ class mpl2DFigure:
 
 		self.overlay = {}
 		self.isocenter = [0,0]
+		self.ctd = None
 
 		self.fig = plt.figure()
 		self.fig.patch.set_facecolor('#000000')
@@ -181,6 +182,7 @@ class mpl2DFigure:
 
 	def markerUpdate(self,item):
 		'''Redraw all the markers to their updated positions.'''
+		# Item = qabstractitemmodel item linking to the marker to be changed.
 		if self.markerModel._locked:
 			pass
 		else:
@@ -209,7 +211,7 @@ class mpl2DFigure:
 
 	def markerRemove(self,marker=-1):
 		'''Clear the specified marker. Else clear all markers.'''
-		# Remove all markers:
+		# Remove all markers: 
 		if marker == -1:
 			self.i = 0
 			self.pointsX = []
@@ -272,6 +274,59 @@ class mpl2DFigure:
 			self.overlay['isocenterh'].remove()
 			self.overlay['isocenterv'].remove()
 
+		self.canvas.draw()
+
+	def overlayCentroid(self,state=False):
+		if self.ctd is not None:
+			if state is True:
+				# Plot overlay scatter points.
+				x,y = self.ctd
+				self.overlay['ctd'] = self.ax.scatter(x,y,c='b',marker='+',s=50)
+				self.overlay['ctdLabel'] = self.ax.text(x+1,y-3,'ctd',color='b')
+
+			else:
+				# Remove overlay scatter points.
+				self.overlay['ctd'].remove()
+				self.overlay['ctdLabel'].remove()
+
+			self.canvas.draw()
+
+	def setExtent(self,newExtent):
+		# Change extent and markers.
+		print('extent')
+		print(self.extent)
+		print(newExtent)
+
+		change = newExtent-self.extent
+
+		print('change')
+		print(change)
+
+		''' Update markers '''
+		# Get values and add changes.
+		for i in range(len(self.pointsX)):
+			self.pointsX[i] -= change[0]
+			self.pointsY[i] -= change[2]
+
+		x,y = self.pointsX,self.pointsY
+
+		# for key,val in self.pointsX.items():
+		# 	self.pointsX[key] += change[0]
+		# for key,val in self.pointsY.items():
+		# 	self.pointsY[key] += change[1]
+		# Get new positions
+		
+		# Remove markers
+		self.markerRemove()
+		# Add new points
+		for i in range(len(x)):
+			self.markerAdd(x[i],y[i])
+
+		# Update extent
+		self.extent = newExtent
+		self.image.set_extent(self.extent)
+
+		# Refresh
 		self.canvas.draw()
 
 	def eventFilter(self,event):

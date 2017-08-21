@@ -20,7 +20,7 @@ def importDicom(ds,modality):
 	return natsorted(files)
 
 class importCT:
-	def __init__(self,ds,arrayFormat='npy'):
+	def __init__(self,ds,arrayFormat='npy',skipGPU=False,skipGPUfiles=None):
 		'''importCT: Import the CT dataset and all it's relevant DICOM tags.'''
 		# Set list of filenames for dataset, reference file (first file in stack) and the filepath to the folder containing the dataset.
 		self.ds = ds
@@ -77,28 +77,33 @@ class importCT:
 		
 		self.ctExtent = np.array([y1,y2,x1,x2,z1,z2])
 
-		# GPU drivers.
-		gpu = gpuInterface()
-		gpu.copyTexture(self.ctArray,pixelSize=self.pixelSize,extent=self.ctExtent)
-
-		# Patient imaging orientation. (Rotation happens in [row,col,depth]).
-		if self.patientPosition == 'HFS':
-			# Head First, Supine.
-			# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
-			self.array, self.arrayExtent = gpu.rotate(0,-90,0,order='ct-hfs')
-		elif self.patientPosition == 'HFP':
-			pass
-		elif self.patientPosition == 'FFS':
-			pass
-		elif self.patientPosition == 'FFP':
-			pass
+		# Skip GPU if numpy files exist already. Primarily for testing.
+		if skipGPU:
+			self.array = np.load(skipGPUfiles)
+			self.arrayExtent = np.array([-6.26220705e+01,6.23781215e+01,-8.80625000e+01,6.25000000e-02,-6.23781215e+01,6.26220705e+01])
 		else:
-			# Special case for sitting objects on CT table in upright position (essentially a sitting patient).
-			print('Executed special case in syncmrt.fileHandler.dicom.py')
-			# self.array, self.arrayExtent = gpu.rotate(155,-90,0,order='ct-hfs')
-			self.array, self.arrayExtent = gpu.rotate(0,-90,0,order='ct-hfs')
+			# GPU drivers.
+			gpu = gpuInterface()
+			gpu.copyTexture(self.ctArray,pixelSize=self.pixelSize,extent=self.ctExtent)
 
-		self.pixelSize = gpu.pixelSize
+			# Patient imaging orientation. (Rotation happens in [row,col,depth]).
+			if self.patientPosition == 'HFS':
+				# Head First, Supine.
+				# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
+				self.array, self.arrayExtent = gpu.rotate(0,-90,0,order='ct-hfs')
+			elif self.patientPosition == 'HFP':
+				pass
+			elif self.patientPosition == 'FFS':
+				pass
+			elif self.patientPosition == 'FFP':
+				pass
+			else:
+				# Special case for sitting objects on CT table in upright position (essentially a sitting patient).
+				print('Executed special case in syncmrt.fileHandler.dicom.py')
+				# self.array, self.arrayExtent = gpu.rotate(155,-90,0,order='ct-hfs')
+				self.array, self.arrayExtent = gpu.rotate(0,-90,0,order='ct-hfs')
+
+			self.pixelSize = gpu.pixelSize
 
 		# Save
 		self.save3D(['ct0_dicom','ct1_correctlyOrientated'])

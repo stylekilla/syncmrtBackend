@@ -5,7 +5,7 @@ from pycuda.compiler import SourceModule
 import numpy as np
 import site
 from math import sin, cos
-from syncmrt.tools import quaternion as q
+from syncmrt.tools.math import quaternion as q
 
 '''
 Starts a GPU interface that we can run kernels from.
@@ -17,6 +17,12 @@ class gpuInterface:
 	def __init__(self):
 		self.arrIn = None
 		self.arrOut = None
+
+		# Some class members.
+		self.pixelSize = None
+		self.isocenter = None
+		self.extent = None
+		self.zeroExtent = False
 
 		'''
 		Do a device check?
@@ -149,7 +155,14 @@ class gpuInterface:
 		if (not(self.isocenter is None)):
 			self.isocenter = np.dot(self.isocenter,R)
 
-		# Find new extent.
+		# Calculate new extent.
+		extent = self.calculateExtent(R)
+
+		 # Send back array out, extent.
+		return self.arrOut, extent
+
+	def calculateExtent(self,R):
+		# Calculate new extent.
 		if (not(self.pixelSize is None)) & (not(self.extent is None)):			
 			# Row col depth is YXZ.
 			row,col,depth = self.arrOut.shape
@@ -196,5 +209,5 @@ class gpuInterface:
 				blf[2],	trb[2]
 				])
 
-		 # Send back array out, extent.
-		return self.arrOut, extent
+			print(extent)
+			return extent

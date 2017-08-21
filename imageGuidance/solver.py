@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from syncmrt.tools import quaternion as quat
+from syncmrt.tools.math import quaternion as quat
 
 '''
 ASSUMPTIONS:
@@ -68,7 +68,7 @@ class affineTransform:
 		self.R = np.reshape(self.R,(3,3))
 
 		# Extract individual angles in degrees.
-		self.x, self.y, self.z = angles(self.R,self.ct,self.synch)
+		self.rotation = angles(self.R,self.ct,self.synch)
 
 		# The xray goal is always 0,0,0. The isoc of the coordinate system at IMBL.
 		synchBeamIsoc = np.array([0,0,0])
@@ -87,10 +87,9 @@ class affineTransform:
 			translation1 = synchBeamIsoc - self.synch_rotctd
 		else:
 			translation1 = synchBeamIsoc - self.synch_ctd
-			# translation1 = synchBeamIsoc - self.ct_ctd SEEMS WRONG.
 
 		# Move patient isocenter to beam isocenter.
-		translation2 = synchBeamIsoc - ct_ctd2isoc
+		translation2 = synchBeamIsoc + ct_ctd2isoc
 
 		# Final translation is a combination of all other translations.
 		self.translation = translation1 + translation2
@@ -124,6 +123,8 @@ def scale(lp,rp,R):
 
 # Find the centroid of a set of points (pts).
 def centroid(pts):
+	print('centroid calc')
+	print(pts)
 	n = np.shape(pts)[0]
 	ctd = (1/n)*np.sum(pts,axis=0)
 	return ctd
@@ -204,7 +205,7 @@ def angles(R,l,r):
 			yy = np.rad2deg(y[i])
 			zz = np.rad2deg(z[i])
 
-		if ((-95 < xx < 95) & (-360 < yy < 360) & (-95 < zz < 95)):
+		if ((-95 < xx < 95) & (-95 < yy < 95) & (-360 < zz < 360)):
 			success = True
 		else:
 			try:
@@ -216,4 +217,4 @@ def angles(R,l,r):
 				return 0, 0, 0
 
 	# Angles must be applied in xyz order.
-	return xx,yy,zz
+	return np.array([xx,yy,zz])
