@@ -14,8 +14,10 @@ class newSystem(QtCore.QObject):
 		'''
 		super().__init__()
 
-		# Patient Positioning Motors
+		# Patient Positioning Stage Name
 		self.stage = None
+		self.patientMotorOrder = None
+		# Patient Positioning Motors
 		self.tx = None
 		self.ty = None
 		self.tz = None
@@ -41,16 +43,34 @@ class newSystem(QtCore.QObject):
 		self.beamIsoc = np.array([0,0,0])
 
 	def setStageConnected(self,state):
+		''' Set if the stage is connected or not. '''
 		self._isStageConnected = bool(state)
 		self.stageConnected.emit(self._isStageConnected)
 
 	def isStageConnected(self):
-		'''Must have all viable motors for this to be true.'''
+		''' Must have all viable motors for this to be true. '''
 		return self._isStageConnected
+
+	def getMotorOrder(self):
+		if self._isStageConnected:
+			# If a stage is connected, extract the order.
+			patientMotors = [self.tx,self.ty,self.tz,self.rx,self.ry,self.rz]
+			self.patientMotorOrder = {}
+			for motor in patientMotors:
+				self.patientMotorOrder[int(motor._order)] = motor
 
 	def setDetectorConnected(self,state):
 		self._isDetectorConnected = bool(state)
 		return self._isDetectorConnected
+
+	def connectStages(self,motorList):
+		# Connect the stages.
+		self.tx = motorList['tx']
+		self.ty = motorList['ty']
+		self.tz = motorList['tz']
+		self.rx = motorList['rx']
+		self.ry = motorList['ry']
+		self.rz = motorList['rz']
 
 	def whereIsPatient(self):
 		# If no stage is connected return 0.
@@ -74,14 +94,33 @@ class newSystem(QtCore.QObject):
 		return np.array([tx,ty,tz,rx,ry,rz])
 
 	def movePatient(self,position,mode='relative'):
+		'''
+		The motor order for moving the patient should be as extracted by the solver.
+		This is important for ROTATIONS as they are not commutative. For translations it does not matter.
+		This order is x-y-z (as per the synchrotron cs).
+		x+: downstream
+		y+: left horizontal looking downstream
+		z+: vertical
+		'''
+		# Is a stage connected?
 		if not self._isStageConnected:
+			# No (False)? return 0.
 			return 0
 
+		# Extract individual xyz translations and rotations for the movement.
 		tx,ty,tz,rx,ry,rz = position
+		position = {}
+		position['tx'] = tx
+		position['ty'] = ty
+		position['tz'] = tz
+		position['rx'] = rx
+		position['ry'] = ry
+		position['rz'] = rz
 
-		# Start patient position.
+		# Starting patient position.
 		start = self.whereIsPatient()
 
+		'''
 		# Recalculate H1 and H2.
 		tx,ty = self.motorAssociation([tx,ty])
 
@@ -92,6 +131,43 @@ class newSystem(QtCore.QObject):
 		if self.rx: self.rx.write(rx,mode)
 		if self.ry: self.ry.write(ry,mode)
 		if self.rz: self.rz.write(rz,mode)
+		'''
+
+		# Check motor application order
+		if self.patientMotorOrder:
+			# If there is a specified order, follow it.
+			for i in range(len(self.patientMotorOrder[i])):
+				# Get the motor to move.
+				motor = self.patientMotorOrder[i]
+				# Get the movement of that motor.
+				movement = motor._movement
+				# Get the value to write to the motor.
+				value = position[movement]
+
+				if motor._dependentOn:
+					# Are there any dependencies?
+					if (motor._movement[0]=='t')&(motor._dependentOn[0]=='r'):
+						# It is dependent on a rotation.
+						value = translationOnRotation(value,motor._dependentOn,solveFor=motor._movement)
+					elif (motor._movement[0]=='r')&(motor._dependentOn[0]=='t'):
+						# It is dependent on a translation.
+						# This is not yet implemented.
+						pass
+					else:
+						# Do nothing.
+						pass
+
+				# Move the motor.
+				self.patientMotorOrder[i].write(value,mode)
+
+		else:
+			# If no order is specified, write values in xyz order.
+			if self.tx: self.tx.write(tx,mode)
+			if self.ty: self.ty.write(ty,mode)
+			if self.tz: self.tz.write(tz,mode)
+			if self.rx: self.rx.write(rx,mode)
+			if self.ry: self.ry.write(ry,mode)
+			if self.rz: self.rz.write(rz,mode)
 
 		# Final patient position.
 		end = self.whereIsPatient()
@@ -116,7 +192,7 @@ class newSystem(QtCore.QObject):
 				return 0,0
 			else:
 				# tx,ty = relativeTranslation(rz,[tx,ty])
-				tx,ty = relativeTranslation(rz,translation)
+				tx,ty = translationOnRotation(translation,rz)
 
 			return tx,ty
 

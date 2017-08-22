@@ -5,21 +5,28 @@ import numpy as np
 import csv
 import os 
 
-'''
-class controlsPage:
-	- Designed to create a layout in a parent widget that can house the widgets for epics controls.
-	- __init__(parentWidget,filepath to csv file containing motors)
-		- CSV file must contain headers: Group, Name, PV
-			- comments may be presented with a '#'
-			- may have blank lines
-			- all fields must not be left blank
-	- addMotor(group,name): can specify a single motor to add from the list
-	- addMotorGroup(group): can specify a whole group of motors to add from the list
-'''
+def importMotorListCSV(file):
+	'''
+	CSV file must contain the following headers:
+	-	Comment
+	-	Stage
+	-	Movement
+	-	Dependencies
+	-	Name
+	-	PV
+	-	Order
+	-	Accuracy
+	-	CoR	
+	Optional Headers:
+	-	Notes
+	
+	CSV File creation:
+	-	The file format may be *.csv or *.txt .
+	-	The first row should be the headers.
+	-	The second row will be removed as an assumed description section for the headers.
+	-	Standard delimeter format for the file should be commas. No functionality currently exists for tabs (or others).
+	'''
 
-def importMotorList(file):
-	''' CSV files must have three headers, Group Name and PV.'''
-	''' CSV comments are made with a hashtag #.'''
 	# Open csv/txt file and read in.
 	f = open(os.path.join(os.path.dirname(__file__),file))
 	r = csv.DictReader(f)
@@ -27,8 +34,10 @@ def importMotorList(file):
 	# Save as ordered dict.
 	theList = []
 	for row in r:
-		if row['Group'][0] != '#':
-			theList.append(row)
+		theList.append(row)
+
+	# Remove the first row, assumed description row.
+	del theList[0]
 
 	return theList
 
@@ -48,12 +57,26 @@ def importDetectorList(file):
 	return theList
 
 class controlsPage:
-	def __init__(self,level='simple',parent=None,stages='motorList.txt',detectors='detectorList.txt'):
+	'''
+	The controls page is a class designed to contain Qt widgets for motors accessible via EPICS.
+	-	This class has its own Qt layout that motor controls can be added to/removed from.
+	-	You can read in a CSV file of motors available for the facility (in this case, the Australian Synchrotron Imaging and Medical Beamline).
+	- 	There are three levels of motor control to choose from: simple, normal and complex.
+	-	There is also a patient dictionary that contains the motors to achieve 6DoF for patient movement.
+	'''
+	def __init__(self,level='simple',parent=None,stages='motorList.csv',detectors='detectorList.txt'):
 		self.layout = QtWidgets.QGridLayout()
 		parent.setLayout(self.layout)
-		self.motorList = importMotorList(stages)
+		# Motor and detector lists.
+		self.motorList = importMotorListCSV(stages)
 		self.detectorList = importDetectorList(detectors)
+		# Make a list of the stages.
+		self.stageList = set()
+		for motor in self.motorList:
+			self.stageList.add(motor['Stage'])
+		# Current list of selected motors.
 		self.currentList = []
+		# Current list of selected motors' widgets.
 		self.currentWidgetList = []
 		# Level changes from simple, normal to complex modes.
 		self.level = level
@@ -64,6 +87,8 @@ class controlsPage:
 		self.layout.setAlignment(QtCore.Qt.AlignTop|QtCore.Qt.AlignLeft)
 
 		# Patient controls
+		# Default for no control is None.
+		# When a control is set, it should be a QEMotor() class.
 		self.patient = {}
 		self.patient['tx'] = None
 		self.patient['ty'] = None
@@ -72,34 +97,60 @@ class controlsPage:
 		self.patient['ry'] = None
 		self.patient['rz'] = None
 
-	def addMotor(self,group,name):
-		# Find and add motor to page.
+	def addMotors(self,group,name=None):
+		# Search self.motorList and add a motor widget to the page if it exists.
+		# If name is specified, add the single motor.
+		# If the name is not specified, add the whole group.
 		for motor in self.motorList:
-			if (motor['Group'] == group) & (motor['Name'] == name):
-				group,movement,dependentOn,name,pv = motor['Group'],motor['Movement'],motor['dependentOn'],motor['Name'],motor['PV']
-				if self.level == 'simple': motorWidget = QEMotorSimple(group,movement,dependentOn,name,pv)
-				elif self.level == 'normal': motorWidget = QEMotor(group,movement,dependentOn,name,pv)
-				elif self.level == 'complex': motorWidget = QEMotorComplex(group,movement,dependentOn,name,pv)
-				if motor['Movement'] in self.patient: self.patient[motor['Movement']] = motorWidget
-				self.layout.addWidget(motorWidget)
-				self.currentList.append(motor)
-				self.currentWidgetList.append(motorWidget)
+			# Search the list.
+			if motor['Stage'] == group:
+				# Find motors that match the group.
+				if name is None:
+					# If no name is specified, add the motor.
+					self.addMotorWidget(motor)
+				elif self.motor['Name'] == name:
+					# Else, check that the motor meets the name requirement.
+					# Add the motor.
+					self.addMotorWidget(motor)
+				else:
+					# Do Nothing.
+					pass
 
-	def addMotorGroup(self,group):
-		# Find and add motors to page.
-		for motor in self.motorList:
-			# print(motor)
-			if motor['Group'] == group:
-				group,movement,dependentOn,name,pv = motor['Group'],motor['Movement'],motor['dependentOn'],motor['Name'],motor['PV']
-				if self.level == 'simple': motorWidget = QEMotorSimple(group,movement,dependentOn,name,pv)
-				elif self.level == 'normal': motorWidget = QEMotor(group,movement,dependentOn,name,pv)
-				elif self.level == 'complex': motorWidget = QEMotorComplex(group,movement,dependentOn,name,pv)
-				if motor['Movement'] in self.patient: self.patient[motor['Movement']] = motorWidget
-				self.layout.addWidget(motorWidget)
-				self.currentList.append(motor)
-				self.currentWidgetList.append(motorWidget)
+	def addMotorWidget(self,motor,update=False):
+		if motor['PV'] == 'None':
+			# If no PV is specified, do not create the widget.
+			return
 
-	def setMotorGroup(self,group):
+		# Create a new motor widget.
+		if self.level == 'simple': motorWidget = QEMotorSimple()
+		elif self.level == 'normal': motorWidget = QEMotor()
+		elif self.level == 'complex': motorWidget = QEMotorComplex()
+		# Add motor vars.
+		motorWidget._stage = motor['Stage']
+		motorWidget._movement = motor['Movement']
+		motorWidget._dependentOn = motor['Dependencies']
+		motorWidget._name = motor['Name']
+		motorWidget._pv = motor['PV']
+		motorWidget._order = motor['Order']
+		motorWidget._accuracy = motor['Accuracy']
+		motorWidget._cor = motor['CoR']
+		# Call motor setup function in light of new vars.
+		motorWidget.setup()
+		# Add motor to layout.
+		self.layout.addWidget(motorWidget)
+		# Add motor to current list of motors selected.
+		if update is False:
+			# If we are not updating the existing motors complexity, add it to the current list.
+			self.currentList.append(motor)
+		# Add motor widget to current list of motor widgets.
+		self.currentWidgetList.append(motorWidget)
+
+		# Add motor to patient movement if required.
+		if motor['Movement'] in self.patient:
+			# Essentially if the motor is 'tx', look for 'tx' in patient and assign it the QEMotor(), tx.
+			self.patient[motor['Movement']] = motorWidget
+
+	def setStage(self,group):
 		# Remove all existing widgets.
 		for i in reversed(range(self.layout.count())): 
 			self.layout.itemAt(i).widget().setParent(None)
@@ -114,23 +165,8 @@ class controlsPage:
 		self.patient['ry'] = None
 		self.patient['rz'] = None
 
-		# Find and add motors to page.
-		for motor in self.motorList:
-			# print(motor)
-			if motor['Group'] == group:
-				group,movement,dependentOn,name,pv = motor['Group'],motor['Movement'],motor['dependentOn'],motor['Name'],motor['PV']
-				if self.level == 'simple': motorWidget = QEMotorSimple(group,movement,dependentOn,name,pv)
-				elif self.level == 'normal': motorWidget = QEMotor(group,movement,dependentOn,name,pv)
-				elif self.level == 'complex': motorWidget = QEMotorComplex(group,movement,dependentOn,name,pv)
-
-				if motor['Movement'] in self.patient: 
-					self.patient[motor['Movement']] = motorWidget
-				else: 
-					pass
-
-				self.layout.addWidget(motorWidget)
-				self.currentList.append(motor)
-				self.currentWidgetList.append(motorWidget)
+		# Add group motors.
+		self.addMotors(group)
 
 	def setLevel(self,level):
 		self.level = level
@@ -142,15 +178,7 @@ class controlsPage:
 
 		# Add back new ones.
 		for motor in self.currentList:
-			group,movement,dependentOn,name,pv = motor['Group'],motor['Movement'],motor['dependentOn'],motor['Name'],motor['PV']
-			if self.level == 'simple': 
-				motorWidget = QEMotorSimple(group,movement,dependentOn,name,pv)
-			elif self.level == 'normal':
-				motorWidget = QEMotor(group,movement,dependentOn,name,pv)
-			elif self.level == 'complex':
-				motorWidget = QEMotorComplex(group,movement,dependentOn,name,pv)
-			self.layout.addWidget(motorWidget)
-			self.currentWidgetList.append(motorWidget)
+			self.addMotorWidget(motor,update=True)
 
 	def setDetector(self,detector):
 		pass
@@ -160,19 +188,22 @@ class controlsPage:
 		for motorWidget in self.currentWidgetList:
 			motorWidget.setReadOnly(state)
 
-# Motors
-class QEMotorSimple(QtWidgets.QWidget):
+class QEMotor(QtWidgets.QWidget):
 	''' A simple layout for epics control in Qt5. Based of a QtWidget.'''
-	def __init__(self,group,movement,dependentOn,name,pv,parent=None):
+	def __init__(self,parent=None):
 		QtWidgets.QWidget.__init__(self,parent)
-		fp = os.path.join(os.path.dirname(__file__),"QEMotorSimple.ui")
-		uic.loadUi(fp,self)
 
-		# Set text label
-		self.name.setText(name)
+		# Internal vars: these should be reflected in the CSV file that the motors list is kept in, see class controlsPage().
+		self._stage = None
+		self._name = None
+		self._movement = None
+		self._dependentOn = None
+		self._order = None
+		self._cor = None
+		self._pv = None
+		self._accuracy = None
 
-		# Record PV root information and connect to motors.
-		self.pvBase = pv
+		# PV vars.
 		self.pv = {}
 		self.pv['RBV'] = None
 		self.pv['VAL'] = None
@@ -181,14 +212,19 @@ class QEMotorSimple(QtWidgets.QWidget):
 		self.pv['TWF'] = None
 		self.pv['DMOV'] = None
 
-		# Is the motor affected by any other motor?
-		self.movement = movement
-		self.dependentOn = dependentOn
-
+	def setup(self):
+		# Once the information has been loaded into the internal vars, setup the motor widget.
+		# Set the ui file.
+		fp = os.path.join(os.path.dirname(__file__),"QEMotor.ui")
+		uic.loadUi(fp,self)
 		# Connect to the PV's.
-		self.connectPV()
+		self._connectPV()
+		self.lblName.setText(self._name)
 
-	def connectPV(self):
+	def _connectPV(self):
+		# Record PV root information and connect to motors.
+		self.pvBase = self._pv
+
 		try:
 			# Read Back Value
 			self.pv['RBV'] = epics.PV(self.pvBase+'.RBV',callback=partial(self.updateValue, attribute='RBV') )
@@ -314,13 +350,22 @@ class QEMotorSimple(QtWidgets.QWidget):
 		self.guiTWF.setEnabled(state)
 		self.guiTWR.setEnabled(state)
 
-class QEMotor(QEMotorSimple):
-	def __init__(self,group,movement,dependentOn,name,pv,parent=None):
-		super().__init__(group,movement,dependentOn,name,pv)
+class QEMotorSimple(QEMotor):
+	def __init__(self,parent=None):
+		super().__init__()
+
+	def setup(self):
+		# Once the information has been loaded into the internal vars, setup the motor widget.
+		# Set the ui file.
+		fp = os.path.join(os.path.dirname(__file__),"QEMotorSimple.ui")
+		uic.loadUi(fp,self)
+		# Connect to the PV's.
+		self._connectPV()
+		self.lblName.setText(self._name)
 
 class QEMotorComplex(QEMotor):
-	def __init__(self,group,movement,dependentOn,name,pv,parent=None):
-		super().__init__(group,movement,dependentOn,name,pv)
+	def __init__(self,parent=None):
+		super().__init__()
 
 # Detectors
 class QEDetector(QtWidgets.QWidget):
@@ -335,7 +380,7 @@ class QEDetector(QtWidgets.QWidget):
 		# # Record PV root information and connect to motors.
 		# self.pvBase = pv
 		# self.pv = {}
-		# self.connectPV()
+		# self._connectPV()
 
 # Validators
 class QEFloatValidator(QtGui.QDoubleValidator):
