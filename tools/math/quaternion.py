@@ -7,6 +7,7 @@ def quaternion(v):
 
 def rotation(theta,axis=None):
 	# Rotation quaternion of angle theta by axis x,y,z.
+	# Axis input should be of type [1,0,0].
 	if axis is None:
 		axis = np.array(([1,1,1]))
 

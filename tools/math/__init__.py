@@ -1,3 +1,3 @@
 from .rotations import *
-from .general import *
+from .dependencies import *
 from . import quaternion

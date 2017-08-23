@@ -1,6 +1,6 @@
 import numpy as np
 from PyQt5 import QtCore
-from syncmrt.tools.math.general import *
+from syncmrt.tools.math.dependencies import *
 
 class newSystem(QtCore.QObject):
 	stageConnected = QtCore.pyqtSignal(bool)
@@ -55,9 +55,25 @@ class newSystem(QtCore.QObject):
 		if self._isStageConnected:
 			# If a stage is connected, extract the order.
 			patientMotors = [self.tx,self.ty,self.tz,self.rx,self.ry,self.rz]
+			# Maximum index of motors.
+			index = 5
+			# New dict for motor order (e.g. order[0]=txmotor)
 			self.patientMotorOrder = {}
+			# Scan through the motors and find their order.
 			for motor in patientMotors:
-				self.patientMotorOrder[int(motor._order)] = motor
+				if motor:
+					# If we have a valid motor (i.e. not None), continue.
+					if motor._order:
+						# If it has an order value, write it.
+						self.patientMotorOrder[int(motor._order)] = motor
+					else:
+						# If it does not have a value, add it in reverse.
+						self.patientMotorOrder[index] = motor
+						# Dec index by 1.
+						index -= 1
+				else:
+					# If not a valid motor (i.e. None), pass.
+					pass
 
 	def setDetectorConnected(self,state):
 		self._isDetectorConnected = bool(state)
@@ -71,6 +87,8 @@ class newSystem(QtCore.QObject):
 		self.rx = motorList['rx']
 		self.ry = motorList['ry']
 		self.rz = motorList['rz']
+		# Update motor order.
+		self.getMotorOrder()
 
 	def whereIsPatient(self):
 		# If no stage is connected return 0.
@@ -135,8 +153,10 @@ class newSystem(QtCore.QObject):
 
 		# Check motor application order
 		if self.patientMotorOrder:
+			print('In patient motor order:')
+
 			# If there is a specified order, follow it.
-			for i in range(len(self.patientMotorOrder[i])):
+			for i in range(len(self.patientMotorOrder)):
 				# Get the motor to move.
 				motor = self.patientMotorOrder[i]
 				# Get the movement of that motor.
@@ -145,10 +165,12 @@ class newSystem(QtCore.QObject):
 				value = position[movement]
 
 				if motor._dependentOn:
+					print('Motor has dependency: ',motor._dependentOn)
 					# Are there any dependencies?
 					if (motor._movement[0]=='t')&(motor._dependentOn[0]=='r'):
 						# It is dependent on a rotation.
 						value = translationOnRotation(value,motor._dependentOn,solveFor=motor._movement)
+						print('Solving ',motor._movement,'dependent on ',motor._dependentOn,', recalculated ',position[movement],'to be ',value)
 					elif (motor._movement[0]=='r')&(motor._dependentOn[0]=='t'):
 						# It is dependent on a translation.
 						# This is not yet implemented.
@@ -162,6 +184,7 @@ class newSystem(QtCore.QObject):
 
 		else:
 			# If no order is specified, write values in xyz order.
+			print('Just exectuting write values in xyz order.')
 			if self.tx: self.tx.write(tx,mode)
 			if self.ty: self.ty.write(ty,mode)
 			if self.tz: self.tz.write(tz,mode)
@@ -173,28 +196,28 @@ class newSystem(QtCore.QObject):
 		end = self.whereIsPatient()
 
 		# Different in patient position should equal the changes made.
-		completion = (start-end)+np.array(position)
+		completion = (start-end)+np.array([tx,ty,tz,rx,ry,rz])
 
 		return completion
 
-	# Could be:
-	# def motorAssociation(self,master,slaves):
-	def motorAssociation(self,translation):
-		# Check dependencies.
-		if (self.tx.dependentOn == 'rz')&(self.ty.dependentOn == 'rz')&(self.rz is not None):
+	# # Could be:
+	# # def motorAssociation(self,master,slaves):
+	# def motorAssociation(self,translation):
+	# 	# Check dependencies.
+	# 	if (self.tx.dependentOn == 'rz')&(self.ty.dependentOn == 'rz')&(self.rz is not None):
 
-			# tx,ty = translation
-			rz = self.rz.read()
-			print('rz',rz)
+	# 		# tx,ty = translation
+	# 		rz = self.rz.read()
+	# 		print('rz',rz)
 
-			if rz is np.inf:
-				print('No Rz motor connected, cannot retrieve current position.')
-				return 0,0
-			else:
-				# tx,ty = relativeTranslation(rz,[tx,ty])
-				tx,ty = translationOnRotation(translation,rz)
+	# 		if rz is np.inf:
+	# 			print('No Rz motor connected, cannot retrieve current position.')
+	# 			return 0,0
+	# 		else:
+	# 			# tx,ty = relativeTranslation(rz,[tx,ty])
+	# 			tx,ty = translationOnRotation(translation,rz)
 
-			return tx,ty
+	# 		return tx,ty
 
 	def connectMotors(self,motorList):
 		# Connect the motors.

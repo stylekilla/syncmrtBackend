@@ -101,12 +101,12 @@ class affineTransform:
 				self.synch_p[i,:] = np.subtract(self.synch[i,:],self.synch_ctd)
 		self.scale = scale(self.ct_p,self.synch_p,self.R)
 
-		print('Results from solver.py')
-		print('CT Centroid',self.ct_ctd)
-		print('Synch Centroid',self.synch_ctd)
-		print('CT Centroid to patisoc',ct_ctd2isoc)
-		print('Translation 1: synchctd to beamisoc',translation1)
-		print('Translation 2: patisoc to beamisoc',translation2)
+		# print('Results from solver.py')
+		# print('CT Centroid',self.ct_ctd)
+		# print('Synch Centroid',self.synch_ctd)
+		# print('CT Centroid to patisoc',ct_ctd2isoc)
+		# print('Translation 1: synchctd to beamisoc',translation1)
+		# print('Translation 2: patisoc to beamisoc',translation2)
 
 # Obtain scale factor between coordinate systems. Requires left and right points in reference to centroids.
 def scale(lp,rp,R):
@@ -123,8 +123,6 @@ def scale(lp,rp,R):
 
 # Find the centroid of a set of points (pts).
 def centroid(pts):
-	print('centroid calc')
-	print(pts)
 	n = np.shape(pts)[0]
 	ctd = (1/n)*np.sum(pts,axis=0)
 	return ctd

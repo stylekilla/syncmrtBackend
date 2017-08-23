@@ -11,6 +11,10 @@ def translationOnRotation(translation,rotation,solveFor=None):
 	-	If we are rotating about y: (translation) x,z and (rotation) y
 	-	If we are rotating about z: (translation) x,y and (rotation) z
 	'''
+	if rotation == np.inf:
+		# If the rotation provided is an infitnite value, assume the motor isn't connected, so return an inf.
+		return np.inf
+
 	# Set the output.
 	out = np.array([0,0])
 

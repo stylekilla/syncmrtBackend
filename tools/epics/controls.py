@@ -120,7 +120,6 @@ class controlsPage:
 		if motor['PV'] == 'None':
 			# If no PV is specified, do not create the widget.
 			return
-
 		# Create a new motor widget.
 		if self.level == 'simple': motorWidget = QEMotorSimple()
 		elif self.level == 'normal': motorWidget = QEMotor()
