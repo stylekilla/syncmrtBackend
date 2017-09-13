@@ -237,7 +237,6 @@ class newSystem(QtCore.QObject):
 
 
 
-
 '''
 		# A list of 6 motors (translation and rotation in xyz) available to use for patient alignment.
 		# These motors must match the synchrotron coordinate system.
