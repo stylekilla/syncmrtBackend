@@ -1,4 +1,22 @@
 '''
+class system:
+	__init__ .
+	The system holds information about the detector and stage.
+	It should also hold information about... other stuff.
+'''
+class system:
+	def __init__(self,detector,stage)
+		self.detector = detector()
+		self.stage = stage()
+
+	def setStage(self,name):
+		pass
+
+	def setDetector(self,name):
+		pass
+		
+
+'''
 class detector:
 	__init__ requires a name (string) for the detector and base PV (string) to connect to.
 	setup specifies some useful variables for the detector and it's images
@@ -28,36 +46,8 @@ class detector:
 		# Tell the detector to acquire an image.
 		self._acquire.put(1)
 
-'''
-class detector:
-	__init__ requires a name (string) for the detector and base PV (string) to connect to.
-	setup specifies some useful variables for the detector and it's images
-'''
 class stage:
-	def __init__(self):
-		# A 6D machine, defined by global xyz positions and orientations.
-		self.motor = []
-		# Isocenter of machine. Should be pre-calibrated.
-		self._origin = [0,0,0]
 
-	def setStage(self):
-		# Set the current stage.
-		pass
 
-	def setPosition(self):
-		# Absolute movement.
-		pass
 
-	def shiftPosition(self):
-		# Relative movement.
-		pass
-
-	def position(self):
-		# Return current position.
-		pass
-
-	def setIsocenter(self):
-		pass
-
-	def setOrigin(self):
-		pass
+class motor:

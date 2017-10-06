@@ -11,108 +11,99 @@ ASSUMPTIONS:
 	5. Both CT and Synchrotron orthogonal images are the same CW or CCW direction of the image.
 '''
 
-class solver:
-	def __init__(self):
-		self._leftPoints = np.zeros((3,3))
-		self._rightPoints = np.zeros((3,3))
-		self._patientIsocenter = np.zeros((3,))
-		self._machineIsocenter = np.zeros((3,))
-		self._scale = 0
-		self.solution = np.zeros((6,))
-		self.transform = np.identity(4)
+# Create a class to find the transform between two WCS's.
+class affineTransform:
+	def __init__(self,ctCS,synchCS,patientIsoc=None,synchIsoc=None,synchRotIsoc=None):
+		self.advance = True
 
-	def updateVariable(left=None,right=None,patientIsoc=None,machineIsoc=None):
-		if left: self._leftPoints = left
-		if right: self._rightPoints = right
-		if patientIsoc: self._patientIsocenter = patientIsoc
-		if machineIsoc: self._machineIsocenter = machineIsoc
+		if type(ctCS) == type(int()):
+			'''If single integer, then pass back all zeroes.'''
+			self.theta = 0
+			self.phi = 0
+			self.gamma = 0
+			self.translation = np.array([0,0,0])
+			self.scale = 0
 
-	def centroid(self):
-		self._leftCentroid = centroid(self._leftPoints)
-		self._rightCentroid = centroid(self._rightPoints)
+			self.advance = False
 
-	# def solve(self,self._leftPoints,self._rightPoints,patientIsoc=None,synchIsoc=None,synchRotIsoc=None):
-	def solve(self):
+		if self.advance == True:
+			pass
+		else:
+			return
+
 		'''Points should come in as xyz cols and n-points rows: np.array((n,xyz))'''
-		n = np.shape(self._leftPoints)[0]
+		self.n = np.shape(ctCS)[0]
 
 		# LEFT and RIGHT points should be in mm.
-		# ct = self._leftPoints
-		# synch = self._rightPoints
+		self.ct = ctCS
+		self.synch = synchCS
 
 		# Find the centroids of the LEFT and RIGHT WCS.
-		self._leftCentroid = centroid(self._leftPoints)
-		self._rightCentroid = centroid(self._rightPoints)
+		self.ct_ctd = centroid(self.ct)
+		self.synch_ctd = centroid(self.synch)
 
 		# Find the LEFT and RIGHT points in terms of their centroids (notation: LEFT Prime, RIGHT Prime)
-		_leftPrime = np.zeros([n,3])
-		_rightPrime = np.zeros([n,3])
+		self.ct_p = np.zeros([self.n,3])
+		self.synch_p = np.zeros([self.n,3])
 
-		for i in range(n):
-			_leftPrime[i,:] = np.subtract(ct[i,:],self._leftCentroid)
-			_rightPrime[i,:] = np.subtract(synch[i,:],self._rightCentroid)
+		for i in range(self.n):
+			self.ct_p[i,:] = np.subtract(self.ct[i,:],self.ct_ctd)
+			self.synch_p[i,:] = np.subtract(self.synch[i,:],self.synch_ctd)
 
 		# Find the quaternion matrix, N.
-		N = quaternion(_leftPrime,_rightPrime)
+		self.N = quaternion(self.ct_p,self.synch_p)
 
 		# Solve eigenvals and vec that maximises rotation.
-		val, vec = eigen(N)
+		val, self.vec = eigen(self.N)
 
 		# Extract transformation quarternion from evec.
-		q = np.zeros((4,))
-		q[0] = vec[0][0]
-		q[1] = vec[1][0]
-		q[2] = vec[2][0]
-		q[3] = vec[3][0]
+		self.q = np.zeros((4,))
+		self.q[0] = self.vec[0][0]
+		self.q[1] = self.vec[1][0]
+		self.q[2] = self.vec[2][0]
+		self.q[3] = self.vec[3][0]
 
 		# Compute rotation matrix, R.
-		R = rotationMatrix(q)
-		R = np.reshape(R,(3,3))
-		self.transform[:3,:3] = R
+		self.R = rotationMatrix(self.q)
+		self.R = np.reshape(self.R,(3,3))
 
 		# Extract individual angles in degrees.
-		rotation = angles(R)
+		self.rotation = angles(self.R,self.ct,self.synch)
 
-		# Translation 1: Centroid to patient isocenter.
-		translation1 = self._patientIsocenter - self._leftCentroid
+		# The xray goal is always 0,0,0. The isoc of the coordinate system at IMBL.
+		synchBeamIsoc = np.array([0,0,0])
 
-		# Translation 2: Patient isoc to machine isocenter.
-		translation2 = self._machineIsocenter - self._patientIsocenter
+		# If no patient isocenter is defined, align to the centroid.
+		if patientIsoc is None:
+			patientIsoc = self.ct_ctd
 
-		# # If no patient isocenter is defined, align to the centroid.
-		# if patientIsoc is None:
-		# 	patientIsoc = self._leftCentroid
+		# Centroid to ptv isoc (according to the treatment plan).
+		ct_ctd2isoc = patientIsoc - self.ct_ctd
 
-		# # Centroid to ptv isoc (according to the treatment plan).
-		# ct_ctd2isoc = patientIsoc - self._leftCentroid
-
-		# # Move synchrotron centroid to beam isocenter.
-		# if synchRotIsoc is not None:
-		# 	# Find where the centroid is after rotation.
-		# 	synch_rotctd = np.dot(self._rightCentroid,R)
-		# 	translation1 = synchBeamIsoc - synch_rotctd
-		# else:
-		# 	translation1 = synchBeamIsoc - self._rightCentroid
+		# Move synchrotron centroid to beam isocenter.
+		if synchRotIsoc is not None:
+			# Find where the centroid is after rotation.
+			self.synch_rotctd = np.dot(self.synch_ctd,self.R)
+			translation1 = synchBeamIsoc - self.synch_rotctd
+		else:
+			translation1 = synchBeamIsoc - self.synch_ctd
 
 		# Move patient isocenter to beam isocenter.
-		# translation2 = synchBeamIsoc + ct_ctd2isoc
+		translation2 = synchBeamIsoc + ct_ctd2isoc
 
 		# Final translation is a combination of all other translations.
-		translation = translation1 + translation2
-		self.transform[:3,3] = translation.transpose()
+		self.translation = translation1 + translation2
 
 		# Extract scale.
 		if synchRotIsoc is not None:
-			self._rightPoints = np.zeros([n,3])
-			for i in range(n):
-				self._rightPoints[i,:] = np.subtract(synch[i,:],self._rightCentroid)
-
-		self.scale = scale(self._leftPoints,self._rightPoints,R)
-		self.solution = np.hstack((translation,rotation))
+			self.synch_p = np.zeros([self.n,3])
+			for i in range(self.n):
+				self.synch_p[i,:] = np.subtract(self.synch[i,:],self.synch_ctd)
+		self.scale = scale(self.ct_p,self.synch_p,self.R)
 
 		# print('Results from solver.py')
-		# print('CT Centroid',self._leftCentroid)
-		# print('Synch Centroid',self._rightCentroid)
+		# print('CT Centroid',self.ct_ctd)
+		# print('Synch Centroid',self.synch_ctd)
 		# print('CT Centroid to patisoc',ct_ctd2isoc)
 		# print('Translation 1: synchctd to beamisoc',translation1)
 		# print('Translation 2: patisoc to beamisoc',translation2)
@@ -188,7 +179,7 @@ def rotationMatrix(q):
 	return R
 
 # Extract individual rotations around the x, y and z axis seperately. 
-def angles(R):
+def angles(R,l,r):
 	# Two possible angles for y.
 	y = []
 	y.append(np.arcsin(R[2][0]))

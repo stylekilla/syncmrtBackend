@@ -1,6 +1,8 @@
+# imageGuidance __init__.py
 # __all__ = ["wcs2wcs","dicom","hardware"]
 
 from .optimise import optimiseFiducials
-from .solver import affineTransform
-from . import patientPositioningSystem
-from syncmrt.tools.cuda import gpuInterface
+from .solver import solver
+from . import patientPositioningSystem, xray
+
+# from syncmrt.tools.opencl import gpu as gpuInterface

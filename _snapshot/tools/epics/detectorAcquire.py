@@ -10,4 +10,3 @@
 # SR08ID01DET04:TIFF:FileName			# File name (temp)
 # SR08ID01DET04:TIFF:FileNumber		# File number (reset to 0)
 # SR08ID01DET04:TIFF:FilePath			# File path (Z:\mrt\xray\cache\)
-
