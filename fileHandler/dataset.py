@@ -95,10 +95,10 @@ class dataset:
 			# Head First, Supine.
 			# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
 			kwargs = (
-				(0,-90,0),
+				(0,0,0),
 				(0,0,0),
 				self.image[0].pixelSize,
-				None,
+				self.extent,
 				None
 				)
 		# elif self.patientPosition == 'HFP':

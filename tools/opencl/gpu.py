@@ -45,7 +45,7 @@ class gpu:
 		# Create a device queue.
 		self.queue = cl.CommandQueue(self.ctx)
 
-	def rotate(self,data,activeRotation=(0,0,0),passiveRotation=(0,0,0),pixelSize=(1,1,1),extent=None,isocenter=None):
+	def rotate(self,data,activeRotation=(0,0,0),passiveRotation=(0,0,0),pixelSize=(1,1,1),extent=(-1,1,-1,1,-1,1),isocenter=None):
 		'''
 		Here we give the data to be copied to the GPU and give some deacriptors about the data.
 		We must enforce float32 datatypes as the kernels are assumed to be written in these also.
