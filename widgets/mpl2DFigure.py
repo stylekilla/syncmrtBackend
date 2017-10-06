@@ -66,10 +66,11 @@ class mpl2DFigure:
 
 		self.canvas._pickerActive = False
 
-	def imageLoad(self,fn,extent=np.array([-1,1,-1,1]),imageOrientation='',imageIndex=0):
+	def imageLoad(self,array,extent=np.array([-1,1,-1,1]),imageOrientation='',imageIndex=0):
 		'''imageLoad: Load numpy file in, convert to 2D. Connect callbacks and plot.'''		
 		self.imageIndex = imageIndex
-		self.data3d = np.load(fn)
+		# self.data3d = np.load(fn)
+		self.data3d = array
 		if len(self.data3d.shape) == 3:
 			# 3D Image (CT/MRI etc).
 			if imageIndex == 0:

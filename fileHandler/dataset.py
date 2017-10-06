@@ -13,6 +13,10 @@ class dataset:
 		self.fp = os.path.dirname(ds[0])
 		self.patientName = 'Unknown'
 
+		self.image = [None,None]
+		self.patientIso = None
+		self.plot = None
+		
 		if modality == 'CT':
 			self.ds = self.checkModality(modality)
 			self.importCT()
@@ -27,9 +31,6 @@ class dataset:
 			# raise invalidModality
 			pass
 
-		self.image = [None,None]
-		self.patientIso = None
-		self.plot = None
 
 	def checkModality(self,modality):
 		files = []
