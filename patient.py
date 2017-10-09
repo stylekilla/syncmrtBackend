@@ -8,7 +8,7 @@ class patient:
 		self.ct = ds(dataset,modality='CT')
 	def loadMRI(self,dataset):
 		self.mri = ds(dataset,modality='MR')
-	def loadRTPLAN(self,dataset):
-		self.rtplan = ds(dataset,modality='RTPLAN')
+	def loadRTPLAN(self,dataset,ctImage):
+		self.rtplan = ds(dataset,modality='RTPLAN',ctImage=ctImage)
 	def loadXR(self,dataset):
 		self.xr = ds(dataset,modality='XR')

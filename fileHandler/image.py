@@ -26,3 +26,13 @@ class image:
 		self.position = None
 		# Isocenter of the image.
 		self.isocenter = None
+		'''
+		FOR RTPLANS
+		'''
+		# Mask Options
+		self.mask = None
+		self.maskThickness = None
+		# Rotation options
+		self.collimator = None
+		self.gantry = None
+		self.patientSupport = None

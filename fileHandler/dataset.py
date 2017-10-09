@@ -7,7 +7,7 @@ from syncmrt.tools.opencl import gpu as gpuInterface
 import h5py
 
 class dataset:
-	def __init__(self,ds,modality):
+	def __init__(self,ds,modality,ctImage=None):
 		self.modality = modality
 		self.ds = ds
 		self.fp = os.path.dirname(ds[0])
@@ -26,7 +26,7 @@ class dataset:
 			self.importXR()
 		elif modality == 'RTPLAN':
 			self.ds = self.checkModality(modality)
-			self.importRTPLAN()
+			self.importRTPLAN(ctImage)
 		else:
 			# raise invalidModality
 			pass
@@ -116,7 +116,7 @@ class dataset:
 				(0,-90,0),
 				(0,0,0),
 				self.image[0].pixelSize,
-				None,
+				self.extent,
 				None
 				)
 
@@ -151,7 +151,7 @@ class dataset:
 		self.image[0].isocenter = file['0'].attrs['isocenter']
 		self.image[1].isocenter = file['1'].attrs['isocenter']
 
-	def importRTPLAN(self):
+	def importRTPLAN(self,ctImage):
 		# Firstly, read in DICOM file.
 		ref = dicom.read_file(self.ds[0])
 		# Set file path.
@@ -160,61 +160,52 @@ class dataset:
 		self.patientName = ref.PatientName
 		# Construct an object array of the amount of beams to be delivered.
 		self.image = np.empty(ref.FractionGroupSequence[0].NumberOfBeams,dtype=object)
-		# Load the CT Data.
-		# ctArray = np.load(ctData.array)
-		# Do some GPU shit.
-		# gpu = gpuInterface()
-		# gpu.copyTexture(ctArray,extent=ctData.arrayExtent,pixelSize=ctData.pixelSize)
+		# Load the GPU interface.
+		gpu = gpuInterface()
 
 		# Extract confromal mask data.
 		for i in range(len(self.image)):
+			self.image[i] = image()
 			# self.image[i].block = np.empty(ref.BeamSequence[i].NumberOfBlocks,dtype=object)
 			self.image[i].mask = ref.BeamSequence[i].BlockSequence[0].BlockData
 			self.image[i].maskThickness = ref.BeamSequence[i].BlockSequence[0].BlockThickness
 
 			# Beam limiting device angle (collimator rotation angle) of Clinical LINAC. Rotation about BEV.
-			test = float(ref.BeamSequence[i].ControlPointSequence[0].BeamLimitingDeviceAngle)
-			if 181 < test < 359:
-				# Turn into a negative angle > -180.
-				self.image[i].collimator = -360+test
-			else:
-				# It is within 0-180 deg and can remain a positive value. 
-				self.image[i].collimator = test	
+			self.image[i].collimator = float(ref.BeamSequence[i].ControlPointSequence[0].BeamLimitingDeviceAngle)
 
 			# Gantry Angle of Clinical LINAC. Rotation about DICOM Z-axis.
-			test = float(ref.BeamSequence[i].ControlPointSequence[0].GantryAngle)
-			if 181 < test < 359:
-				# Turn into a negative angle > -180.
-				self.image[i].gantry = -360+test
-			else:
-				# It is within 0-180 deg and can remain a positive value. 
-				self.image[i].gantry = test
+			self.image[i].gantry = float(ref.BeamSequence[i].ControlPointSequence[0].GantryAngle)
 
 			# Patient support angle (table rotation angle) of Clinical LINAC. Rotation about DICOM Y-axis.
-			test = float(ref.BeamSequence[i].ControlPointSequence[0].PatientSupportAngle)
-			if 181 < test < 359:
-				# Turn into a negative angle > -180.
-				self.image[i].patientSupport = -360+test
-			else:
-				# It is within 0-180 deg and can remain a positive value. 
-				self.image[i].patientSupport = test	
+			self.image[i].patientSupport = float(ref.BeamSequence[i].ControlPointSequence[0].PatientSupportAngle)
 
 			# self.image[i].pitchAngle = float(ref.BeamSequence[i].ControlPointSequence[0].TableTopPitchAngle)
 			# self.image[i].rollAngle = float(ref.BeamSequence[i].ControlPointSequence[0].TableTopRollAngle)
 
 			self.image[i].isocenter = np.array(ref.BeamSequence[i].ControlPointSequence[0].IsocenterPosition)
+
 			# Rearrange xyz to match imported CT.
 			self.image[i].isocenter[0],self.image[i].isocenter[1],self.image[i].isocenter[2] = self.image[i].isocenter[2],self.image[i].isocenter[0],self.image[i].isocenter[1]
+
 			# Consider updating isocenter parameter before each rotation:
 			gpu.isocenter = np.array(self.image[i].isocenter)
 
 			# Apply euler rotations. Collimator first (variable rotation axis, z), then gantry (fixed x), then table (fixed z).
 			# array, self.image[i].arrayExtent = gpu.rotate(-self.image[i].gantryAngle,0,-self.image[i].patientSupportAngle,order='pat-gant-col',z1=-self.image[i].collimatorAngle)
-			array, self.image[i].arrayExtent = gpu.rotate(self.image[i].gantryAngle,0,self.image[i].patientSupportAngle,order='pat-gant-col',z1=self.image[i].collimatorAngle)
+			# array, self.image[i].arrayExtent = gpu.rotate(self.image[i].gantryAngle,0,self.image[i].patientSupportAngle,order='pat-gant-col',z1=self.image[i].collimatorAngle)
 			# array, self.image[i].arrayExtent = gpu.rotate(0,0,90,order='pat-gant-col',z1=0)
-			# Get back new isoc location.
-			self.image[i].isocenter = gpu.isocenter
 
-			# Hold file path to each plot and save.
-			self.image[i].array = self.path+'/image%i'%(i+1)+'_array.npy'
-			np.save(self.image[i].array, array)
+			kwargs = (
+				(0,90,0),
+				(0,0,0),
+				self.image[i].pixelSize,
+				ctImage.extent,
+				None
+				)
+
+			# Run the gpu rotation.
+			self.image[i].array = gpu.rotate(ctImage.array,*kwargs)
+			# Update other variables from gpu.
+			self.image[i].pixelSize = gpu.pixelSize
+			self.image[i].isocenter = gpu.isocenter
+			self.image[i].extent = gpu.extent
