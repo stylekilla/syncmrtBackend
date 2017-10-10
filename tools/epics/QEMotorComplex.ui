@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>290</width>
-    <height>150</height>
+    <width>265</width>
+    <height>120</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -18,14 +18,14 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>290</width>
-    <height>150</height>
+    <width>265</width>
+    <height>120</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>290</width>
-    <height>150</height>
+    <width>265</width>
+    <height>120</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -48,7 +48,7 @@
     <number>0</number>
    </property>
    <item>
-    <widget class="QLabel" name="lbMotorName">
+    <widget class="QLabel" name="lblName">
      <property name="text">
       <string>MOTOR NAME</string>
      </property>
@@ -87,7 +87,7 @@
       <number>5</number>
      </property>
      <item>
-      <widget class="QLineEdit" name="limitLower">
+      <widget class="QLineEdit" name="guiVAL">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -106,7 +106,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="currentPosition">
+      <widget class="QLineEdit" name="guiRBV">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -182,7 +182,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="pbDecPos">
+      <widget class="QPushButton" name="guiTWR">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -201,7 +201,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="stepSize">
+      <widget class="QLineEdit" name="guiTWV">
        <property name="sizePolicy">
         <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -226,7 +226,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="pbIncPos">
+      <widget class="QPushButton" name="guiTWF">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>

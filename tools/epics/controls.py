@@ -122,7 +122,7 @@ class controlsPage:
 			return
 		# Create a new motor widget.
 		if self.level == 'simple': motorWidget = QEMotorSimple()
-		elif self.level == 'normal': motorWidget = QEMotor()
+		elif self.level == 'normal': motorWidget = QEMotorNormal()
 		elif self.level == 'complex': motorWidget = QEMotorComplex()
 		# Add motor vars.
 		motorWidget._stage = motor['Stage']
@@ -204,23 +204,148 @@ class QEMotor(QtWidgets.QWidget):
 
 		# PV vars.
 		self.pv = {}
-		self.pv['RBV'] = None
-		self.pv['VAL'] = None
-		self.pv['TWV'] = None
-		self.pv['TWR'] = None
-		self.pv['TWF'] = None
-		self.pv['DMOV'] = None
+		self.pv['RBV'] = False
+		self.pv['VAL'] = False
+		self.pv['TWV'] = False
+		self.pv['TWR'] = False
+		self.pv['TWF'] = False
+		self.pv['DMOV'] = False
+
+		# Is the motor successfully connected?
+		self._connected = True
+
+	def setup(self):
+		self._connectPVs()
+
+	def _connectPVs(self):
+		# Record PV root information and connect to motors.
+		self.pvBase = self._pv
+
+		try:
+			# Read Back Value
+			self.pv['RBV'] = epics.PV(self.pvBase+'.RBV')
+		except:
+			pass
+		try:
+			# Is motor moving?
+			self.pv['DMOV'] = epics.PV(self.pvBase+'.DMOV')
+		except:
+			pass
+		try:
+			# Value to put to motor
+			self.pv['VAL'] = epics.PV(self.pvBase+'.VAL')
+		except:
+			pass
+		try:
+			# Tweak Value
+			self.pv['TWV'] = epics.PV(self.pvBase+'.TWV')
+		except:
+			pass
+		try:
+			# Tweak Reverse
+			self.pv['TWR'] = epics.PV(self.pvBase+'.TWR')
+		except:
+			pass
+		try:
+			# Tweak Forward
+			self.pv['TWF'] = epics.PV(self.pvBase+'.TWF')
+		except:
+			pass
+
+		# Iterate over all PV's and see if any are disconnected. If one is disconnected, set the state to False.
+		# If everything passes, set the state to True.
+		state = True
+		for key in self.pv:
+			if self.pv[key] is False: state = False
+		self._connected = state
+
+	def readValue(self,attribute):
+		if self._connected is False: return None
+		else: return self.pv[attribute].get()
+
+	def writeValue(self,attribute,value=None):
+		if self._connected is False: return None
+		else: 
+			if attribute == 'TWV':
+				self.pv[attribute].put(value)
+			else:
+				while self.pv['DMOV'] == 1:
+					pass
+				self.pv[attribute].put(value)
+
+	def read(self):
+		# Straight up reading where the motor is.
+		if self._connected is False: return np.inf 
+		else: return self.pv['RBV'].get()
+
+	def write(self,value,mode='absolute'):
+		if self._connected is False: return
+		# Straight up telling the motor where to go.
+		elif mode=='absolute':
+			if self.pv['VAL']: self.pv['VAL'].put(float(value))
+		elif mode=='relative':
+			if self.pv['TWV']:
+				# Place tweak value.
+				self.pv['TWV'].put(float(np.absolute(value)))
+				if value < 0:
+					# Negative direction
+					self.pv['TWR'].put(1)
+				elif value > 0:
+					self.pv['TWF'].put(1)
+				else:
+					# Do nothing.
+					pass
+		else:
+			print('Failed to write value ',value,' to motor ',self.movement)
+
+class QEMotorSimple(QEMotor):
+	def __init__(self,parent=None):
+		super().__init__()
 
 	def setup(self):
 		# Once the information has been loaded into the internal vars, setup the motor widget.
 		# Set the ui file.
-		fp = os.path.join(os.path.dirname(__file__),"QEMotor.ui")
+		fp = os.path.join(os.path.dirname(__file__),"QEMotorSimple.ui")
 		uic.loadUi(fp,self)
+		self.pbReset.setStyleSheet("background-color: red")
 		# Connect to the PV's.
-		self._connectPV()
+		self._connectPVs()
+		self.status()
 		self.lblName.setText(self._name)
 
-	def _connectPV(self):
+	def status(self):
+		if self._connected is False:
+			self.pbReset.setStyleSheet("background-color: red")
+		elif self._connected is True:
+			self.pbReset.setStyleSheet("background-color: green")
+		else:
+			# Something went wrong, set to False.
+			self._connected = False
+			self.pbReset.setStyleSheet("background-color: red")
+
+	def reconnect(self):
+		# If button is pressed, retry self._connectPVs()
+		self._connectPVs()
+		self.status()
+
+	def setReadOnly(self,state):
+		# Set all items to state = True/False
+		self.pbReset.setEnabled(state)
+		
+class QEMotorNormal(QEMotor):
+	def __init__(self,parent=None):
+		super().__init__()
+
+	def setup(self):
+		# Once the information has been loaded into the internal vars, setup the motor widget.
+		# Set the ui file.
+		fp = os.path.join(os.path.dirname(__file__),"QEMotorNormal.ui")
+		uic.loadUi(fp,self)
+		# Connect to the PV's.
+		self._connectPVscalen()
+		self.lblName.setText(self._name)
+
+	def _connectPVs(self):
 		# Record PV root information and connect to motors.
 		self.pvBase = self._pv
 
@@ -269,6 +394,13 @@ class QEMotor(QtWidgets.QWidget):
 		except:
 			self.guiTWF.setEnabled(False)
 
+		# Iterate over all PV's and see if any are disconnected. If one is disconnected, set the state to False.
+		# If everything passes, set the state to True.
+		state = True
+		for key in self.pv:
+			if self.pv[key] is False: state = False
+		self._connected = state
+
 	def updateValue(self,attribute,pvname=None,value=None,**kw):
 		'''Callback function for when the motor value updates.'''
 		value = str('{0:.4f}'.format(value))
@@ -285,82 +417,12 @@ class QEMotor(QtWidgets.QWidget):
 		else:
 			pass
 
-	def readValue(self,attribute):
-		if self.pv[attribute] is None:
-			return None
-		else:
-			return self.pv[attribute].get()
-
-	def writeValue(self,attribute,value=None):
-		'''Write a value to a PV.'''
-		# Check to see if a pv is connected.
-		if self.pv[attribute] is None:
-			print('PV',self.pv[attribute],' not connected, unable to write ',value)
-			return
-		else:
-			# Continue on.
-			pass
-
-		# If the motor is currently moving, do nothing, unless it's TWV, then it doesn't matter.
-		if attribute == 'TWV':
-			# Update tweak value.
-			self.pv[attribute].put( 
-				float(self.guiTWV.getText())
-				)
-		elif self.pv['DMOV'].get() == 1:
-			# If we are moving, do nothing.
-			return
-		else:
-			self.pv[attribute].put(value)
-
-	def read(self):
-		# Straight up reading where the motor is.
-		if self.pv['RBV'] is None:
-			return np.inf
-		else:
-			return self.pv['RBV'].get()
-
-	def write(self,value,mode='absolute'):
-		# Straight up telling the motor where to go.
-		if mode=='absolute':
-			if self.pv['VAL']:
-				self.pv['VAL'].put(float(value))
-
-		elif mode=='relative':
-			if self.pv['TWV']:
-				# Place tweak value.
-				self.pv['TWV'].put(float(np.absolute(value)))
-
-				if value < 0:
-					# Negative direction
-					self.pv['TWR'].put(1)
-				elif value > 0:
-					self.pv['TWF'].put(1)
-				else:
-					# Do nothing.
-					pass
-		else:
-			print('Failed to write value ',value,' to motor ',self.movement)
-
 	def setReadOnly(self,state):
 		# Set all items to state = True/False
 		self.guiVAL.setEnabled(state)
 		self.guiTWV.setEnabled(state)
 		self.guiTWF.setEnabled(state)
 		self.guiTWR.setEnabled(state)
-
-class QEMotorSimple(QEMotor):
-	def __init__(self,parent=None):
-		super().__init__()
-
-	def setup(self):
-		# Once the information has been loaded into the internal vars, setup the motor widget.
-		# Set the ui file.
-		fp = os.path.join(os.path.dirname(__file__),"QEMotorSimple.ui")
-		uic.loadUi(fp,self)
-		# Connect to the PV's.
-		self._connectPV()
-		self.lblName.setText(self._name)
 
 class QEMotorComplex(QEMotor):
 	def __init__(self,parent=None):

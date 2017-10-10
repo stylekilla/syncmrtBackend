@@ -21,11 +21,11 @@ class solver:
 		self.solution = np.zeros((6,))
 		self.transform = np.identity(4)
 
-	def updateVariable(left=None,right=None,patientIsoc=None,machineIsoc=None):
-		if left: self._leftPoints = left
-		if right: self._rightPoints = right
-		if patientIsoc: self._patientIsocenter = patientIsoc
-		if machineIsoc: self._machineIsocenter = machineIsoc
+	def updateVariable(self,left=None,right=None,patientIsoc=None,machineIsoc=None):
+		if left is not None: self._leftPoints = np.array(left)
+		if right is not None: self._rightPoints = np.array(right)
+		if patientIsoc is not None: self._patientIsocenter = np.array(patientIsoc)
+		if machineIsoc is not None: self._machineIsocenter = np.array(machineIsoc)
 
 	def centroid(self):
 		self._leftCentroid = centroid(self._leftPoints)
@@ -49,8 +49,8 @@ class solver:
 		_rightPrime = np.zeros([n,3])
 
 		for i in range(n):
-			_leftPrime[i,:] = np.subtract(ct[i,:],self._leftCentroid)
-			_rightPrime[i,:] = np.subtract(synch[i,:],self._rightCentroid)
+			_leftPrime[i,:] = np.subtract(self._leftPoints[i,:],self._leftCentroid)
+			_rightPrime[i,:] = np.subtract(self._rightPoints[i,:],self._rightCentroid)
 
 		# Find the quaternion matrix, N.
 		N = quaternion(_leftPrime,_rightPrime)
@@ -102,10 +102,10 @@ class solver:
 		self.transform[:3,3] = translation.transpose()
 
 		# Extract scale.
-		if synchRotIsoc is not None:
-			self._rightPoints = np.zeros([n,3])
-			for i in range(n):
-				self._rightPoints[i,:] = np.subtract(synch[i,:],self._rightCentroid)
+		# if synchRotIsoc is not None:
+		# 	self._rightPoints = np.zeros([n,3])
+		# 	for i in range(n):
+		# 		self._rightPoints[i,:] = np.subtract(self._rightPoints[i,:],self._rightCentroid)
 
 		self.scale = scale(self._leftPoints,self._rightPoints,R)
 		self.solution = np.hstack((translation,rotation))

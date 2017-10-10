@@ -142,8 +142,6 @@ class dataset:
 			return
 		self.image[0].array = file['0'][:]
 		self.image[1].array = file['1'][:]
-		print('In File:')
-		print(self.image[0].array)
 		# Extract the extent information, should be available in image.
 		self.image[0].extent = file['0'].attrs['extent']
 		self.image[1].extent = file['1'].attrs['extent']
