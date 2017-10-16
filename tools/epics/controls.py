@@ -220,7 +220,6 @@ class QEMotor(QtWidgets.QWidget):
 	def _connectPVs(self):
 		# Record PV root information and connect to motors.
 		self.pvBase = self._pv
-
 		try:
 			# Read Back Value
 			self.pv['RBV'] = epics.PV(self.pvBase+'.RBV')
