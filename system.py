@@ -7,26 +7,35 @@ class system:
 	It should also hold information about... other stuff.
 '''
 class system:
-	def __init__(self):
+	def __init__(self,stageList):
 		self.solver = imageGuidance.solver()
 		self.detector = hardware.detector()
-		self.stage = hardware.stage()
+		self.stage = hardware.stage(stageList)
+
+		# Make a list of the stages.
+		self.stageList = set()
+		for motor in self.stage.motorList:
+			self.stageList.add(motor['Stage'])
 
 	def setStage(self,name):
-		pass
+		if name in self.stageList: 
+			self.stage.load(name)
 
 	def setDetector(self,name):
 		pass
 
-	def align(self):
+	def calculateAlignment(self):
 		# Update variables.
-		self.solver.setVariable()
+		# self.solver.setVariable()
 		# Solve for alignment solution.
-		self.solver.solve()
+		# self.solver.solve()
 		# Decompose.
-		stageSolution = self.stage.decompose(self.solver.transform)
+		self.stage._motion = self.stage.calculateMotion(self.solver.transform,self.solver.solution)
 		# Apply solution.
-		self.stage.shiftPosition(stageSolution)
+		# self.stage.shiftPosition(stageSolution)
+
+	def movePatient(self,amount):
+		self.stage.shiftPosition(amount)
 
 	def acquireXraySet(self):
 		''' Routine for taking orthogonal x-rays via step-and-shoot. '''

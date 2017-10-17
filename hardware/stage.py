@@ -1,7 +1,58 @@
+from syncmrt.hardware.motor import motor
+from syncmrt.widgets import QEMotor
+
 class stage:
-	def __init__(self):
+	def __init__(self,motorList,ui=None):
+		# Information
+		self._name = None
 		self._dof = (0,[0,0,0,0,0,0])
-		self.motors = {}
+		self.motors = []
+		# A preloadable motion.
+		self._motion = None
+		# UI elements.
+		self._ui = ui
+
+		# Get stagelist and motors.
+		import csv, os
+		# Open CSV file.
+		f = open(os.path.join(os.path.dirname(__file__),motorList))
+		r = csv.DictReader(f)
+		# Save as ordered dict.
+		self.motorList = []
+		for row in r:
+			self.motorList.append(row)
+		# Remove the description row.
+		del self.motorList[0]
+
+	def load(self,name):
+		# Remove all motors.
+		for item in self.motors:
+			del item
+		# Iterate over new motors.
+		for description in self.motorList:
+			if description['Stage'] == name:
+				wp = [0,0,0]
+				if int(description['Axis']) < 3:
+					wp[int(description['Axis'])] = int(description['WorkDistance'])
+				else:
+					wp[int(description['Axis'])-3] = int(description['WorkDistance'])
+				# Define the new motor.
+				newMotor = motor(int(description['Axis']),
+							int(description['Type']),
+							pv=description['PV'],
+							direction=int(description['Direction']),
+							workDistance=int(description['WorkDistance']),
+							workPoint=wp)
+
+				if self._ui is not None:
+					newMotor.setUi(self._ui)
+				# Append the motor to the list.
+				self.motors.append(newMotor)
+		# Update the name.
+		self._name = name
+		# Update GUI.
+		if self._ui is not None:
+			self._ui.update()
 
 	def shiftPosition(self,position):
 		# This is a relative position change.
@@ -26,17 +77,19 @@ class stage:
 			position[(motor._axis + (3*motor._type))] = 0
 
 	def position(self):
-		# return the current position.
+		# return the current position in Global XYZ.
 		pass
 
-	def calculateMotion(self,variables):
-		# Take in a tuple of length 6, this is x y z translations and rotations.
+	def calculateMotion(self,G,variables):
+		# We take in the 4x4 transformation matrix G, and a list of 6 parameters (3x translations, 3x rotations).
 		# Create a transform for this stage, M.
-		M = np.identity(4)
+		S = np.identity(4)
 		# Iterate over each motor in order.
 		for idx, motor in self.motors:
 			# Get the x y z translation or rotation value.
 			value = variables[(motor._axis + (3*motor._type))]
+			# Take as much of this as you can if it fits within the limits of the motor!!
+
 			# Set the taken variable to 0. This stops any future motor from taking this value.
 			variables[(motor._axis + (3*motor._type))] = 0
 			# If it is a rotation, update the working point.
@@ -45,13 +98,16 @@ class stage:
 			# Get the transform for the motor.
 			T = motor.transform(value)
 			# Multiply the transform into the overall transform.
-			M = M@T
-		# Now we have M, an identity matrix that encompases all motors.
-		return M
-		# Mt = np.array(M[:3,3]).reshape(3,)
+			S = S@T
+		# Now we have S, a 4x4 transform that encompases all motors.
+		Remainder = G@np.linalg.inv(S)
 
-		# We have an adjusted matrix, M, that accounts for fixed motor movements etc.
+		t = np.array(M[:3,3]).reshape(3,)
+		r = np.array(M[:3,3]).reshape(3,)
+
+
 		# We must go through and divvy up the translations again, this time applying them.
+		return localSolution
 
 	def applyMotion(self,variables):
 		# Iterate over each motor in order.
@@ -83,52 +139,3 @@ class stage:
 		workPos = currPos + workDist (this is the point we will rotate around)
 		Transform needs the workPos.
 		'''
-
-# This is an epics based class? Qt?
-class motor:
-	def __init__(self):
-		# Axis can be 0,1,2 to represent x,y,z.
-		self._axis = None
-		# Type is 0 (translation) or 1 (rotation).
-		self._type = 0
-		# Direction is +1 (forward) or -1 (reverse) for natural motor movement.
-		self._direction = 1
-		# Upper and lower limits of motor movement.
-		self._range = [-np.inf,np.inf]
-		# Define a work point for the motor, this will be non-zero if it has a fixed mechanical working point. This is nominally the isocenter of the machine.
-		self._workDistance = 0
-		self._workPoint = [0,0,0]
-		# Interfaces.
-		self._ui = None
-		self._control = None
-
-	def setUi(self):
-		# Connect user interface.
-		pass
-
-	def setPv(self):
-		# Set the base PV for the motor.
-		pass
-
-	def setPosition(self,position):
-		pass
-
-	def shiftPosition(self,position):
-		pass
-
-	def transform(self,value):
-		# If we are a translation motor, return a translation transfrom.
-		if self._type == 0:
-			return math.transform.translation(self._axis,value)
-		if self._type == 1:
-			return math.transform.rotation(self._axis,value,self._workPoint)
-
-	def calculateWorkPoint(self,forwardTransform):
-		# Use forward kinematics to find the current working point position.
-		# self._workPoint = forwardTransform@self._workPoint
-		return forwardTransform@self._workPoint
-
-	def setWorkPoint(self,location):
-		self._workPoint = location
-		# Should also maybe set the Epics PV to 000 here.
-
