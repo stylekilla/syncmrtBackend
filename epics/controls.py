@@ -1,6 +1,21 @@
 import epics
 import numpy as np
 
+class robot:
+	def __init__(self,pv):
+		# Internal vars.
+		self._pv = pv
+		# PV vars for point of rotation.
+		self.pv = {}
+		self.pv['x'] = False
+		self.pv['y'] = False
+		self.pv['z'] = False
+		# Set to False to start.
+		self._connected = False
+		# Connect the PV's
+		self._connectPVs()
+
+
 class motor:
 	def __init__(self,pv):
 		# Internal vars.
@@ -50,7 +65,6 @@ class motor:
 			self.pv['TWF'] = epics.PV(self._pv+'.TWF')
 		except:
 			pass
-
 		# Iterate over all PV's and see if any are disconnected. If one is disconnected, set the state to False.
 		# If everything passes, set the state to True.
 		state = True

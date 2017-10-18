@@ -48,10 +48,11 @@ class transformationMatrix:
 		T = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[translation[0],translation[1],translation[2],1]])
 		return T
 
-	def _rotation(self):
-		return R
+	# def _rotation(self):
+	# 	return R
 
-	def _inverseTranslation(self):
-		return Ti
+	# def _inverseTranslation(self):
+	# 	return Ti
 
-	def _rotationOffset(self)
+	# def _rotationOffset(self):
+	# 	pass

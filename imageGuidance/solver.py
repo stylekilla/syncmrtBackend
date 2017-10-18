@@ -1,6 +1,5 @@
 import math
 import numpy as np
-from syncmrt.tools.math import quaternion as quat
 
 '''
 ASSUMPTIONS:
