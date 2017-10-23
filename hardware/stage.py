@@ -29,24 +29,22 @@ class stage:
 		# Remove the description row.
 		del self.motorList[0]
 
-	def load(self,stage,calibrationDist):
+	def load(self,stage):
 		# Remove all motors.
 		for item in self.motors:
 			del item
-		# Set calibration values.
-		self._dcal = calibrationDist
 		# Iterate over new motors.
 		for description in self.motorList:
 			# Does the motor match the stage?
 			if description['Stage'] == stage:
 				# Decide kwargs based on whether the stage uses a global or local coordinate system.
-				if int(description['StageLocation']) == 0:
+				if (int(description['Frame']) == 0) | (int(description['StageLocation']) == 0):
 					kwargs = {
 						'pv':description['PV'],
 						'direction':int(description['Direction']),
 						'frame':int(description['Frame']),
-						'size':[int(description['SizeX']),int(description['SizeY']),int(description['SizeZ'])],
-						'workDistance':[int(description['WorkDistanceX']),int(description['WorkDistanceY']),int(description['WorkDistanceZ'])]
+						'size':np.array([int(description['SizeX']),int(description['SizeY']),int(description['SizeZ'])]),
+						'workDistance':np.array([int(description['WorkDistanceX']),int(description['WorkDistanceY']),int(description['WorkDistanceZ'])]),
 						'stageLocation':int(description['StageLocation'])
 					}
 				else:
@@ -59,6 +57,7 @@ class stage:
 				newMotor = motor(int(description['Axis']),
 							int(description['Type']),
 							int(description['Order']),
+							description['Name'],
 							**(kwargs))
 				# Set a ui for the motor if we are doing that.
 				if self._ui is not None:
@@ -66,18 +65,22 @@ class stage:
 				# Append the motor to the list.
 				self.motors.append(newMotor)
 		# Set the order of the list from 0-i.
-		self.motors = sorted(self.motors, key=lambda k: k['Order']) 
+		self.motors = sorted(self.motors, key=lambda k: k._order) 
 		# Update the stage details.
 		self._name = stage
-		# Stage size in mm including calibration offset (i.e. a pin or object used to calibrate the stage).
-		self._size = self._offset
-		for motor in self.motors:
-			if motor._stage == 0:
-				self._size = np.sum(self._size,motor._size)
-
+		# Calibrate with no calibration offset. This can be recalculated later.
+		self.calibrate(np.array([0,0,0]))
 		# Update GUI.
 		if self._ui is not None:
 			self._ui.update()
+
+	def calibrate(self,calibration):
+		# Stage size in mm including calibration offset (i.e. a pin or object used to calibrate the stage).
+		self._offset = calibration
+		self._size = calibration
+		for motor in self.motors:
+			if motor._stage == 0:
+				self._size = np.add(self._size,motor._size)
 
 	def shiftPosition(self,position):
 		# This is a relative position change.
@@ -105,7 +108,7 @@ class stage:
 		# return the current position of the stage in Global XYZ.
 		pos = np.array([0,0,0])
 		for motor in self.motors:
-			if motor._stage == 1:
+			if (motor._stage == 1)&(motor._type == 0):
 				# Read motor position and the axis it works on.
 				mpos = motor.readPosition()
 				axis = motor._axis
@@ -124,8 +127,10 @@ class stage:
 		S = np.identity(4)
 		# Position of motor in stack (in mm).
 		stackPos = np.array([0,0,0])
+		# NICE PRINTING!!!!!!!!!NICE PRINTING!!!!!!!!!NICE PRINTING!!!!!!!!!NICE PRINTING!!!!!!!!!NICE PRINTING!!!!!!!!!
+		np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 		# Iterate over each motor in order.
-		for idx, motor in self.motors:
+		for motor in self.motors:
 			# Get the x y z translation or rotation value.
 			value = variables[(motor._axis + (3*motor._type))]
 			# Take as much of this as you can if it fits within the limits of the motor!!
@@ -143,7 +148,7 @@ class stage:
 			# Get the transform for the motor.
 			T = motor.transform(value)
 			# Multiply the transform into the overall transform.
-			print('****** MOTOR NUMBER ',idx,':')
+			print('****** MOTOR NUMBER ',motor._order,':')
 			print('====== S:')
 			print(S)
 			print('====== T:')
@@ -160,12 +165,12 @@ class stage:
 		Remainder = G@np.linalg.inv(S)
 		print('====== REMAINDER:')
 		print(Remainder)
-		t = np.array(M[:3,3]).reshape(3,)
-		r = np.array(M[:3,3]).reshape(3,)
+		t = np.array(S[:3,3]).reshape(3,)
+		r = np.array(S[:3,3]).reshape(3,)
 
 
 		# We must go through and divvy up the translations again, this time applying them.
-		return localSolution
+		# return localSolution
 
 	def applyMotion(self,variables):
 		# Iterate over each motor in order.

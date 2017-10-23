@@ -1,9 +1,9 @@
-from syncmrt.math import transform
+from syncmrt import math
 from syncmrt.epics import controls
 import numpy as np
 
 class motor:
-	def __init__(self,axis,mtype,order
+	def __init__(self,axis,mtype,order,name,
 		pv=None,
 		direction=1,
 		mrange=np.array([-np.inf,np.inf]),
@@ -16,6 +16,10 @@ class motor:
 		self._axis = axis
 		# Type is 0 (translation) or 1 (rotation).
 		self._type = mtype
+		# Motor order.
+		self._order = order
+		# Motor name.
+		self._name = name
 		# PV Base.
 		self._pv = pv
 		# Direction is +1 (forward) or -1 (reverse) for natural motor movement.
@@ -59,8 +63,12 @@ class motor:
 		if self._frame == 0:
 			# Find hardware specific position in stage.
 			pmotor = pstage - dstage + offset
+			print('pmotor:',pmotor)
+			print('pstage:',pstage)
+			print('dstage:',dstage)
+			print('offset:',offset)
 			# Find work point related to hardware.
-			self._workPoint = pstage - dstage + pmotor + self._workDistance
+			self._workPoint = pstage - dstage + pmotor + self._size + self._workDistance
 
 	def setWorkPoint(self,workpoint):
 		# This is useful for robotic arms that do movements in global space.

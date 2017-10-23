@@ -1,3 +1,5 @@
+import numpy as np
+
 # User-defined errors.
 class AxisOutOfBoundsError(Exception):
 	"Raised when axis selection is out of bounds."
