@@ -148,25 +148,30 @@ class stage:
 			# Get the transform for the motor.
 			T = motor.transform(value)
 			# Multiply the transform into the overall transform.
-			print('****** MOTOR NUMBER ',motor._order,':')
-			print('====== S:')
-			print(S)
-			print('====== T:')
-			print(T)
+			# print('****** MOTOR NUMBER ',motor._order,':')
+			# print('====== S:')
+			# print(S)
+			# print('====== T:')
+			# print(T)
 			S = S@T
-			print('=== Snew:')
-			print(S)
+			# print('=== Snew:')
+			# print(S)
 		# Now we have S, a 4x4 transform that encompases all motors.
-		print('****** RESULTS:')
-		print('====== G:')
-		print(G)
-		print('====== S:')
-		print(S)
+		# print('****** RESULTS:')
+		# print('====== G:')
+		# print(G)
+		# print('====== S:')
+		# print(S)
 		Remainder = G@np.linalg.inv(S)
-		print('====== REMAINDER:')
-		print(Remainder)
+		# print('====== REMAINDER:')
+		# print(Remainder)
 		t = np.array(S[:3,3]).reshape(3,)
 		r = np.array(S[:3,3]).reshape(3,)
+
+		# Take remainder translations as getting from Remainder to Zero
+		# Add translations to result to apply.
+		# Extract any extra angles or just report back whats missing. This involves extracting angles.
+		# Return the solution.
 
 
 		# We must go through and divvy up the translations again, this time applying them.
