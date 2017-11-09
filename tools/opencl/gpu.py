@@ -1,6 +1,5 @@
 import pyopencl as cl
 import numpy as np
-import site
 
 '''
 This uses OpenCL for GPU parallel methods.
@@ -13,7 +12,7 @@ Workflow is:
 '''
 
 class gpu:
-	def __init__(self,deviceType='GPU'):
+	def __init__(self):
 		'''
 		1. Initialise some parameters
 		2. Find a suitable device
@@ -25,23 +24,15 @@ class gpu:
 		self.extent = None
 		self.zeroExtent = False
 
-		# Find the current platform.
+		# Find avail devices.
 		platforms = cl.get_platforms()
-		# Retrieve a device list.
-		if deviceType == 'GPU':
-			deviceList = platforms[0].get_devices(cl.device_type.GPU)
-		else:
-			# Choose a cpu?
-			# In which case we would return to an equiv numpy routine.
-			pass
-
-		# Force looking for my GT970M for now, ideally this information would be kept in a config file.
-		for testDevice in deviceList:
-			if 'GT' in testDevice.name:
-				device = testDevice
-
+		cpuList = []
+		gpuList = []
+		for plt in platforms:
+			cpuList += plt.get_devices(cl.device_type.CPU)
+			gpuList += plt.get_devices(cl.device_type.GPU)
 		# Create a device context.
-		self.ctx = cl.Context(devices=[device])
+		self.ctx = cl.Context(devices=[cpuList[0]])
 		# Create a device queue.
 		self.queue = cl.CommandQueue(self.ctx)
 
@@ -94,8 +85,9 @@ class gpu:
 
 		# RUN THE PROGRAM
 		# Get kernel source.
-		fp = site.getsitepackages()[0]
-		sourceKernel = open(fp+"/syncmrt/tools/opencl/kernels/rotate.cl", "r").read()		
+		import inspect,os
+		fp = os.path.dirname(inspect.getfile(gpu))
+		sourceKernel = open(fp+"/kernels/rotate.cl", "r").read()		
 		# Compile kernel.
 		program = cl.Program(self.ctx,sourceKernel).build()
 		# Kwargs

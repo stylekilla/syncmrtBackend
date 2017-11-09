@@ -34,6 +34,10 @@ class system:
 		# Apply solution.
 		# self.stage.shiftPosition(stageSolution)
 
+	def applyAlignment(self):
+		# Tell the stage to apply the calculated/prepared motion.
+		self.stage.applyMotion(None)
+
 	def movePatient(self,amount):
 		self.stage.shiftPosition(amount)
 

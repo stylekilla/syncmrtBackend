@@ -3,4 +3,4 @@
 # Submodules
 from .image import image
 from .dataset import dataset
-from . import dicom
+# from . import dicom
