@@ -178,6 +178,9 @@ class stage:
 		# return localSolution
 
 	def applyMotion(self,variables):
+		# If no motion is passed, then apply the preloaded motion.
+		if variables == None:
+			variables = self._motion
 		# Iterate over each motor in order.
 		for idx, motor in motors:
 			# Understand the motors function.
