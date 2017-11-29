@@ -33,6 +33,7 @@ class gpu:
 			gpuList += plt.get_devices(cl.device_type.GPU)
 		# Create a device context.
 		self.ctx = cl.Context(devices=[cpuList[0]])
+		# self.ctx = cl.Context(devices=[gpuList[1]])
 		# Create a device queue.
 		self.queue = cl.CommandQueue(self.ctx)
 
@@ -42,21 +43,23 @@ class gpu:
 		We must enforce float32 datatypes as the kernels are assumed to be written in these also.
 		'''
 		# Enforce float32 for arrIn array.
-		arrIn = np.array(data).astype(np.float32)
+		arrIn = np.array(data,order='C').astype(np.float32)
 		# Deal with rotations.
 		x,y,z = np.deg2rad(activeRotation)
+		# y,x,z = np.deg2rad(activeRotation)
 		rx = np.array([[1,0,0],[0,np.cos(x),-np.sin(x)],[0,np.sin(x),np.cos(x)]])
 		ry = np.array([[np.cos(y),0,-np.sin(y)],[0,1,0],[np.sin(y),0,np.cos(y)]])
 		rz = np.array([[np.cos(z),-np.sin(z),0],[np.sin(z),np.cos(z),0],[0,0,1]])
 		activeRotation = np.array(rz@ry@rx).astype(np.float32)
 		x,y,z = np.deg2rad(passiveRotation)
+		# y,x,z = np.deg2rad(passiveRotation)
 		rx = np.array([[1,0,0],[0,np.cos(x),-np.sin(x)],[0,np.sin(x),np.cos(x)]])
 		ry = np.array([[np.cos(y),0,-np.sin(y)],[0,1,0],[np.sin(y),0,np.cos(y)]])
 		rz = np.array([[np.cos(z),-np.sin(z),0],[np.sin(z),np.cos(z),0],[0,0,1]])
 		passiveRotation = np.array(rz@ry@rx).astype(np.float32)
 
-		# Output size
-		boundingBox = np.array([
+		# Input Shape
+		inputShape = np.array([
 			[0,0,0],
 			[1,0,0],
 			[0,1,0],
@@ -65,12 +68,17 @@ class gpu:
 			[1,0,1],
 			[0,1,1],
 			[1,1,1]]) * arrIn.shape
+
+		# Output shape.
+		outputShape = np.empty(inputShape.shape,dtype=int)
 		for i in range(8):
-			boundingBox[i,:] = activeRotation@boundingBox[i,:]@passiveRotation
-		boundingBox = np.amax(np.absolute(boundingBox),axis=0)
+			outputShape[i,:] = activeRotation@inputShape[i,:]@passiveRotation
+		mins = np.absolute(np.amin(outputShape,axis=0))
+		maxs = np.absolute(np.amax(outputShape,axis=0))
+		outputShape = mins+maxs
 
 		# Create output array.
-		arrOut = np.empty(boundingBox).astype(np.float32)
+		arrOut = np.empty(outputShape).astype(np.float32)
 		arrOutShape = np.array(arrOut.shape).astype(np.float32)
 
 		# DATA TRANSFER
@@ -107,7 +115,28 @@ class gpu:
 		if pixelSize is not None: self.pixelSize = activeRotation@pixelSize@passiveRotation
 		if isocenter is not None: self.isocenter = activeRotation@isocenter@passiveRotation
 		# Extent[l,r,b,t,f,b]
-		if extent is not None: self.extent = extent
+		if extent is not None: 
+			inputExtent = np.array([
+				[extent[2],extent[0],extent[4]],
+				[extent[2],extent[1],extent[4]],
+				[extent[3],extent[0],extent[4]],
+				[extent[3],extent[1],extent[4]],
+				[extent[2],extent[0],extent[5]],
+				[extent[2],extent[1],extent[5]],
+				[extent[3],extent[0],extent[5]],
+				[extent[3],extent[1],extent[5]]])
+
+			# Output extent.
+			outputExtent = np.empty(inputExtent.shape)
+			for i in range(8):
+				outputExtent[i,:] = activeRotation@inputExtent[i,:]@passiveRotation
+			mins = np.amin(outputExtent,axis=0)
+			maxs = np.amax(outputExtent,axis=0)
+			# Final output for extent.
+			# self.extent = np.array([mins[0],maxs[0],mins[1],maxs[1],mins[2],maxs[2]])
+			self.extent = np.array([mins[1],maxs[1],mins[0],maxs[0],mins[2],maxs[2]])
+			# self.extent = np.array([-10,10,-10,10,-10,10])
+
 		# Trigger for setting bottom left corner as 0,0,0.
 		self.zeroExtent = False
 

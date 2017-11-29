@@ -64,7 +64,6 @@ class controlsPage:
 		# Add motor vars.
 		motorWidget._stage = motor['Stage']
 		motorWidget._movement = motor['Movement']
-		motorWidget._dependentOn = motor['Dependencies']
 		motorWidget._name = motor['Name']
 		motorWidget._pv = motor['PV']
 		motorWidget._order = motor['Order']

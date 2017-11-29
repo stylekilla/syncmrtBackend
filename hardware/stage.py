@@ -31,8 +31,8 @@ class stage:
 
 	def load(self,stage):
 		# Remove all motors.
-		for item in self.motors:
-			del item
+		for i in range(len(self.motors)):
+			del self.motors[-1]
 		# Iterate over new motors.
 		for description in self.motorList:
 			# Does the motor match the stage?
@@ -113,6 +113,7 @@ class stage:
 				mpos = motor.readPosition()
 				axis = motor._axis
 				# Add value to the overall position.
+				if mpos == np.inf: mpos = 0
 				pos[axis] += mpos
 
 		# Return the position.
@@ -123,20 +124,25 @@ class stage:
 
 	def calculateMotion(self,G,variables):
 		# We take in the 4x4 transformation matrix G, and a list of 6 parameters (3x translations, 3x rotations).
-		# Create a transform for this stage, M.
+		# Create a transform for this stage, S.
+		print('Stage Name: ',self._name)
+		print('Variables:',variables)
 		S = np.identity(4)
 		# Position of motor in stack (in mm).
 		stackPos = np.array([0,0,0])
 		# NICE PRINTING!!!!!!!!!NICE PRINTING!!!!!!!!!NICE PRINTING!!!!!!!!!NICE PRINTING!!!!!!!!!NICE PRINTING!!!!!!!!!
 		np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
+		# Make a copy so original stays intact.
+		calcVars = np.array(variables)
 		# Iterate over each motor in order.
 		for motor in self.motors:
+			print('Motor Name: ',motor._name)
 			# Get the x y z translation or rotation value.
-			value = variables[(motor._axis + (3*motor._type))]
+			value = calcVars[(motor._axis + (3*motor._type))]
 			# Take as much of this as you can if it fits within the limits of the motor!!
 
 			# Set the taken variable to 0. This stops any future motor from taking this value.
-			variables[(motor._axis + (3*motor._type))] = 0
+			calcVars[(motor._axis + (3*motor._type))] = 0
 			# Add current motor height in stack.
 			if motor._stage == 0:
 				stackPos += motor._size
@@ -149,33 +155,55 @@ class stage:
 			T = motor.transform(value)
 			# Multiply the transform into the overall transform.
 			# print('****** MOTOR NUMBER ',motor._order,':')
-			# print('====== S:')
-			# print(S)
 			# print('====== T:')
 			# print(T)
 			S = S@T
-			# print('=== Snew:')
+			# print('=== S:')
 			# print(S)
 		# Now we have S, a 4x4 transform that encompases all motors.
-		# print('****** RESULTS:')
-		# print('====== G:')
-		# print(G)
-		# print('====== S:')
-		# print(S)
-		Remainder = G@np.linalg.inv(S)
-		# print('====== REMAINDER:')
-		# print(Remainder)
+		print('****** RESULTS:')
+		print('====== Global:')
+		print(G)
+		print('====== Stage:')
+		print(S)
+		remainder = G@np.linalg.inv(S)
+		print('====== Remainder:')
+		print(remainder)
 		t = np.array(S[:3,3]).reshape(3,)
-		r = np.array(S[:3,3]).reshape(3,)
+		r = np.array(S[:3,:3]).reshape(3,3)
 
-		# Take remainder translations as getting from Remainder to Zero
-		# Add translations to result to apply.
+		# Start by assuming a successful decomposition.
+		success = True
+
+		# Update variables to match stage movements.
+		print('a:',np.sum(remainder[:3,3]))
+		print('check:',np.isclose( np.sum(remainder[:3,3]) ,0, atol=1e-03))
+		if np.isclose( np.sum(remainder[:3,3]) ,0, atol=1e-03) is False:
+			# Check to see if remainder is within less than 1 micron tolerance.
+			# If the translations aren't 0 then subtract the updates to the vars.
+			# print('variables before additions: ',variables[:3])
+			# print('remainder: ',remainder[:3,3])
+			# variables[:3] -= remainder[:3,3]
+			# May have to rejig this for other stages where it goes through the actual process?
+			variables[:3] -= S[:3,:3]@remainder[:3,3]
+			# variables[:3] -= np.array(S[:3,3]@remainder[:3,3]).reshape(3,)
+			# print('S: ',S[:3,3])
+			# print('S: ',S[:3,3])
+			# print('combined: ',S[:3,3] - remainder[:3,3])
+			# variables[:3] = S[:3,3] - remainder[:3,3]
+			# print('variables after additions: ',variables[:3])
+			success = False
+
 		# Extract any extra angles or just report back whats missing. This involves extracting angles.
-		# Return the solution.
+		# Can do something with varTracking to see how many have gone down to 0. Can be used to show that we can't account for some parts of the movement?
 
+		# Re-iterate this function with the adjusted vars.
+		if success is False:
+			self.calculateMotion(G,variables)
 
-		# We must go through and divvy up the translations again, this time applying them.
-		# return localSolution
+		elif success is True:
+			# Exit the function.
+			return variables
 
 	def applyMotion(self,variables):
 		# If no motion is passed, then apply the preloaded motion.

@@ -21,12 +21,14 @@ class solver:
 		self.transform = np.identity(4)
 
 	def updateVariable(self,left=None,right=None,patientIsoc=None,machineIsoc=None):
+		# Update vars.
 		if left is not None: self._leftPoints = np.array(left)
 		if right is not None: self._rightPoints = np.array(right)
 		if patientIsoc is not None: self._patientIsocenter = np.array(patientIsoc)
 		if machineIsoc is not None: self._machineIsocenter = np.array(machineIsoc)
 
 	def centroid(self):
+		# Run the centroid calcaulation routine.
 		self._leftCentroid = centroid(self._leftPoints)
 		self._rightCentroid = centroid(self._rightPoints)
 

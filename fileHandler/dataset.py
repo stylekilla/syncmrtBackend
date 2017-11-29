@@ -86,17 +86,18 @@ class dataset:
 		x2 = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0] + shape[1]*self.image[0].pixelSize[0]
 		z1 = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2] - shape[2]*self.image[0].pixelSize[2]
 		z2 = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2] 
+		# extent is LRBTFB (or dicom's YXZ) .
 		self.extent = np.array([y1,y2,x1,x2,z1,z2])
 
 		# GPU drivers.
 		gpu = gpuInterface()
-		# Patient imaging orientation. (Rotation happens in [row,col,depth]).
+		# Patient imaging orientation. (Rotation happens in [col,row,depth]).
 		if self.image[0].patientPosition == 'HFS':
 			# Head First, Supine.
 			# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
 			kwargs = (
 				(0,0,0),
-				(0,0,0),
+				(0,90,0),
 				self.image[0].pixelSize,
 				self.extent,
 				None
@@ -113,7 +114,7 @@ class dataset:
 			# self.array, self.arrayExtent = gpu.rotate(155,-90,0,)
 			# self.array = gpu.rotate(0,-90,0,)
 			kwargs = (
-				(0,-90,0),
+				(0,0,0),
 				(0,0,0),
 				self.image[0].pixelSize,
 				self.extent,
