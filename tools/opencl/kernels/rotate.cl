@@ -76,6 +76,11 @@ __kernel void rotate3d(
 		(gpuOutShape[2] * gpuOutShape[1] * newPoint[0]);
 	// printf("idxNew: %i\n",idxNew);
 
+	//printf("sizeof(gpuOut), sizeof(gpuIn):, %i, %i\n", sizeof(&gpuOut), sizeof(&gpuIn));
+	if(idxNew > (szx*szy*szz) -1) //54788095
+	{
+		idxNew = (szx *szy *szz) -1;
+	};
 	gpuOut[idxNew] = gpuIn[idx];
 
 }

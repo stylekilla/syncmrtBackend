@@ -32,8 +32,8 @@ class gpu:
 			cpuList += plt.get_devices(cl.device_type.CPU)
 			gpuList += plt.get_devices(cl.device_type.GPU)
 		# Create a device context.
-		self.ctx = cl.Context(devices=[cpuList[0]])
-		# self.ctx = cl.Context(devices=[gpuList[1]])
+		# self.ctx = cl.Context(devices=[cpuList[0]])
+		self.ctx = cl.Context(devices=[gpuList[0]])
 		# Create a device queue.
 		self.queue = cl.CommandQueue(self.ctx)
 
@@ -78,8 +78,11 @@ class gpu:
 		outputShape = mins+maxs
 
 		# Create output array.
-		arrOut = np.empty(outputShape).astype(np.float32)
+		arrOut = np.zeros(outputShape).astype(np.float32)
 		arrOutShape = np.array(arrOut.shape).astype(np.float32)
+
+		print('arrIn nbytes',arrIn.nbytes)
+		print('arrOut nbytes',arrOut.nbytes)
 
 		# DATA TRANSFER
 		# Create memory flags.
@@ -106,10 +109,14 @@ class gpu:
 			gpuOutShape
 			)
 		# Run
-		program.rotate3d(self.queue,arrIn.shape,None,*(kwargs)).wait()
+		program.rotate3d(self.queue,arrIn.shape,None,*(kwargs))
+		# program.rotate3d(self.queue,arrIn.shape,None,*(kwargs)).wait()
 
 		# Get results
 		cl.enqueue_copy(self.queue, arrOut, gpuOut)
+
+		# Remove dirty information.
+		arrOut = np.nan_to_num(arrOut);
 
 		# Change other vars.
 		if pixelSize is not None: self.pixelSize = activeRotation@pixelSize@passiveRotation

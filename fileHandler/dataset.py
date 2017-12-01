@@ -97,7 +97,7 @@ class dataset:
 			# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
 			kwargs = (
 				(0,0,0),
-				(0,90,0),
+				(0,0,0),
 				self.image[0].pixelSize,
 				self.extent,
 				None
