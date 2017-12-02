@@ -37,26 +37,32 @@ class gpu:
 		# Create a device queue.
 		self.queue = cl.CommandQueue(self.ctx)
 
-	def rotate(self,data,activeRotation=(0,0,0),passiveRotation=(0,0,0),pixelSize=(1,1,1),extent=(-1,1,-1,1,-1,1),isocenter=None):
+	# def rotate(self,data,activeRotation=(0,0,0),passiveRotation=(0,0,0),pixelSize=(1,1,1),extent=(-1,1,-1,1,-1,1),isocenter=None):
+	def rotate(self,data,activeRotation=[],passiveRotation=[],pixelSize=(1,1,1),extent=(-1,1,-1,1,-1,1),isocenter=None):
 		'''
 		Here we give the data to be copied to the GPU and give some deacriptors about the data.
 		We must enforce float32 datatypes as the kernels are assumed to be written in these also.
 		'''
 		# Enforce float32 for arrIn array.
-		arrIn = np.array(data,order='C').astype(np.float32)
+		# arrIn = np.array(data,order='C').astype(np.float32)
+		arrIn = np.array(data,order='C').astype(np.int32)
+
 		# Deal with rotations.
-		x,y,z = np.deg2rad(activeRotation)
-		# y,x,z = np.deg2rad(activeRotation)
-		rx = np.array([[1,0,0],[0,np.cos(x),-np.sin(x)],[0,np.sin(x),np.cos(x)]])
-		ry = np.array([[np.cos(y),0,-np.sin(y)],[0,1,0],[np.sin(y),0,np.cos(y)]])
-		rz = np.array([[np.cos(z),-np.sin(z),0],[np.sin(z),np.cos(z),0],[0,0,1]])
-		activeRotation = np.array(rz@ry@rx).astype(np.float32)
-		x,y,z = np.deg2rad(passiveRotation)
-		# y,x,z = np.deg2rad(passiveRotation)
-		rx = np.array([[1,0,0],[0,np.cos(x),-np.sin(x)],[0,np.sin(x),np.cos(x)]])
-		ry = np.array([[np.cos(y),0,-np.sin(y)],[0,1,0],[np.sin(y),0,np.cos(y)]])
-		rz = np.array([[np.cos(z),-np.sin(z),0],[np.sin(z),np.cos(z),0],[0,0,1]])
-		passiveRotation = np.array(rz@ry@rx).astype(np.float32)
+		activeRotation = self.rotationMatrix(activeRotation)
+		passiveRotation = self.rotationMatrix(passiveRotation)
+
+		# x,y,z = np.deg2rad(activeRotation)
+		# # y,x,z = np.deg2rad(activeRotation)
+		# rx = np.array([[1,0,0],[0,np.cos(x),-np.sin(x)],[0,np.sin(x),np.cos(x)]])
+		# ry = np.array([[np.cos(y),0,-np.sin(y)],[0,1,0],[np.sin(y),0,np.cos(y)]])
+		# rz = np.array([[np.cos(z),-np.sin(z),0],[np.sin(z),np.cos(z),0],[0,0,1]])
+		# activeRotation = np.array(rz@ry@rx).astype(np.float32)
+		# x,y,z = np.deg2rad(passiveRotation)
+		# # y,x,z = np.deg2rad(passiveRotation)
+		# rx = np.array([[1,0,0],[0,np.cos(x),-np.sin(x)],[0,np.sin(x),np.cos(x)]])
+		# ry = np.array([[np.cos(y),0,-np.sin(y)],[0,1,0],[np.sin(y),0,np.cos(y)]])
+		# rz = np.array([[np.cos(z),-np.sin(z),0],[np.sin(z),np.cos(z),0],[0,0,1]])
+		# passiveRotation = np.array(rz@ry@rx).astype(np.float32)
 
 		# Input Shape
 		inputShape = np.array([
@@ -78,11 +84,8 @@ class gpu:
 		outputShape = mins+maxs
 
 		# Create output array.
-		arrOut = np.zeros(outputShape).astype(np.float32)
-		arrOutShape = np.array(arrOut.shape).astype(np.float32)
-
-		print('arrIn nbytes',arrIn.nbytes)
-		print('arrOut nbytes',arrOut.nbytes)
+		arrOut = np.zeros(outputShape).astype(np.int32)-1000
+		arrOutShape = np.array(arrOut.shape).astype(np.int32)
 
 		# DATA TRANSFER
 		# Create memory flags.
@@ -91,7 +94,7 @@ class gpu:
 		gpuIn = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=arrIn)
 		gpuActiveRotation = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=activeRotation)
 		gpuPassiveRotation = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=passiveRotation)
-		gpuOut = cl.Buffer(self.ctx, mf.WRITE_ONLY, arrOut.nbytes)
+		gpuOut = cl.Buffer(self.ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=arrOut)
 		gpuOutShape = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=arrOutShape)
 
 		# RUN THE PROGRAM
@@ -116,7 +119,7 @@ class gpu:
 		cl.enqueue_copy(self.queue, arrOut, gpuOut)
 
 		# Remove dirty information.
-		arrOut = np.nan_to_num(arrOut);
+		arrOut = np.nan_to_num(arrOut)
 
 		# Change other vars.
 		if pixelSize is not None: self.pixelSize = activeRotation@pixelSize@passiveRotation
@@ -148,3 +151,23 @@ class gpu:
 		self.zeroExtent = False
 
 		return arrOut
+
+	def rotationMatrix(self,rotationList):
+		# rotationList should be a list of strings that match: '0123.1' where the first character, 0/1/2 represents the axis, the rest represents the value to rotate by.
+		# Begin with identity matrix.
+		matrix = np.identity(3)
+		# Iterate through desired rotations.
+		for i in range(len(rotationList)):
+			axis = int(rotationList[i][0])
+			value = np.deg2rad(float(rotationList[i][1:]))
+			if axis == 0:
+				temp = np.array([[1,0,0],[0,np.cos(value),-np.sin(value)],[0,np.sin(value),np.cos(value)]])
+			elif axis == 1:
+				temp = np.array([[np.cos(value),0,-np.sin(value)],[0,1,0],[np.sin(value),0,np.cos(value)]])
+			elif axis == 2:
+				temp = np.array([[np.cos(value),-np.sin(value),0],[np.sin(value),np.cos(value),0],[0,0,1]])
+			else:
+				temp = np.identity(3)
+			# Multiply into final matrix.
+			matrix = matrix@temp
+		return np.array(matrix).astype(np.float32)

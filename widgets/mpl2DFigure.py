@@ -34,7 +34,7 @@ class mpl2DFigure:
 		self._radiographMode = 'sum'
 
 		self.overlay = {}
-		self.isocenter = [0,0]
+		self.isocenter = [0,0,0]
 		self.ctd = None
 
 		self.fig = plt.figure()
@@ -67,7 +67,7 @@ class mpl2DFigure:
 		self.canvas._pickerActive = False
 
 	def imageLoad(self,array,extent=np.array([-1,1,-1,1]),imageOrientation='',imageIndex=0):
-		'''imageLoad: Load numpy file in, convert to 2D. Connect callbacks and plot.'''		
+		'''imageLoad: Load numpy file in, convert to 2D. Connect callbacks and plot.'''
 		self.imageIndex = imageIndex
 		# self.data3d = np.load(fn)
 		self.data3d = array
@@ -86,7 +86,7 @@ class mpl2DFigure:
 			self.extent = extent
 
 		# Rescale 2d image between 0 and 65535 (16bit)
-		self.imageNormalise()
+		# self.imageNormalise()
 			
 		# if imageOrientation == 'HFS':
 		# 	if imageIndex == 0:
@@ -165,7 +165,7 @@ class mpl2DFigure:
 		scale = (upper-lower)/test
 
 		self.data2d = (self.data2d - minimum)*scale
-		self.data2d[self.data2d<0] = 0
+		# self.data2d[self.data2d<0] = 0
 
 	def markerAdd(self,x,y):
 		'''Append marker position if it is within the maximum marker limit.'''
@@ -266,9 +266,16 @@ class mpl2DFigure:
 
 	def overlayIsocenter(self,state=False):
 		if state is True:
+			# Get image index for isoc numbers.
+			if self.imageIndex == 0:
+				a = 0
+				b = 1
+			elif self.imageIndex == 1:
+				a = 2
+				b = 1
 			# Plot overlay lines.
-			self.overlay['isocenterh'] = self.ax.axhline(self.isocenter[1],c='r',alpha=0.5)
-			self.overlay['isocenterv'] = self.ax.axvline(self.isocenter[0],c='r',alpha=0.5)
+			self.overlay['isocenterh'] = self.ax.axhline(self.isocenter[a],c='r',alpha=0.5)
+			self.overlay['isocenterv'] = self.ax.axvline(self.isocenter[b],c='r',alpha=0.5)
 
 		else:
 			# Remove overlay lines.

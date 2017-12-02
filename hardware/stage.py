@@ -140,9 +140,10 @@ class stage:
 			# Get the x y z translation or rotation value.
 			value = calcVars[(motor._axis + (3*motor._type))]
 			# Take as much of this as you can if it fits within the limits of the motor!!
-
+			# print('calcVars before',calcVars)
 			# Set the taken variable to 0. This stops any future motor from taking this value.
 			calcVars[(motor._axis + (3*motor._type))] = 0
+			# print('calcVars after',calcVars)
 			# Add current motor height in stack.
 			if motor._stage == 0:
 				stackPos += motor._size
@@ -151,6 +152,7 @@ class stage:
 				# Get the current position of the stage.
 				stagePos = self.position()
 				motor.calculateWorkPoint(stagePos,self._size,stackPos)
+				print('Motor WD',motor._workDistance)
 			# Get the transform for the motor.
 			T = motor.transform(value)
 			# Multiply the transform into the overall transform.
@@ -168,6 +170,7 @@ class stage:
 		print(S)
 		remainder = G@np.linalg.inv(S)
 		print('====== Remainder:')
+		# remainder[:3,3] = G[:3,3]+S[:3,3]
 		print(remainder)
 		t = np.array(S[:3,3]).reshape(3,)
 		r = np.array(S[:3,:3]).reshape(3,3)
@@ -177,15 +180,16 @@ class stage:
 
 		# Update variables to match stage movements.
 		print('a:',np.sum(remainder[:3,3]))
-		print('check:',np.isclose( np.sum(remainder[:3,3]) ,0, atol=1e-03))
-		if np.isclose( np.sum(remainder[:3,3]) ,0, atol=1e-03) is False:
+		if np.isclose( np.sum(np.absolute(remainder[:3,3])) ,0, atol=1e-03) is False:
 			# Check to see if remainder is within less than 1 micron tolerance.
 			# If the translations aren't 0 then subtract the updates to the vars.
 			# print('variables before additions: ',variables[:3])
 			# print('remainder: ',remainder[:3,3])
-			# variables[:3] -= remainder[:3,3]
+			
+
 			# May have to rejig this for other stages where it goes through the actual process?
-			variables[:3] -= S[:3,:3]@remainder[:3,3]
+			variables[:3] += remainder[:3,3]@S[:3,:3]
+
 			# variables[:3] -= np.array(S[:3,3]@remainder[:3,3]).reshape(3,)
 			# print('S: ',S[:3,3])
 			# print('S: ',S[:3,3])

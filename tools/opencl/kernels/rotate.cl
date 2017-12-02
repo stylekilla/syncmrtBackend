@@ -1,9 +1,9 @@
 __kernel void rotate3d(
-	__global const float *gpuIn,
+	__global const int *gpuIn,
 	__global const float *gpuActiveRotation,
 	__global const float *gpuPassiveRotation,
-	__global float *gpuOut,
-	__global const float *gpuOutShape)
+	__global int *gpuOut,
+	__global const int *gpuOutShape)
 {
 	// Get global xyz ID's.
 	int x = get_global_id(0);
@@ -64,9 +64,9 @@ __kernel void rotate3d(
 
 	// Relocate point in output shape.
 	int newPoint[3] = {
-		(int)(point2[0] + outOrigin[0]),
-		(int)(point2[1] + outOrigin[1]),
-		(int)(point2[2] + outOrigin[2])
+		(int)(point2[0] + 0.5 + outOrigin[0]),
+		(int)(point2[1] + 0.5 + outOrigin[1]),
+		(int)(point2[2] + 0.5 + outOrigin[2])
 	};
 	// printf("New Point: %i,%i,%i \n",newPoint[0],newPoint[1],newPoint[2]);
 

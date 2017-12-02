@@ -58,7 +58,7 @@ class dataset:
 		# Get DICOM shape.
 		shape = np.array([int(ref.Rows), int(ref.Columns), len(self.ds)])
 		# Initialize image with array of zeros.
-		self.image[0].array = np.zeros(shape, dtype=np.result_type(ref.pixel_array))-1000
+		self.image[0].array = np.zeros(shape, dtype=np.int32)
 		# For each slice extract the pixel data and put in respective z slice in array. 
 		for fn in self.ds:
 			data = dicom.read_file(fn)
@@ -67,7 +67,6 @@ class dataset:
 		self.image[0].position = ref.ImagePositionPatient
 		self.image[0].patientPosition = ref.PatientPosition
 		# Rescale the Hounsfield Units.
-		self.image[0].array[self.image[0].array == -2000] = ref.RescaleIntercept
 		self.image[0].array = (self.image[0].array*ref.RescaleSlope) + ref.RescaleIntercept
 		# Sometimes the spacing between slices tag doesn't exist, if it doesn't, create it.
 		try:
@@ -96,8 +95,9 @@ class dataset:
 			# Head First, Supine.
 			# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
 			kwargs = (
-				(0,0,0),
-				(0,0,0),
+				[],
+				['190'],
+				# ['10'],
 				self.image[0].pixelSize,
 				self.extent,
 				None
@@ -114,8 +114,8 @@ class dataset:
 			# self.array, self.arrayExtent = gpu.rotate(155,-90,0,)
 			# self.array = gpu.rotate(0,-90,0,)
 			kwargs = (
-				(0,0,0),
-				(0,0,0),
+				[],
+				[],
 				self.image[0].pixelSize,
 				self.extent,
 				None
@@ -126,6 +126,8 @@ class dataset:
 		# Update other variables from gpu.
 		self.image[0].pixelSize = gpu.pixelSize
 		self.image[0].extent = gpu.extent
+		# Set empty isocenter for rtplan load.
+		self.isocenter = np.array([0,0,0])
 
 		# Save and write fp and ds.
 		np.save(self.fp+'/ct0.npy',self.image[0].array)
@@ -173,12 +175,12 @@ class dataset:
 			self.image[i].collimator = float(ref.BeamSequence[i].ControlPointSequence[0].BeamLimitingDeviceAngle)
 
 			# Gantry Angle of Clinical LINAC. Rotation about DICOM Z-axis.
-			self.image[i].gantry = float(ref.BeamSequence[i].ControlPointSequence[0].GantryAngle)
+			self.image[i].gantry = -float(ref.BeamSequence[i].ControlPointSequence[0].GantryAngle)
 
 			# Patient support angle (table rotation angle) of Clinical LINAC. Rotation about DICOM Y-axis.
 			self.image[i].patientSupport = float(ref.BeamSequence[i].ControlPointSequence[0].PatientSupportAngle)
 
-			# self.image[i].pitchAngle = float(ref.BeamSequence[i].ControlPointSequence[0].TableTopPitchAngle)
+			self.image[i].pitchAngle = float(ref.BeamSequence[i].ControlPointSequence[0].TableTopPitchAngle)
 			# self.image[i].rollAngle = float(ref.BeamSequence[i].ControlPointSequence[0].TableTopRollAngle)
 
 			self.image[i].isocenter = np.array(ref.BeamSequence[i].ControlPointSequence[0].IsocenterPosition)
@@ -194,12 +196,25 @@ class dataset:
 			# array, self.image[i].arrayExtent = gpu.rotate(self.image[i].gantryAngle,0,self.image[i].patientSupportAngle,order='pat-gant-col',z1=self.image[i].collimatorAngle)
 			# array, self.image[i].arrayExtent = gpu.rotate(0,0,90,order='pat-gant-col',z1=0)
 
+			# kwargs = (
+			# 	(0,0,0),
+			# 	(0,0,0),
+			# 	self.image[i].pixelSize,
+			# 	ctImage.extent,
+			# 	None
+			# 	)
+			# print('Rotations')
+			# print(['2'+str(self.image[i].patientSupport)])
+			# print(['0'+str(self.image[i].gantry),'2'+str(self.image[i].collimator)])
+
 			kwargs = (
-				(0,90,0),
-				(0,0,0),
+				# ['2'+str(self.image[i].patientSupport),'1'+str(self.image[i].pitchAngle)],
+				# ['0'+str(self.image[i].gantry),'2'+str(self.image[i].collimator)],
+				['290'],
+				['0-90'],
 				self.image[i].pixelSize,
 				ctImage.extent,
-				None
+				self.image[i].isocenter
 				)
 
 			# Run the gpu rotation.
