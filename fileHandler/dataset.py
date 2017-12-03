@@ -78,15 +78,28 @@ class dataset:
 			spacingBetweenSlices = abs(end-start)/(len(self.ds)-1)
 		# Voxel shape determined by detector element sizes and CT slice thickness.
 		self.image[0].pixelSize = [ref.PixelSpacing[0], ref.PixelSpacing[1], spacingBetweenSlices]
+		# Direction.
+		# self.image[0].orientation = 
 		# CT array extent (from bottom left corner of array); x->Cols, y->Rows z->Depth. (yyxxzz).
-		y1 = ref.ImagePositionPatient[1]-0.5*self.image[0].pixelSize[1] 
-		y2 = ref.ImagePositionPatient[1]-0.5*self.image[0].pixelSize[1] + shape[0]*self.image[0].pixelSize[1]
-		x1 = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0] 
-		x2 = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0] + shape[1]*self.image[0].pixelSize[0]
-		z1 = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2] - shape[2]*self.image[0].pixelSize[2]
-		z2 = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2] 
-		# extent is LRBTFB (or dicom's YXZ) .
-		self.extent = np.array([y1,y2,x1,x2,z1,z2])
+		l = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0]
+		r = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0] + shape[1]*self.image[0].pixelSize[0]
+		b = ref.ImagePositionPatient[1]-0.5*self.image[0].pixelSize[1] + shape[0]*self.image[0].pixelSize[1]
+		t = ref.ImagePositionPatient[1]-0.5*self.image[0].pixelSize[1]
+		f = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2]
+		b = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2] - shape[2]*self.image[0].pixelSize[2]
+
+		# x1 = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0] 
+		# x2 = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0] + shape[1]*self.image[0].pixelSize[0]
+		# y1 = ref.ImagePositionPatient[1]-0.5*self.image[0].pixelSize[1] + shape[0]*self.image[0].pixelSize[1] 
+		# y2 = ref.ImagePositionPatient[1]-0.5*self.image[0].pixelSize[1]
+		# z1 = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2] - shape[2]*self.image[0].pixelSize[2]
+		# z2 = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2] 
+		# # extent is LRBTFB (or dicom's YXZ) .
+		# self.extent = np.array([y1,y2,x1,x2,z1,z2])
+		self.extent = np.array([l,r,b,t,f,b])
+		print('extent:',self.extent)
+
+
 
 		# GPU drivers.
 		gpu = gpuInterface()
@@ -95,9 +108,8 @@ class dataset:
 			# Head First, Supine.
 			# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
 			kwargs = (
-				[],
 				['190'],
-				# ['10'],
+				[],
 				self.image[0].pixelSize,
 				self.extent,
 				None
@@ -186,7 +198,8 @@ class dataset:
 			self.image[i].isocenter = np.array(ref.BeamSequence[i].ControlPointSequence[0].IsocenterPosition)
 
 			# Rearrange xyz to match imported CT.
-			self.image[i].isocenter[0],self.image[i].isocenter[1],self.image[i].isocenter[2] = self.image[i].isocenter[2],self.image[i].isocenter[0],self.image[i].isocenter[1]
+			# BLOCK 2
+			# self.image[i].isocenter = np.array([self.image[i].isocenter[1],self.image[i].isocenter[0],self.image[i].isocenter[2]])
 
 			# Consider updating isocenter parameter before each rotation:
 			gpu.isocenter = np.array(self.image[i].isocenter)
@@ -207,19 +220,43 @@ class dataset:
 			# print(['2'+str(self.image[i].patientSupport)])
 			# print(['0'+str(self.image[i].gantry),'2'+str(self.image[i].collimator)])
 
+			# Original
+			# kwargs = (
+			# 	['2'+str(self.image[i].patientSupport)],
+			# 	['0'+str(self.image[i].gantry),'2'+str(self.image[i].collimator)],
+			# 	self.image[i].pixelSize,
+			# 	ctImage.extent,
+			# 	self.image[i].isocenter
+			# 	)
+
+			# BLOCK 2
+			# kwargs = (
+			# 	['14.97'],
+			# 	[],
+			# 	self.image[i].pixelSize,
+			# 	ctImage.extent,
+			# 	self.image[i].isocenter
+			# 	)
+
+			# BLOCK 5
 			kwargs = (
-				# ['2'+str(self.image[i].patientSupport),'1'+str(self.image[i].pitchAngle)],
-				# ['0'+str(self.image[i].gantry),'2'+str(self.image[i].collimator)],
-				['290'],
-				['0-90'],
+				[],
+				['1-90'],
 				self.image[i].pixelSize,
 				ctImage.extent,
 				self.image[i].isocenter
 				)
 
+			print('Isocenter before rotation:',self.image[i].isocenter)
+
 			# Run the gpu rotation.
 			self.image[i].array = gpu.rotate(ctImage.array,*kwargs)
 			# Update other variables from gpu.
 			self.image[i].pixelSize = gpu.pixelSize
-			self.image[i].isocenter = gpu.isocenter
+			# self.image[i].isocenter = gpu.isocenter
 			self.image[i].extent = gpu.extent
+
+			tmp = self.image[i].isocenter
+			self.image[i].isocenter = np.array([tmp[2],-tmp[0],-tmp[1]])
+
+			print('Isocenter after rotation:',self.image[i].isocenter)

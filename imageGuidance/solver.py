@@ -45,6 +45,13 @@ class solver:
 		self._leftCentroid = centroid(self._leftPoints)
 		self._rightCentroid = centroid(self._rightPoints)
 
+		print('Left Points:',self._leftPoints)
+		print('Left Ctd:',self._leftCentroid)
+		print('Right Points:',self._rightPoints)
+		print('Right Ctd:',self._rightCentroid)
+		print('Patient Isoc:',self._patientIsocenter)
+		print('Machine Isoc:',self._machineIsocenter)
+
 		# Find the LEFT and RIGHT points in terms of their centroids (notation: LEFT Prime, RIGHT Prime)
 		_leftPrime = np.zeros([n,3])
 		_rightPrime = np.zeros([n,3])

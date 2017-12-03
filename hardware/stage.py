@@ -152,16 +152,15 @@ class stage:
 				# Get the current position of the stage.
 				stagePos = self.position()
 				motor.calculateWorkPoint(stagePos,self._size,stackPos)
-				print('Motor WD',motor._workDistance)
 			# Get the transform for the motor.
 			T = motor.transform(value)
 			# Multiply the transform into the overall transform.
-			# print('****** MOTOR NUMBER ',motor._order,':')
-			# print('====== T:')
-			# print(T)
+			print('****** MOTOR NUMBER ',motor._order,':')
+			print('====== T:')
+			print(T)
 			S = S@T
-			# print('=== S:')
-			# print(S)
+			print('=== S:')
+			print(S)
 		# Now we have S, a 4x4 transform that encompases all motors.
 		print('****** RESULTS:')
 		print('====== Global:')

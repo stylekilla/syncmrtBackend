@@ -268,11 +268,11 @@ class mpl2DFigure:
 		if state is True:
 			# Get image index for isoc numbers.
 			if self.imageIndex == 0:
-				a = 0
+				a = 2
 				b = 1
 			elif self.imageIndex == 1:
 				a = 2
-				b = 1
+				b = 0
 			# Plot overlay lines.
 			self.overlay['isocenterh'] = self.ax.axhline(self.isocenter[a],c='r',alpha=0.5)
 			self.overlay['isocenterv'] = self.ax.axvline(self.isocenter[b],c='r',alpha=0.5)
