@@ -56,13 +56,15 @@ class dataset:
 		# Create an image list.
 		self.image = [image()]
 		# Get DICOM shape.
-		shape = np.array([int(ref.Rows), int(ref.Columns), len(self.ds)])
+		# shape = np.array([int(ref.Rows), int(ref.Columns), len(self.ds)])
+		shape = np.array([int(ref.Columns), int(ref.Rows), len(self.ds)])
 		# Initialize image with array of zeros.
 		self.image[0].array = np.zeros(shape, dtype=np.int32)
 		# For each slice extract the pixel data and put in respective z slice in array. 
 		for fn in self.ds:
 			data = dicom.read_file(fn)
 			self.image[0].array[:,:,shape[2]-self.ds.index(fn)-1] = data.pixel_array
+			# self.image[0].array[:,:,shape[2]-self.ds.index(fn)-1] = np.flipud(data.pixel_array)
 		# Patient setup variables.
 		self.image[0].position = ref.ImagePositionPatient
 		self.image[0].patientPosition = ref.PatientPosition
@@ -77,68 +79,71 @@ class dataset:
 			end = file.ImagePositionPatient[2]
 			spacingBetweenSlices = abs(end-start)/(len(self.ds)-1)
 		# Voxel shape determined by detector element sizes and CT slice thickness.
-		self.image[0].pixelSize = [ref.PixelSpacing[0], ref.PixelSpacing[1], spacingBetweenSlices]
-		# Direction.
-		# self.image[0].orientation = 
-		# CT array extent (from bottom left corner of array); x->Cols, y->Rows z->Depth. (yyxxzz).
-		l = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0]
-		r = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0] + shape[1]*self.image[0].pixelSize[0]
-		b = ref.ImagePositionPatient[1]-0.5*self.image[0].pixelSize[1] + shape[0]*self.image[0].pixelSize[1]
-		t = ref.ImagePositionPatient[1]-0.5*self.image[0].pixelSize[1]
-		f = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2]
-		b = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2] - shape[2]*self.image[0].pixelSize[2]
+		self.image[0].pixelSize = [ref.PixelSpacing[0], -ref.PixelSpacing[1], spacingBetweenSlices]
+		# Note the axes that we are working on, these will change as we work.
+		# self.image[0].axes = np.array([0,1,2])
 
-		# x1 = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0] 
-		# x2 = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0] + shape[1]*self.image[0].pixelSize[0]
-		# y1 = ref.ImagePositionPatient[1]-0.5*self.image[0].pixelSize[1] + shape[0]*self.image[0].pixelSize[1] 
-		# y2 = ref.ImagePositionPatient[1]-0.5*self.image[0].pixelSize[1]
-		# z1 = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2] - shape[2]*self.image[0].pixelSize[2]
-		# z2 = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2] 
-		# # extent is LRBTFB (or dicom's YXZ) .
-		# self.extent = np.array([y1,y2,x1,x2,z1,z2])
-		self.extent = np.array([l,r,b,t,f,b])
-		print('extent:',self.extent)
+		# CT array extent NP(l,r,b,t,f,b) or as DICOM(-x,x,y,-y,-z,z)
+		# l, -x
+		x1 = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0]
+		# r, +x
+		x2 = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0] + (shape[1]+1)*self.image[0].pixelSize[0]
+		# b, +y
+		y1 = ref.ImagePositionPatient[1]+0.5*self.image[0].pixelSize[1] - (shape[0]+1)*self.image[0].pixelSize[1]
+		# t, -y
+		y2 = ref.ImagePositionPatient[1]+0.5*self.image[0].pixelSize[1]
+		# f, -z
+		z1 = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2] - (shape[2]+1)*self.image[0].pixelSize[2]
+		# b, +z
+		z2 = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2]
+		self.extent = np.array([x1,x2,y1,y2,z1,z2])
 
-
+		'''
+		Here we orientate the CT data with two assumptions:
+			1. The CT was taken in HFS.
+			2. At the synchrotron the patient is in an upright position.
+		'''
 
 		# GPU drivers.
 		gpu = gpuInterface()
-		# Patient imaging orientation. (Rotation happens in [col,row,depth]).
+
+		'''
+		The GPU has the following protocol:
+			- Rotation happens about (col,row,depth).
+			- The kwargs have two rotations (active and passive), these are lists [] of strings where:
+				- '190' means take the first axis, '1' and rotate '90' degrees about it.
+				- '0-90' means take the first axis, '0' and rotate '-90' degrees about it.
+			- We must rotate all the ct dicom variables as we rotate the data.
+				- Extent
+				- Pixel Size
+				- Any Isocenters
+		'''
+
 		if self.image[0].patientPosition == 'HFS':
-			# Head First, Supine.
-			# Rotate to look through the LINAC gantry in it's home position. I.e. the patient in the seated position at the IMBL.
+			'''
+			Head First Supine position.
+			Here we rotate the CT to orientate it in an upright position (assuming the patient is upright at the synchrotron).
+			'''
 			kwargs = (
-				['190'],
+				['090'],
 				[],
 				self.image[0].pixelSize,
 				self.extent,
 				None
 				)
-		# elif self.patientPosition == 'HFP':
-		# 	pass
-		# elif self.patientPosition == 'FFS':
-		# 	pass
-		# elif self.patientPosition == 'FFP':
-		# 	pass
-		else:
-			# Special case for sitting objects on CT table in upright position (essentially a sitting patient).
-			print('Executed special case for CT import. Its not HFS/FFS or anything usual.')
-			# self.array, self.arrayExtent = gpu.rotate(155,-90,0,)
-			# self.array = gpu.rotate(0,-90,0,)
-			kwargs = (
-				[],
-				[],
-				self.image[0].pixelSize,
-				self.extent,
-				None
-				)
+		elif self.image[0].patientPosition == 'FFS':
+			# This would be another scan position for the patient.
+			# Can add this at a later date.
+			pass
 
 		# Run the gpu rotation.
 		self.image[0].array = gpu.rotate(self.image[0].array,*kwargs)
-		# Update other variables from gpu.
+
+		# Update rotated variables from gpu.
+		# self.image[0].axes = gpu.axes
 		self.image[0].pixelSize = gpu.pixelSize
 		self.image[0].extent = gpu.extent
-		# Set empty isocenter for rtplan load.
+		# Set empty isocenter for ct loading, update when rtplan is loaded.
 		self.isocenter = np.array([0,0,0])
 
 		# Save and write fp and ds.
@@ -165,7 +170,7 @@ class dataset:
 		self.image[1].isocenter = file['1'].attrs['isocenter']
 
 	def importRTPLAN(self,ctImage):
-		# Firstly, read in DICOM file.
+		# Firstly, read in DICOM rtplan file.
 		ref = dicom.read_file(self.ds[0])
 		# Set file path.
 		self.fp = os.path.dirname(self.ds[0])
@@ -173,6 +178,10 @@ class dataset:
 		self.patientName = ref.PatientName
 		# Construct an object array of the amount of beams to be delivered.
 		self.image = np.empty(ref.FractionGroupSequence[0].NumberOfBeams,dtype=object)
+		# CT isocenter.
+		temp = np.array(ref.BeamSequence[0].ControlPointSequence[0].IsocenterPosition)
+		self.ctisocenter = np.array([temp[0],temp[2],temp[1]])
+
 		# Load the GPU interface.
 		gpu = gpuInterface()
 
@@ -183,80 +192,69 @@ class dataset:
 			self.image[i].mask = ref.BeamSequence[i].BlockSequence[0].BlockData
 			self.image[i].maskThickness = ref.BeamSequence[i].BlockSequence[0].BlockThickness
 
-			# Beam limiting device angle (collimator rotation angle) of Clinical LINAC. Rotation about BEV.
+			'''
+			We must now read in the Patient Support, Gantry, and Collimator rotation angles.
+			These are rotations about the following axes:
+				- Patient Support: Rotation about DICOM y in the CW direction.
+				- Gantry: Rotation about DICOM z in the CCW direction.
+				- Collimator: Rotation about rotated DICOM y axis in the ??CCW?? direction, after gantry rotation.
+			'''
+
+			self.image[i].gantry = float(ref.BeamSequence[i].ControlPointSequence[0].GantryAngle)
+			self.image[i].patientSupport = float(ref.BeamSequence[i].ControlPointSequence[0].PatientSupportAngle)
 			self.image[i].collimator = float(ref.BeamSequence[i].ControlPointSequence[0].BeamLimitingDeviceAngle)
 
-			# Gantry Angle of Clinical LINAC. Rotation about DICOM Z-axis.
-			self.image[i].gantry = -float(ref.BeamSequence[i].ControlPointSequence[0].GantryAngle)
-
-			# Patient support angle (table rotation angle) of Clinical LINAC. Rotation about DICOM Y-axis.
-			self.image[i].patientSupport = float(ref.BeamSequence[i].ControlPointSequence[0].PatientSupportAngle)
-
-			self.image[i].pitchAngle = float(ref.BeamSequence[i].ControlPointSequence[0].TableTopPitchAngle)
+			# self.image[i].pitchAngle = float(ref.BeamSequence[i].ControlPointSequence[0].TableTopPitchAngle)
 			# self.image[i].rollAngle = float(ref.BeamSequence[i].ControlPointSequence[0].TableTopRollAngle)
 
+			# Target isocenter position in DICOM (x,y,z).
 			self.image[i].isocenter = np.array(ref.BeamSequence[i].ControlPointSequence[0].IsocenterPosition)
 
-			# Rearrange xyz to match imported CT.
-			# BLOCK 2
-			# self.image[i].isocenter = np.array([self.image[i].isocenter[1],self.image[i].isocenter[0],self.image[i].isocenter[2]])
+			# We must adapt isocenter point to match already orientated CT.
+			print('isoc original:',self.image[i].isocenter)
+			temp = self.image[i].isocenter 
+			self.image[i].isocenter = np.array([temp[0],temp[2],temp[1]])
+			print('isoc orientated:',self.image[i].isocenter)
+			'''
+			Keep in mind we must first rotate by the same rotation of the CT. 
+			Rotation order for axes are:
+				- 0: Collumn (horizontal)
+				- 1: Row (vertical)
+				- 2: Depth (into screen)
 
-			# Consider updating isocenter parameter before each rotation:
-			gpu.isocenter = np.array(self.image[i].isocenter)
+			The active rotations are made up of, in order:
+				- Gantry (DICOM axis 2) // rot-ct axis 1
+				- Collimator (DICOM axis 1) // rot-ct axis 2
 
-			# Apply euler rotations. Collimator first (variable rotation axis, z), then gantry (fixed x), then table (fixed z).
-			# array, self.image[i].arrayExtent = gpu.rotate(-self.image[i].gantryAngle,0,-self.image[i].patientSupportAngle,order='pat-gant-col',z1=-self.image[i].collimatorAngle)
-			# array, self.image[i].arrayExtent = gpu.rotate(self.image[i].gantryAngle,0,self.image[i].patientSupportAngle,order='pat-gant-col',z1=self.image[i].collimatorAngle)
-			# array, self.image[i].arrayExtent = gpu.rotate(0,0,90,order='pat-gant-col',z1=0)
+			The passive rotations are made up of, in order:
+				- Patient Support (DICOM axis 1) // rot-ct axis 2
+			'''
 
-			# kwargs = (
-			# 	(0,0,0),
-			# 	(0,0,0),
-			# 	self.image[i].pixelSize,
-			# 	ctImage.extent,
-			# 	None
-			# 	)
-			# print('Rotations')
-			# print(['2'+str(self.image[i].patientSupport)])
-			# print(['0'+str(self.image[i].gantry),'2'+str(self.image[i].collimator)])
+			# gantry = '1'+str(-self.image[i].gantry)
+			gantry = '1'+str(self.image[i].gantry)
+			col = '2'+str(self.image[i].collimator)
+			patsup = '2'+str(-self.image[i].patientSupport)
+			spesh = '0'+str(-self.image[i].gantry)
 
-			# Original
-			# kwargs = (
-			# 	['2'+str(self.image[i].patientSupport)],
-			# 	['0'+str(self.image[i].gantry),'2'+str(self.image[i].collimator)],
-			# 	self.image[i].pixelSize,
-			# 	ctImage.extent,
-			# 	self.image[i].isocenter
-			# 	)
+			# activeRotations = [patsup]
+			activeRotations = [spesh]
+			passiveRotations = []
+			# passiveRotations = [gantry,col]
 
-			# BLOCK 2
-			# kwargs = (
-			# 	['14.97'],
-			# 	[],
-			# 	self.image[i].pixelSize,
-			# 	ctImage.extent,
-			# 	self.image[i].isocenter
-			# 	)
-
-			# BLOCK 5
 			kwargs = (
-				[],
-				['1-90'],
-				self.image[i].pixelSize,
+				activeRotations,
+				passiveRotations,
+				# ctImage.axes,
+				ctImage.pixelSize,
 				ctImage.extent,
 				self.image[i].isocenter
 				)
 
-			print('Isocenter before rotation:',self.image[i].isocenter)
-
 			# Run the gpu rotation.
 			self.image[i].array = gpu.rotate(ctImage.array,*kwargs)
-			# Update other variables from gpu.
+			# Get rotated vars back from the gpu.
 			self.image[i].pixelSize = gpu.pixelSize
-			# self.image[i].isocenter = gpu.isocenter
+			self.image[i].isocenter = gpu.isocenter
 			self.image[i].extent = gpu.extent
 
-			tmp = self.image[i].isocenter
-			self.image[i].isocenter = np.array([tmp[2],-tmp[0],-tmp[1]])
-
-			print('Isocenter after rotation:',self.image[i].isocenter)
+			print('XX RTPLAN isoc:',self.image[i].isocenter)

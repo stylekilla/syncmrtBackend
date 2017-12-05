@@ -30,7 +30,7 @@ class system:
 		# Solve for alignment solution.
 		# self.solver.solve()
 		# Decompose.
-		self.stage._motion = self.stage.calculateMotion(self.solver.transform,self.solver.solution)
+		self.stage.calculateMotion(self.solver.transform,self.solver.solution)
 		# Apply solution.
 		# self.stage.shiftPosition(stageSolution)
 

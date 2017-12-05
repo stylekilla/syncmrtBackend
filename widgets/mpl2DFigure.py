@@ -67,9 +67,7 @@ class mpl2DFigure:
 		self.canvas._pickerActive = False
 
 	def imageLoad(self,array,extent=np.array([-1,1,-1,1]),imageOrientation='',imageIndex=0):
-		'''imageLoad: Load numpy file in, convert to 2D. Connect callbacks and plot.'''
 		self.imageIndex = imageIndex
-		# self.data3d = np.load(fn)
 		self.data3d = array
 		if len(self.data3d.shape) == 3:
 			# 3D Image (CT/MRI etc).
@@ -84,6 +82,10 @@ class mpl2DFigure:
 			# 2D Image (General X-ray).
 			self.data2d = np.array(self.data3d)
 			self.extent = extent
+
+		print('MPL Calcs =========================')
+		print('MPL extent:',extent)
+		print('MPL image',imageIndex,' extent:',self.extent)
 
 		# Rescale 2d image between 0 and 65535 (16bit)
 		# self.imageNormalise()
@@ -268,15 +270,14 @@ class mpl2DFigure:
 		if state is True:
 			# Get image index for isoc numbers.
 			if self.imageIndex == 0:
-				a = 2
+				a = 0
 				b = 1
 			elif self.imageIndex == 1:
 				a = 2
-				b = 0
+				b = 1
 			# Plot overlay lines.
-			self.overlay['isocenterh'] = self.ax.axhline(self.isocenter[a],c='r',alpha=0.5)
-			self.overlay['isocenterv'] = self.ax.axvline(self.isocenter[b],c='r',alpha=0.5)
-
+			self.overlay['isocenterv'] = self.ax.axvline(self.isocenter[a],c='r',alpha=0.5)
+			self.overlay['isocenterh'] = self.ax.axhline(self.isocenter[b],c='r',alpha=0.5)
 		else:
 			# Remove overlay lines.
 			self.overlay['isocenterh'].remove()

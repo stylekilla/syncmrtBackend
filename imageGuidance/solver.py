@@ -32,7 +32,6 @@ class solver:
 		self._leftCentroid = centroid(self._leftPoints)
 		self._rightCentroid = centroid(self._rightPoints)
 
-	# def solve(self,self._leftPoints,self._rightPoints,patientIsoc=None,synchIsoc=None,synchRotIsoc=None):
 	def solve(self):
 		'''Points should come in as xyz cols and n-points rows: np.array((n,xyz))'''
 		n = np.shape(self._leftPoints)[0]
@@ -40,6 +39,10 @@ class solver:
 		# LEFT and RIGHT points should be in mm.
 		# ct = self._leftPoints
 		# synch = self._rightPoints
+
+		# Change left points to x -x -x
+		for i in range(n):
+			self._leftPoints[i,:] = self._leftPoints[i,:]*np.array([1,-1,-1])
 
 		# Find the centroids of the LEFT and RIGHT WCS.
 		self._leftCentroid = centroid(self._leftPoints)
@@ -82,10 +85,11 @@ class solver:
 		rotation = angles(R)
 
 		# Translation 1: Centroid to patient isocenter.
-		translation1 = self._patientIsocenter - self._leftCentroid
+		# translation1 = self._patientIsocenter - self._leftCentroid
+		translation1 = -(self._leftCentroid - self._patientIsocenter)
 
-		# Translation 2: Patient isoc to machine isocenter.
-		translation2 = self._machineIsocenter - self._patientIsocenter
+		# Translation 2: Centroid isoc to machine isocenter.
+		translation2 = self._machineIsocenter - self._rightCentroid
 
 		# # If no patient isocenter is defined, align to the centroid.
 		# if patientIsoc is None:
@@ -106,7 +110,7 @@ class solver:
 		# translation2 = synchBeamIsoc + ct_ctd2isoc
 
 		# Final translation is a combination of all other translations.
-		translation = translation1 + translation2
+		translation = translation2 - translation1
 		self.transform[:3,3] = translation.transpose()
 
 		# Extract scale.
@@ -118,12 +122,9 @@ class solver:
 		self.scale = scale(self._leftPoints,self._rightPoints,R)
 		self.solution = np.hstack((translation,rotation))
 
-		# print('Results from solver.py')
-		# print('CT Centroid',self._leftCentroid)
-		# print('Synch Centroid',self._rightCentroid)
-		# print('CT Centroid to patisoc',ct_ctd2isoc)
-		# print('Translation 1: synchctd to beamisoc',translation1)
-		# print('Translation 2: patisoc to beamisoc',translation2)
+		print('Translation 1: patisoc - leftctd',translation1)
+		print('Translation 2: machiso - patisoc',translation2)
+		print('Overall transpose:',translation)
 
 # Obtain scale factor between coordinate systems. Requires left and right points in reference to centroids.
 def scale(lp,rp,R):

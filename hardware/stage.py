@@ -128,6 +128,7 @@ class stage:
 		print('Stage Name: ',self._name)
 		print('Variables:',variables)
 		S = np.identity(4)
+		Si = np.identity(4)
 		# Position of motor in stack (in mm).
 		stackPos = np.array([0,0,0])
 		# NICE PRINTING!!!!!!!!!NICE PRINTING!!!!!!!!!NICE PRINTING!!!!!!!!!NICE PRINTING!!!!!!!!!NICE PRINTING!!!!!!!!!
@@ -153,33 +154,40 @@ class stage:
 				stagePos = self.position()
 				motor.calculateWorkPoint(stagePos,self._size,stackPos)
 			# Get the transform for the motor.
-			T = motor.transform(value)
+			if motor._type == 0:
+				T = motor.transform(value)
+				Ti = np.identity(4)
+			elif motor._type == 1:
+				T, Ti = motor.transform(value)
 			# Multiply the transform into the overall transform.
-			print('****** MOTOR NUMBER ',motor._order,':')
-			print('====== T:')
-			print(T)
+			# print('****** MOTOR NUMBER ',motor._order,':')
+			# print('====== T:')
+			# print(T)
 			S = S@T
-			print('=== S:')
-			print(S)
+			Si = Si@Ti 
+			# print('=== S:')
+			# print(S)
+		# Take out all unecessary shit. (Undo maths for translations on rotations.)
+		St = S@Si
 		# Now we have S, a 4x4 transform that encompases all motors.
 		print('****** RESULTS:')
 		print('====== Global:')
 		print(G)
 		print('====== Stage:')
-		print(S)
-		remainder = G@np.linalg.inv(S)
+		print(St)
+		remainder = G@np.linalg.inv(St)
 		print('====== Remainder:')
 		# remainder[:3,3] = G[:3,3]+S[:3,3]
 		print(remainder)
-		t = np.array(S[:3,3]).reshape(3,)
-		r = np.array(S[:3,:3]).reshape(3,3)
+		t = np.array(St[:3,3]).reshape(3,)
+		r = np.array(St[:3,:3]).reshape(3,3)
 
 		# Start by assuming a successful decomposition.
 		success = True
 
 		# Update variables to match stage movements.
 		print('a:',np.sum(remainder[:3,3]))
-		if np.isclose( np.sum(np.absolute(remainder[:3,3])) ,0, atol=1e-03) is False:
+		if np.isclose( np.sum(np.absolute(remainder[:3,3])) ,0, atol=1e-02) is False:
 			# Check to see if remainder is within less than 1 micron tolerance.
 			# If the translations aren't 0 then subtract the updates to the vars.
 			# print('variables before additions: ',variables[:3])
@@ -187,7 +195,10 @@ class stage:
 			
 
 			# May have to rejig this for other stages where it goes through the actual process?
-			variables[:3] += remainder[:3,3]@S[:3,:3]
+			variables[:3] += remainder[:3,3]@np.linalg.inv(S)[:3,:3]
+			# variables[:3] += S[:3,:3]@remainder[:3,3]
+			# variables[:3] += remainder[:3,3]@S[:3,:3]
+			# variables[:3] -= remainder[:3,3]@S[:3,:3]
 
 			# variables[:3] -= np.array(S[:3,3]@remainder[:3,3]).reshape(3,)
 			# print('S: ',S[:3,3])
@@ -206,20 +217,24 @@ class stage:
 
 		elif success is True:
 			# Exit the function.
+			self._motion = variables
+			print('Self Motion on success:',self._motion)
 			return variables
 
 	def applyMotion(self,variables):
 		# If no motion is passed, then apply the preloaded motion.
 		if variables == None:
 			variables = self._motion
+			print('inside apply motion, vars are now motion:',variables)
 		# Iterate over each motor in order.
-		for idx, motor in motors:
+		for motor in self.motors:
 			# Understand the motors function.
 			index = motor._axis + (3*motor._type)
 			# Get the x y z translation or rotation value.
 			value = variables[index]
 			# Apply the value.
-			motor.shiftPosition(value)
+			# motor.shiftPosition(value)
+			print('Moving ',motor._name,value)
 			# Set the taken variable to 0. This stops any future motor from taking this value.
 			variables[index] = 0
 

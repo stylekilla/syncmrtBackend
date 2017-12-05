@@ -58,7 +58,7 @@ class motor:
 			return math.transform.translation(self._axis,value)
 		if self._type == 1:
 			value += self._control.read()
-			return math.transform.rotation(self._axis,value,self._workPoint)
+			return math.transform.rotation(self._axis,value,self._workPoint), math.transform.rotation(self._axis,-self._control.read(),self._workPoint)
 
 	def calculateWorkPoint(self,pstage,dstage,offset):
 		if self._frame == 0:
