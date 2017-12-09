@@ -88,7 +88,8 @@ class motor:
 
 	def read(self):
 		# Straight up reading where the motor is.
-		if self._connected is False: return np.inf 
+		# if self._connected is False: return np.inf 
+		if self._connected is False: return 72 
 		else: return self.pv['RBV'].get()
 
 	def write(self,value,mode='absolute'):

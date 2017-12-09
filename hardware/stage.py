@@ -17,6 +17,9 @@ class stage:
 		# UI elements.
 		self._ui = ui
 
+		self.i = 0
+
+
 		# Get stagelist and motors.
 		import csv, os
 		# Open CSV file.
@@ -124,6 +127,8 @@ class stage:
 
 	def calculateMotion(self,G,variables):
 		# We take in the 4x4 transformation matrix G, and a list of 6 parameters (3x translations, 3x rotations).
+		self.i += 1
+		if self.i > 10: return
 		# Create a transform for this stage, S.
 		print('Stage Name: ',self._name)
 		print('Variables:',variables)
@@ -175,7 +180,7 @@ class stage:
 		print(G)
 		print('====== Stage:')
 		print(St)
-		remainder = G@np.linalg.inv(St)
+		remainder = np.linalg.inv(St)@G
 		print('====== Remainder:')
 		# remainder[:3,3] = G[:3,3]+S[:3,3]
 		print(remainder)
@@ -193,10 +198,12 @@ class stage:
 			# print('variables before additions: ',variables[:3])
 			# print('remainder: ',remainder[:3,3])
 			
-
+			print('variables:',variables)
+			print('stage pos:',S)
 			# May have to rejig this for other stages where it goes through the actual process?
-			variables[:3] += remainder[:3,3]@np.linalg.inv(S)[:3,:3]
 			# variables[:3] += S[:3,:3]@remainder[:3,3]
+			variables[:3] = np.linalg.inv(S[:3,:3])@G[:3,3]
+			print('variables changed:',variables)
 			# variables[:3] += remainder[:3,3]@S[:3,:3]
 			# variables[:3] -= remainder[:3,3]@S[:3,:3]
 

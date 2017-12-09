@@ -34,7 +34,8 @@ class mpl2DFigure:
 		self._radiographMode = 'sum'
 
 		self.overlay = {}
-		self.isocenter = [0,0,0]
+		self.machineIsocenter = [0,0,0]
+		self.patientIsocenter = [0,0,0]
 		self.ctd = None
 
 		self.fig = plt.figure()
@@ -82,10 +83,6 @@ class mpl2DFigure:
 			# 2D Image (General X-ray).
 			self.data2d = np.array(self.data3d)
 			self.extent = extent
-
-		print('MPL Calcs =========================')
-		print('MPL extent:',extent)
-		print('MPL image',imageIndex,' extent:',self.extent)
 
 		# Rescale 2d image between 0 and 65535 (16bit)
 		# self.imageNormalise()
@@ -266,39 +263,79 @@ class mpl2DFigure:
 
 		self.canvas.draw()
 
-	def overlayIsocenter(self,state=False):
-		if state is True:
-			# Get image index for isoc numbers.
-			if self.imageIndex == 0:
-				a = 0
-				b = 1
-			elif self.imageIndex == 1:
-				a = 2
-				b = 1
-			# Plot overlay lines.
-			self.overlay['isocenterv'] = self.ax.axvline(self.isocenter[a],c='r',alpha=0.5)
-			self.overlay['isocenterh'] = self.ax.axhline(self.isocenter[b],c='r',alpha=0.5)
-		else:
-			# Remove overlay lines.
-			self.overlay['isocenterh'].remove()
-			self.overlay['isocenterv'].remove()
+	def toggleOverlay(self,overlayType,state=False):
+		'''
+		Single overlay function with various types.
+			- 0: Centroid overaly
+			- 1: Machine Isocenter overlay
+			- 2: Patient Isocenter overlay
+		'''
+		if overlayType == 0:
+			# Centroid overlay.
+			if self.ctd is not None:
+				if state is True:
+					# Get image index for isoc numbers.
+					if self.imageIndex == 0:
+						a = 1
+						b = 2
+					elif self.imageIndex == 1:
+						a = 0
+						b = 2
+					# Plot overlay scatter points.
+					x,y = [self.ctd[a],self.ctd[b]]
+					self.overlay['ctd'] = self.ax.scatter(x,y,c='b',marker='+',s=50)
+					self.overlay['ctdLabel'] = self.ax.text(x+1,y-3,'ctd',color='b')
+				else:
+					# Remove overlay scatter points.
+					try:
+						# This prevents a crash where the centroid is calculated whilst the overlay is toggled on and then attempts to toggle off.
+						self.overlay['ctd'].remove()
+						self.overlay['ctdLabel'].remove()
+					except:
+						pass
 
-		self.canvas.draw()
-
-	def overlayCentroid(self,state=False):
-		if self.ctd is not None:
+		elif overlayType == 1:
+			# Machine isocenter overlay.
 			if state is True:
-				# Plot overlay scatter points.
-				x,y = self.ctd
-				self.overlay['ctd'] = self.ax.scatter(x,y,c='b',marker='+',s=50)
-				self.overlay['ctdLabel'] = self.ax.text(x+1,y-3,'ctd',color='b')
-
+				# Get image index for isoc numbers.
+				if self.imageIndex == 0:
+					a = 1
+					b = 2
+				elif self.imageIndex == 1:
+					a = 0
+					b = 2
+				# Plot overlay lines.
+				self.overlay['machIsoV'] = self.ax.axvline(self.machineIsocenter[a],c='g',alpha=0.5)
+				self.overlay['machIsoH'] = self.ax.axhline(self.machineIsocenter[b],c='g',alpha=0.5)
 			else:
-				# Remove overlay scatter points.
-				self.overlay['ctd'].remove()
-				self.overlay['ctdLabel'].remove()
+				# Remove overlay lines.
+				self.overlay['machIsoH'].remove()
+				self.overlay['machIsoV'].remove()
 
-			self.canvas.draw()
+		elif overlayType == 2:
+			# Machine isocenter overlay.
+			if state is True:
+				# Get image index for isoc numbers.
+				if self.imageIndex == 0:
+					a = 1
+					b = 2
+				elif self.imageIndex == 1:
+					a = 0
+					b = 2
+				# Plot overlay lines.
+				# self.overlay['patIsoV'] = self.ax.axvline(self.patientIsocenter[a],c='r',alpha=0.5)
+				# self.overlay['patIsoH'] = self.ax.axhline(self.patientIsocenter[b],c='r',alpha=0.5)
+				# Plot overlay scatter points.
+				x,y = [self.ctd[a],self.ctd[b]]
+				self.overlay['patIso'] = self.ax.scatter(x,y,c='g',marker='+',s=50)
+				self.overlay['patIsoLabel'] = self.ax.text(x+1,y-3,'ptv',color='g')
+			else:
+				# Remove overlay lines.
+				self.overlay['patIso'].remove()
+				self.overlay['patIsoLabel'].remove()
+
+		# Update the canvas.
+		self.canvas.draw()
 
 	def setExtent(self,newExtent):
 		# Change extent and markers.

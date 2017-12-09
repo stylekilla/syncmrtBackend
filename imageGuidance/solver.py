@@ -16,16 +16,18 @@ class solver:
 		self._rightPoints = np.zeros((3,3))
 		self._patientIsocenter = np.zeros((3,))
 		self._machineIsocenter = np.zeros((3,))
+		self._axesDirection = np.ones((3,))
 		self._scale = 0
 		self.solution = np.zeros((6,))
 		self.transform = np.identity(4)
 
-	def updateVariable(self,left=None,right=None,patientIsoc=None,machineIsoc=None):
+	def updateVariable(self,left=None,right=None,patientIsoc=None,machineIsoc=None,axesDirection=None):
 		# Update vars.
 		if left is not None: self._leftPoints = np.array(left)
 		if right is not None: self._rightPoints = np.array(right)
 		if patientIsoc is not None: self._patientIsocenter = np.array(patientIsoc)
 		if machineIsoc is not None: self._machineIsocenter = np.array(machineIsoc)
+		if axesDirection is not None: self._axesDirection = np.array(axesDirection)
 
 	def centroid(self):
 		# Run the centroid calcaulation routine.
@@ -36,18 +38,16 @@ class solver:
 		'''Points should come in as xyz cols and n-points rows: np.array((n,xyz))'''
 		n = np.shape(self._leftPoints)[0]
 
-		# LEFT and RIGHT points should be in mm.
-		# ct = self._leftPoints
-		# synch = self._rightPoints
-
-		# Change left points to x -x -x
+		# Change left (dicom) points to match axis directions for the synchrotron.
 		for i in range(n):
-			self._leftPoints[i,:] = self._leftPoints[i,:]*np.array([1,-1,-1])
+			self._leftPoints[i,:] *= self._axesDirection
+		self._patientIsocenter *= self._axesDirection
 
 		# Find the centroids of the LEFT and RIGHT WCS.
 		self._leftCentroid = centroid(self._leftPoints)
 		self._rightCentroid = centroid(self._rightPoints)
 
+		print('Axes Direction:',self._axesDirection)
 		print('Left Points:',self._leftPoints)
 		print('Left Ctd:',self._leftCentroid)
 		print('Right Points:',self._rightPoints)
@@ -85,7 +85,6 @@ class solver:
 		rotation = angles(R)
 
 		# Translation 1: Centroid to patient isocenter.
-		# translation1 = self._patientIsocenter - self._leftCentroid
 		translation1 = -(self._leftCentroid - self._patientIsocenter)
 
 		# Translation 2: Centroid isoc to machine isocenter.
@@ -122,9 +121,20 @@ class solver:
 		self.scale = scale(self._leftPoints,self._rightPoints,R)
 		self.solution = np.hstack((translation,rotation))
 
+		# Calculate the patient isoc in the synchrotron frame of reference for plotting.
+		self._syncPatientIsocenter = self._rightCentroid + translation1
+
 		print('Translation 1: patisoc - leftctd',translation1)
 		print('Translation 2: machiso - patisoc',translation2)
 		print('Overall transpose:',translation)
+		print('Synch Patient Iso:',self._syncPatientIsocenter)
+
+		# Change left (dicom) values back to DICOM cs used by gui.
+		for i in range(n):
+			self._leftPoints[i,:] *= self._axesDirection
+		self._patientIsocenter *= self._axesDirection
+		# self._syncPatientIsocenter *= self._axesDirection
+		self._leftCentroid *= self._axesDirection
 
 # Obtain scale factor between coordinate systems. Requires left and right points in reference to centroids.
 def scale(lp,rp,R):
