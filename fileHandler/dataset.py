@@ -79,6 +79,7 @@ class dataset:
 			end = file.ImagePositionPatient[2]
 			spacingBetweenSlices = abs(end-start)/(len(self.ds)-1)
 		# Voxel shape determined by detector element sizes and CT slice thickness.
+		# self.image[0].pixelSize = [-ref.PixelSpacing[1],ref.PixelSpacing[0], spacingBetweenSlices]
 		self.image[0].pixelSize = [ref.PixelSpacing[0], -ref.PixelSpacing[1], spacingBetweenSlices]
 		# Note the axes that we are working on, these will change as we work.
 		# self.image[0].axes = np.array([0,1,2])
@@ -125,8 +126,7 @@ class dataset:
 			Here we rotate the CT to orientate it in an upright position (assuming the patient is upright at the synchrotron).
 			'''
 			kwargs = (
-				['090'],
-				[],
+				['0-90'],
 				self.image[0].pixelSize,
 				self.extent,
 				None
@@ -213,6 +213,8 @@ class dataset:
 			# We must adapt isocenter point to match already orientated CT.
 			print('isoc original:',self.image[i].isocenter)
 			temp = self.image[i].isocenter 
+			# self.image[i].isocenter = np.array([temp[0],temp[2],temp[1]])
+			# self.image[i].isocenter = np.array([temp[1],temp[0],temp[2]])
 			self.image[i].isocenter = np.array([temp[0],temp[2],temp[1]])
 			print('isoc orientated:',self.image[i].isocenter)
 			'''
@@ -228,23 +230,30 @@ class dataset:
 
 			The passive rotations are made up of, in order:
 				- Patient Support (DICOM axis 1) // rot-ct axis 2
+
+			Rotations:
+				Patient Support		DICOM Y		PYTHON-CT Depth(2)
+				Gantry				DICOM Z		PYTHON-CT Col(1)
+				Collimator			DICOM Y2	PYTHON-CT Depth(2)
+
+				1. Patient Support
+				2. Gantry, Collimator
 			'''
 
-			# gantry = '1'+str(-self.image[i].gantry)
-			gantry = '1'+str(self.image[i].gantry)
-			col = '2'+str(self.image[i].collimator)
-			patsup = '2'+str(-self.image[i].patientSupport)
-			spesh = '0'+str(-self.image[i].gantry)
+			# gantry = '1'+str(self.image[i].gantry)
+			# col = '2'+str(self.image[i].collimator)
+			# patsup = '2'+str(-self.image[i].patientSupport)
 
-			# activeRotations = [patsup]
-			activeRotations = [spesh]
-			passiveRotations = []
-			# passiveRotations = [gantry,col]
+			# Block 5:
+			block3 = '0-4.97' 
+			block5 = '090'
 
+			# spesh = '0'+str(-self.image[i].gantry)
+			rotationSet1 = [block3]
+			# rotationSet1 = [patsup]
+			# rotationSet2 = [gantry,col]
 			kwargs = (
-				activeRotations,
-				passiveRotations,
-				# ctImage.axes,
+				rotationSet1,
 				ctImage.pixelSize,
 				ctImage.extent,
 				self.image[i].isocenter
@@ -256,5 +265,3 @@ class dataset:
 			self.image[i].pixelSize = gpu.pixelSize
 			self.image[i].isocenter = gpu.isocenter
 			self.image[i].extent = gpu.extent
-
-			print('XX RTPLAN isoc:',self.image[i].isocenter)

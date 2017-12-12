@@ -37,7 +37,7 @@ class gpu:
 		# Create a device queue.
 		self.queue = cl.CommandQueue(self.ctx)
 
-	def rotate(self,data,activeRotation=[],passiveRotation=[],pixelSize=None,extent=None,isocenter=None):
+	def rotate(self,data,rotations=[],pixelSize=None,extent=None,isocenter=None):
 		'''
 		Here we give the data to be copied to the GPU and give some deacriptors about the data.
 		We must enforce datatypes as we are dealing with c and memory access/copies.
@@ -47,11 +47,22 @@ class gpu:
 		# Read in array and force the datatype for the gpu.
 		arrIn = np.array(data,order='C').astype(np.int32)
 
-		# Get rotation matrices.
-		activeRotation = self.rotationMatrix(activeRotation)
-		passiveRotation = self.rotationMatrix(passiveRotation)
+		# Get rotation matrices for GPU.
+		# test = np.array(rotations)
+		# for i in range(len(rotations)):
+		# 	temp = list(rotations[i])
+		# 	if test[i][0] == '0': 
+		# 		temp[0] = '1'
+		# 	elif test[i][0] == '1': 
+		# 		temp[0] = '0'
+		# 	temp = ''.join(temp)
+		# 	test[i] = temp
+		# gpu_rotations = self.rotationMatrix(test)
+		# print(rotations,test)
+		# Rotation matrices for python.
+		rotations,gpuRotations = self.rotationMatrix(rotations)
 
-		# Create a basic box for calculations of a cube.
+		# Create a basic box for calculations of a cube. Built off (row,cols,depth).
 		basicBox = np.array([
 			[0,0,0],
 			[0,1,0],
@@ -68,10 +79,13 @@ class gpu:
 		# Output array shape after rotation.
 		outputShape = np.empty((8,3),dtype=int)
 		for i in range(8):
-			outputShape[i,:] = activeRotation@inputShape[i,:]@passiveRotation
+			outputShape[i,:] = gpuRotations@inputShape[i,:]
 		mins = np.absolute(np.amin(outputShape,axis=0))
 		maxs = np.absolute(np.amax(outputShape,axis=0))
-		outputShape = mins+maxs
+		outputShape = np.rint(mins+maxs).astype(int)
+
+		print('In Shape',arrIn.shape)
+		print('Out Shape',outputShape)
 
 		# Create empty output array set to -1000.
 		arrOut = np.zeros(outputShape).astype(np.int32)-1000
@@ -88,8 +102,7 @@ class gpu:
 		mf = cl.mem_flags
 		# GPU buffers.
 		gpuIn = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=arrIn)
-		gpuActiveRotation = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=activeRotation)
-		gpuPassiveRotation = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=passiveRotation)
+		gpuRotation = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=gpuRotations)
 		gpuOut = cl.Buffer(self.ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=arrOut)
 		gpuOutShape = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=arrOutShape)
 
@@ -101,8 +114,7 @@ class gpu:
 		program = cl.Program(self.ctx,sourceKernel).build()
 		# Kwargs
 		kwargs = (gpuIn,
-			gpuActiveRotation,
-			gpuPassiveRotation,
+			gpuRotation,
 			gpuOut,
 			gpuOutShape
 			)
@@ -117,83 +129,158 @@ class gpu:
 
 		# These are the axes for indexing (y,x,z)-python format.
 		# Now rotate the axes so we know which one becomes which, direction is irrelevant so we can take the absolute value. This is for indexing purposes.
-		self.axes = np.rint(np.absolute(passiveRotation@np.array([0,1,2])@activeRotation)).astype(int)
+		# axes = np.rint(np.absolute(rotations@np.array([0,1,2])@rotations)).astype(int)
+		pyAxes = np.rint(np.absolute(rotations@np.array([0,1,2]))).astype(int)
+		# Get axes directions.
+		axes = np.sign(pixelSize).astype(int)
 
 		# Rotate the pixelSize if specified.
 		if pixelSize is not None: 
 			# Pixel size comes in as (x,y,z), we need to make it (y,x,z) to make it compatible with python.
-			print('pixel size in:',pixelSize)
-			pixelSize = np.array([pixelSize[1], pixelSize[0], pixelSize[2]])
+			# print('pixel size in:',pixelSize)
+			# pixelSize = np.array([pixelSize[1], pixelSize[0], pixelSize[2]])
+			# print('pixel rearranged:',pixelSize)
 			# Apply the rotations.
-			print('pixel rearranged:',pixelSize)
-			pixelSize = passiveRotation@pixelSize@activeRotation
+			print('pixel input:',pixelSize)
+			self.pixelSize = rotations@pixelSize
+			print('pixel rotated:',self.pixelSize)
 			# Convert back to real world (from python).
-			print('pixel rotated:',pixelSize)
-			self.pixelSize = np.array([pixelSize[1], pixelSize[0], pixelSize[2]])
-			print('pixel out:',self.pixelSize)
+			# self.pixelSize = np.array([pixelSize[1], pixelSize[0], pixelSize[2]])
+			# print('pixel out:',self.pixelSize)
 
 		# Rotate the isocenter if specified.
 		if isocenter is not None: 
 			# The isocenter comes in as (x,y,z), we need to make it (y,x,z) to make it compatible with python.
-			print('isocenter original:',isocenter)
-			isocenter = np.array([isocenter[1], isocenter[0], isocenter[2]])
+			# print('isocenter original:',isocenter)
+			# isocenter = np.array([isocenter[1], isocenter[0], isocenter[2]])
+			# print('isocenter swapped:',isocenter)
 			# Get the isocenter according to the new axes.
-			print('isocenter swapped:',isocenter)
-			isocenter = np.array([isocenter[self.axes[0]], isocenter[self.axes[1]], isocenter[self.axes[2]]])
-			print('isocenter rotated:',isocenter)
+			print('isocenter input:',isocenter)
+			self.isocenter = (rotations@isocenter)*np.sign(self.pixelSize).astype(int)
+			# self.isocenter = np.array([isocenter[pyAxes[0]], isocenter[pyAxes[1]], isocenter[pyAxes[2]]])
+			print('isocenter rotated:',self.isocenter)
+			print('Rotations')
+			print(rotations)
 			# Convert back to real world (from python).
-			self.isocenter = np.array([isocenter[1], isocenter[0], isocenter[2]])
-			print('isocenter swapped:',self.isocenter)
+			# self.isocenter = np.array([isocenter[1], isocenter[0], isocenter[2]])
+			# print('isocenter swapped:',self.isocenter)
 
 		if extent is not None: 
 			# Make the 8 corners of the bounding box as (y,x,z) coordinates for python.
-			inputExtent = np.array([
-				[extent[2],extent[0],extent[4]],
-				[extent[2],extent[1],extent[4]],
-				[extent[3],extent[0],extent[4]],
-				[extent[3],extent[1],extent[4]],
-				[extent[2],extent[0],extent[5]],
-				[extent[2],extent[1],extent[5]],
-				[extent[3],extent[0],extent[5]],
-				[extent[3],extent[1],extent[5]]])
+			# inputExtent = np.array([
+			# 	[extent[0],extent[2],extent[4]],
+			# 	[extent[1],extent[2],extent[4]],
+			# 	[extent[0],extent[3],extent[4]],
+			# 	[extent[1],extent[3],extent[4]],
+			# 	[extent[0],extent[2],extent[5]],
+			# 	[extent[1],extent[2],extent[5]],
+			# 	[extent[0],extent[3],extent[5]],
+			# 	[extent[1],extent[3],extent[5]]])
 
-			# Make another 8 corner array for the testing.
+			basicBox = np.array([
+				[0,0,0],
+				[1,0,0],
+				[0,1,0],
+				[1,1,0],
+				[0,0,1],
+				[1,0,1],
+				[0,1,1],
+				[1,1,1]]).astype(np.float64)
+
+			# Set box corners to reflect axis directions.
+			basicBox *= np.sign(pixelSize)
+			mins = np.min(basicBox,axis=0)
+			maxs = np.max(basicBox,axis=0)
+
+			print('Basic Box Axes Ordered')
+			print(basicBox)
+
+			inputExtent = np.zeros(basicBox.shape)
+
+			# Construct extent box.
+			for i in range(3):
+				if pixelSize[i] < 0:
+					# Negative Direction.
+					inputExtent[:,i] += (basicBox==mins[i])[:,i]*extent[i*2+1]
+					inputExtent[:,i] += (basicBox==maxs[i])[:,i]*extent[i*2]
+				else:
+					# Positive direction.
+					inputExtent[:,i] += (basicBox==mins[i])[:,i]*extent[i*2]
+					inputExtent[:,i] += (basicBox==maxs[i])[:,i]*extent[i*2+1]
+
+			print('Input Extent')
+			print(inputExtent)
+
+			# Make another 8 corner array to rotate the basic box and see the outcome.
 			test = np.empty(inputExtent.shape)
+
+			# Reconfigure basic box to updated axes.
+			# basicBox *= axes
+
+			# temp = np.array(basicBox)
+			# basicBox[:,0], basicBox[:,1], basicBox[:,2] = temp[:,axes[0]], temp[:,axes[1]], temp[:,axes[2]]
+			# print('reordered basic box')
+			# print(basicBox)
+
+			outputExtent = np.array(inputExtent)
 
 			# For each basic box corner, rotate it.
 			for i in range(8):
-				test[i,:] = passiveRotation@basicBox[i,:]@activeRotation
+				# test[i,:] = gpuRotations@basicBox[i,:]
+				test[i,:] = rotations@basicBox[i,:]
+				outputExtent[i,:] = rotations@inputExtent[i,:]
+
+			print('Output Extent')
+			print(outputExtent)
+
+			# pyAxes2 = np.rint(np.absolute(rotations@pyAxes)).astype(int)
+
+			# print('Baisc Rotated Box:')
+			# print(test)
+			# print('Rotated Input Extent:')
+			# print(outputExtent)
 
 			# Find the minimum point in each direction of the basic box.
 			minimumPoints = np.argmin(test,axis=0)
+			maximumPoints = np.argmax(test,axis=0)
+
+			print('minimumPoints:',minimumPoints)
+			print('maximumPoints:',maximumPoints)
+
+			print('pyAxes:',pyAxes)
+			# print('pyAxes2:',pyAxes2)
+
+			# # New array size:
+			# shape = np.array([arrIn.shape[1],arrIn.shape[0],arrIn.shape[2]])
+			# size = shape*self.pixelSize
+
+			# print('shape',shape)
+			# print('size',size)
+
+			# # New pixel shape
+			# shape = np.array([outputShape[1],outputShape[0],outputShape[2]])
+			# self.pixelSize = size/shape
+			# print('New pixel size:',self.pixelSize)
 
 			# Add 1 to output shape for extent (one extra pixel involved).
 			outputShape += 1
 
 			# Use the position of the minimum points
-			x1 = inputExtent[minimumPoints[1],self.axes[1]]
-			x2 = x1 + outputShape[1]*pixelSize[1]
-			y1 = inputExtent[minimumPoints[0],self.axes[0]]
-			y2 = y1 + outputShape[0]*pixelSize[0]
-			z1 = inputExtent[minimumPoints[2],self.axes[2]]
-			z2 = z1 + outputShape[2]*pixelSize[2]
+			x1 = outputExtent[minimumPoints[0],0]
+			x2 = outputExtent[maximumPoints[0],0]
+			# x2 = x1 + outputShape[1]*self.pixelSize[0]
+			y1 = outputExtent[minimumPoints[1],1]
+			y2 = outputExtent[maximumPoints[1],1]
+			# y2 = y1 + outputShape[0]*self.pixelSize[1]
+			z1 = outputExtent[minimumPoints[2],2]
+			z2 = outputExtent[maximumPoints[2],2]
+			# z2 = z1 + outputShape[2]*self.pixelSize[2]
 
 			# Compile values into extent.
 			self.extent = np.array([x1,x2,y1,y2,z1,z2])
 
-			# print('====================== GPU ======================')
-			# print('inputExtent',extent)
-			# print('inputExtent Box')
-			# print(inputExtent)
-			# print('test')
-			# print(test)
-			# print('minimum vals',minimumPoints)
-			# print('output axes',self.axes)
-			# print('output extent',self.extent)
-			# print('output shape',outputShape)
-			# print('pixel size',pixelSize)
-			# print('isocenter before',tmpisocprint)
-			# print('isocenter after',self.isocenter)
+			print('In Extent',extent)
+			print('Out Extent',self.extent)
 
 		# Trigger for setting bottom left corner as 0,0,0. WHAT EVEN IS THIS???
 		self.zeroExtent = False
@@ -212,27 +299,33 @@ class gpu:
 		'''
 
 		# Begin with identity matrix.
-		matrix = np.identity(3)
+		pymat = np.identity(3)
+		gpumat = np.identity(3)
 		# Iterate through desired rotations.
+		# CW IS NEGATIVE 
+		# CCW IS POSITIVE (AS PER TRIG CIRCLE)
 		for i in range(len(rotationList)):
 			axis = int(rotationList[i][0])
 			value = np.deg2rad(float(rotationList[i][1:]))
-			if axis == 1:
+			if axis == 0:
 				# Rotation about real world x.
-				temp = np.array([[1,0,0],[0,np.cos(value),-np.sin(value)],[0,np.sin(value),np.cos(value)]])
-			elif axis == 0:
+				py = np.array([[1,0,0],[0,np.cos(value),-np.sin(value)],[0,np.sin(value),np.cos(value)]])
+				# py = np.array([[1,0,0],[0,np.cos(value),np.sin(value)],[0,-np.sin(value),np.cos(value)]])
+				# Rotation about real world y (GPU x).
+				gpu = np.array([[np.cos(value),0,-np.sin(value)],[0,1,0],[np.sin(value),0,np.cos(value)]])
+			elif axis == 1:
 				# Rotation about real world y.
-				temp = np.array([[np.cos(value),0,-np.sin(value)],[0,1,0],[np.sin(value),0,np.cos(value)]])
+				py = np.array([[np.cos(value),0,np.sin(value)],[0,1,0],[-np.sin(value),0,np.cos(value)]])
+				gpu = np.array([[1,0,0],[0,np.cos(value),-np.sin(value)],[0,np.sin(value),np.cos(value)]])
 			elif axis == 2:
 				# Rotation about real world z.
-				temp = np.array([[np.cos(value),-np.sin(value),0],[np.sin(value),np.cos(value),0],[0,0,1]])
+				py = np.array([[np.cos(value),-np.sin(value),0],[np.sin(value),np.cos(value),0],[0,0,1]])
+				gpu = np.array([[np.cos(value),np.sin(value),0],[-np.sin(value),np.cos(value),0],[0,0,1]])
 			else:
-				temp = np.identity(3)
+				py = np.identity(3)
+				gpu = np.identity(3)
 			# Multiply into final matrix.
-			matrix = matrix@temp
+			pymat = pymat@py
+			gpumat = gpumat@gpu
 
-		print('Rotation List:',rotationList)
-		print('Rotation Matrix:')
-		print(matrix)
-
-		return np.array(matrix).astype(np.float32)
+		return np.array(pymat).astype(np.float32), np.array(gpumat).astype(np.float32)

@@ -270,6 +270,8 @@ class mpl2DFigure:
 			- 1: Machine Isocenter overlay
 			- 2: Patient Isocenter overlay
 		'''
+		print('Overaly type:',overlayType)
+		print('State:',state)
 		if overlayType == 0:
 			# Centroid overlay.
 			if self.ctd is not None:
@@ -323,16 +325,18 @@ class mpl2DFigure:
 					a = 0
 					b = 2
 				# Plot overlay lines.
-				# self.overlay['patIsoV'] = self.ax.axvline(self.patientIsocenter[a],c='r',alpha=0.5)
-				# self.overlay['patIsoH'] = self.ax.axhline(self.patientIsocenter[b],c='r',alpha=0.5)
+				print('patient iso in MPL:',self.patientIsocenter)
 				# Plot overlay scatter points.
-				x,y = [self.ctd[a],self.ctd[b]]
+				x,y = [self.patientIsocenter[a],self.patientIsocenter[b]]
 				self.overlay['patIso'] = self.ax.scatter(x,y,c='g',marker='+',s=50)
 				self.overlay['patIsoLabel'] = self.ax.text(x+1,y-3,'ptv',color='g')
 			else:
-				# Remove overlay lines.
-				self.overlay['patIso'].remove()
-				self.overlay['patIsoLabel'].remove()
+				try:
+					# Remove overlay lines.
+					self.overlay['patIso'].remove()
+					self.overlay['patIsoLabel'].remove()
+				except:
+					pass
 
 		# Update the canvas.
 		self.canvas.draw()
