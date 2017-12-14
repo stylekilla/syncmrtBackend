@@ -319,11 +319,15 @@ class mpl2DFigure:
 			if state is True:
 				# Get image index for isoc numbers.
 				if self.imageIndex == 0:
-					a = 1
-					b = 2
-				elif self.imageIndex == 1:
+					# a = 1
+					# b = 2
 					a = 0
-					b = 2
+					b = 1
+				elif self.imageIndex == 1:
+					# a = 0
+					# b = 2
+					a = 2
+					b = 1
 				# Plot overlay lines.
 				print('patient iso in MPL:',self.patientIsocenter)
 				# Plot overlay scatter points.

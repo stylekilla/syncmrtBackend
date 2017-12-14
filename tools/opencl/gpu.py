@@ -43,24 +43,11 @@ class gpu:
 		We must enforce datatypes as we are dealing with c and memory access/copies.
 		Rotations happen about real world (x,y,z) axes.
 		'''
-		tmpisocprint = isocenter
 		# Read in array and force the datatype for the gpu.
 		arrIn = np.array(data,order='C').astype(np.int32)
 
-		# Get rotation matrices for GPU.
-		# test = np.array(rotations)
-		# for i in range(len(rotations)):
-		# 	temp = list(rotations[i])
-		# 	if test[i][0] == '0': 
-		# 		temp[0] = '1'
-		# 	elif test[i][0] == '1': 
-		# 		temp[0] = '0'
-		# 	temp = ''.join(temp)
-		# 	test[i] = temp
-		# gpu_rotations = self.rotationMatrix(test)
-		# print(rotations,test)
-		# Rotation matrices for python.
-		rotations,gpuRotations = self.rotationMatrix(rotations)
+		# Get rotation matrices (one for GPU and one for Python, they operate differently)!
+		rotations,gpuRotations = self.generateRotationMatrix(rotations)
 
 		# Create a basic box for calculations of a cube. Built off (row,cols,depth).
 		basicBox = np.array([
@@ -127,56 +114,39 @@ class gpu:
 		# Remove any dirty array values in the output.
 		arrOut = np.nan_to_num(arrOut)
 
-		# These are the axes for indexing (y,x,z)-python format.
-		# Now rotate the axes so we know which one becomes which, direction is irrelevant so we can take the absolute value. This is for indexing purposes.
-		# axes = np.rint(np.absolute(rotations@np.array([0,1,2])@rotations)).astype(int)
-		pyAxes = np.rint(np.absolute(rotations@np.array([0,1,2]))).astype(int)
 		# Get axes directions.
 		axes = np.sign(pixelSize).astype(int)
 
+		# Get dicom origin offset from middle of array.
+		extentLength = np.absolute(extent)
+		offset_x = extent[0] + axes[0]*(extentLength[0]+extentLength[1])/2
+		offset_y = extent[2] + axes[1]*(extentLength[2]+extentLength[3])/2
+		offset_z = extent[4] + axes[2]*(extentLength[4]+extentLength[5])/2
+		offset = np.array([offset_x,offset_y,offset_z])
+
+		print('Extent:',extent)
+		print('Extent Length:',extentLength)
+		print('Axes direction:',axes)
+		print('Offset:',offset)
+
 		# Rotate the pixelSize if specified.
 		if pixelSize is not None: 
-			# Pixel size comes in as (x,y,z), we need to make it (y,x,z) to make it compatible with python.
-			# print('pixel size in:',pixelSize)
-			# pixelSize = np.array([pixelSize[1], pixelSize[0], pixelSize[2]])
-			# print('pixel rearranged:',pixelSize)
 			# Apply the rotations.
 			print('pixel input:',pixelSize)
 			self.pixelSize = rotations@pixelSize
 			print('pixel rotated:',self.pixelSize)
-			# Convert back to real world (from python).
-			# self.pixelSize = np.array([pixelSize[1], pixelSize[0], pixelSize[2]])
-			# print('pixel out:',self.pixelSize)
 
 		# Rotate the isocenter if specified.
 		if isocenter is not None: 
-			# The isocenter comes in as (x,y,z), we need to make it (y,x,z) to make it compatible with python.
-			# print('isocenter original:',isocenter)
-			# isocenter = np.array([isocenter[1], isocenter[0], isocenter[2]])
-			# print('isocenter swapped:',isocenter)
-			# Get the isocenter according to the new axes.
+			# Apply the rotations.
 			print('isocenter input:',isocenter)
 			self.isocenter = (rotations@isocenter)*np.sign(self.pixelSize).astype(int)
+			# self.isocenter = self.rotateWithOffset(isocenter,rotations,offset)*np.sign(self.pixelSize).astype(int)
 			# self.isocenter = np.array([isocenter[pyAxes[0]], isocenter[pyAxes[1]], isocenter[pyAxes[2]]])
 			print('isocenter rotated:',self.isocenter)
-			print('Rotations')
-			print(rotations)
-			# Convert back to real world (from python).
-			# self.isocenter = np.array([isocenter[1], isocenter[0], isocenter[2]])
-			# print('isocenter swapped:',self.isocenter)
 
 		if extent is not None: 
 			# Make the 8 corners of the bounding box as (y,x,z) coordinates for python.
-			# inputExtent = np.array([
-			# 	[extent[0],extent[2],extent[4]],
-			# 	[extent[1],extent[2],extent[4]],
-			# 	[extent[0],extent[3],extent[4]],
-			# 	[extent[1],extent[3],extent[4]],
-			# 	[extent[0],extent[2],extent[5]],
-			# 	[extent[1],extent[2],extent[5]],
-			# 	[extent[0],extent[3],extent[5]],
-			# 	[extent[1],extent[3],extent[5]]])
-
 			basicBox = np.array([
 				[0,0,0],
 				[1,0,0],
@@ -187,97 +157,110 @@ class gpu:
 				[0,1,1],
 				[1,1,1]]).astype(np.float64)
 
-			# Set box corners to reflect axis directions.
+			inputExtent = np.array([
+				[extent[0],extent[2],extent[4]],
+				[extent[1],extent[2],extent[4]],
+				[extent[0],extent[3],extent[4]],
+				[extent[1],extent[3],extent[4]],
+				[extent[0],extent[2],extent[5]],
+				[extent[1],extent[2],extent[5]],
+				[extent[0],extent[3],extent[5]],
+				[extent[1],extent[3],extent[5]]]).astype(np.float64)
+
+			# 1. Setup bounding box to match axes directions.
 			basicBox *= np.sign(pixelSize)
-			mins = np.min(basicBox,axis=0)
-			maxs = np.max(basicBox,axis=0)
+			# 1.1 Find minimums and maximums of 
+			# 1.1.1 the bounding box.
+			boxMin = np.min(basicBox,axis=0)
+			boxMax = np.max(basicBox,axis=0)
+			# 1.1.2 the extent box.
+			extentMin = np.min(inputExtent,axis=0)
+			extentMax = np.max(inputExtent,axis=0)	
 
 			print('Basic Box Axes Ordered')
 			print(basicBox)
 
+			# 1.2 Create input list of box corners in mm.
 			inputExtent = np.zeros(basicBox.shape)
 
-			# Construct extent box.
+			# 1.3 Place mm values based on box corners.
 			for i in range(3):
 				if pixelSize[i] < 0:
-					# Negative Direction.
-					inputExtent[:,i] += (basicBox==mins[i])[:,i]*extent[i*2+1]
-					inputExtent[:,i] += (basicBox==maxs[i])[:,i]*extent[i*2]
+					# Negative axes direction: take maximums to minimums.
+					inputExtent[:,i] += (basicBox==boxMin[i])[:,i]*extentMax[i]
+					inputExtent[:,i] += (basicBox==boxMax[i])[:,i]*extentMin[i]
 				else:
 					# Positive direction.
-					inputExtent[:,i] += (basicBox==mins[i])[:,i]*extent[i*2]
-					inputExtent[:,i] += (basicBox==maxs[i])[:,i]*extent[i*2+1]
+					inputExtent[:,i] += (basicBox==boxMin[i])[:,i]*extentMin[i]
+					inputExtent[:,i] += (basicBox==boxMax[i])[:,i]*extentMax[i]
 
 			print('Input Extent')
 			print(inputExtent)
 
-			# Make another 8 corner array to rotate the basic box and see the outcome.
-			test = np.empty(inputExtent.shape)
-
-			# Reconfigure basic box to updated axes.
-			# basicBox *= axes
-
-			# temp = np.array(basicBox)
-			# basicBox[:,0], basicBox[:,1], basicBox[:,2] = temp[:,axes[0]], temp[:,axes[1]], temp[:,axes[2]]
-			# print('reordered basic box')
-			# print(basicBox)
-
+			# 2.1.1 Make another 8 corner array to rotate the basic box and see the outcome.
+			basicBoxTest = np.empty(inputExtent.shape)
+			# 2.1.2 Make an output extent.
 			outputExtent = np.array(inputExtent)
+			# 2.1.3 Center input extent.
+			extentOffset = extentMin + ( (extentMax-extentMin)/2 )
+			print('extentOffset',extentOffset)
+			# Take extent offset away from input extent.
+			inputExtent -= extentOffset
+			# Rotate extent offset.
+			extentOffset = np.absolute(rotations)@extentOffset
+			print('rotated extent offset',extentOffset)
 
-			# For each basic box corner, rotate it.
+			# 2.2 Rotate the basicBox and outputExtent.
 			for i in range(8):
-				# test[i,:] = gpuRotations@basicBox[i,:]
-				test[i,:] = rotations@basicBox[i,:]
+				basicBoxTest[i,:] = rotations@basicBox[i,:]
+				# point = np.hstack([inputExtent[i,:],1])
 				outputExtent[i,:] = rotations@inputExtent[i,:]
+				# outputExtent[i,:] = np.absolute(rotations)@inputExtent[i,:]
+				# outputExtent[i,:] = self.rotateWithOffset(outputExtent[i,:],np.absolute(rotations),offset)
+			
+			# TESTING TESTING TESTING
+			# outputExtent = np.absolute(outputExtent)
+			# Add back the rotated offset.
+			outputExtent += extentOffset
 
+			print('BasicBox Rotated Test')
+			print(basicBoxTest)				
 			print('Output Extent')
 			print(outputExtent)
 
-			# pyAxes2 = np.rint(np.absolute(rotations@pyAxes)).astype(int)
-
-			# print('Baisc Rotated Box:')
-			# print(test)
-			# print('Rotated Input Extent:')
-			# print(outputExtent)
-
-			# Find the minimum point in each direction of the basic box.
-			minimumPoints = np.argmin(test,axis=0)
-			maximumPoints = np.argmax(test,axis=0)
+			# 2.3 Find the minimum point in each direction of the basic box test.
+			# minimumPoints = np.argmin(basicBoxTest,axis=0)
+			# maximumPoints = np.argmax(basicBoxTest,axis=0)
+			minimumPoints = np.min(outputExtent,axis=0)
+			maximumPoints = np.max(outputExtent,axis=0)
 
 			print('minimumPoints:',minimumPoints)
 			print('maximumPoints:',maximumPoints)
 
-			print('pyAxes:',pyAxes)
-			# print('pyAxes2:',pyAxes2)
-
-			# # New array size:
-			# shape = np.array([arrIn.shape[1],arrIn.shape[0],arrIn.shape[2]])
-			# size = shape*self.pixelSize
-
-			# print('shape',shape)
-			# print('size',size)
-
-			# # New pixel shape
-			# shape = np.array([outputShape[1],outputShape[0],outputShape[2]])
-			# self.pixelSize = size/shape
-			# print('New pixel size:',self.pixelSize)
-
 			# Add 1 to output shape for extent (one extra pixel involved).
-			outputShape += 1
+			# outputShape += 1
 
-			# Use the position of the minimum points
-			x1 = outputExtent[minimumPoints[0],0]
-			x2 = outputExtent[maximumPoints[0],0]
-			# x2 = x1 + outputShape[1]*self.pixelSize[0]
-			y1 = outputExtent[minimumPoints[1],1]
-			y2 = outputExtent[maximumPoints[1],1]
-			# y2 = y1 + outputShape[0]*self.pixelSize[1]
-			z1 = outputExtent[minimumPoints[2],2]
-			z2 = outputExtent[maximumPoints[2],2]
-			# z2 = z1 + outputShape[2]*self.pixelSize[2]
+			self.extent = np.zeros(6)
+
+			# 2.4 Place mm values based on box corners.
+			for i in range(3):
+				if self.pixelSize[i] < 0:
+					# Negative axes direction: take maximums to minimums.
+					self.extent[i*2] += maximumPoints[i]
+					self.extent[i*2+1] += minimumPoints[i]
+				else:
+					# Positive direction.
+					self.extent[i*2] += minimumPoints[i]
+					self.extent[i*2+1] += maximumPoints[i]
+			# x1 = outputExtent[minimumPoints[0],0]
+			# x2 = outputExtent[maximumPoints[0],0]
+			# y1 = outputExtent[minimumPoints[1],1]
+			# y2 = outputExtent[maximumPoints[1],1]
+			# z1 = outputExtent[minimumPoints[2],2]
+			# z2 = outputExtent[maximumPoints[2],2]
 
 			# Compile values into extent.
-			self.extent = np.array([x1,x2,y1,y2,z1,z2])
+			# self.extent = np.array([x1,x2,y1,y2,z1,z2])
 
 			print('In Extent',extent)
 			print('Out Extent',self.extent)
@@ -287,7 +270,7 @@ class gpu:
 
 		return arrOut
 
-	def rotationMatrix(self,rotationList):
+	def generateRotationMatrix(self,rotationList):
 
 		'''
 		Generate a 3x3 rotation matrix.
@@ -297,7 +280,6 @@ class gpu:
 				- '190' means take the first axis, '1' and rotate '90' degrees about it.
 				- '0-90' means take the first axis, '0' and rotate '-90' degrees about it.
 		'''
-
 		# Begin with identity matrix.
 		pymat = np.identity(3)
 		gpumat = np.identity(3)
@@ -329,3 +311,42 @@ class gpu:
 			gpumat = gpumat@gpu
 
 		return np.array(pymat).astype(np.float32), np.array(gpumat).astype(np.float32)
+
+	def rotateWithOffset(self,point,rotation,offset):
+		'''
+		Rotate a point about an offset.
+		'''
+		# Rotation matrix.
+		R = np.identity(4)
+		R[:3,:3] = rotation
+		# Translation matrix.
+		T = np.identity(4)
+		T[:3,3] = -offset
+		# Inverse translation.
+		Ti = np.identity(4)
+		# Ti[:3,3] = offset
+		Ti[:3,3] = (R@np.hstack([offset,1]))[:3]
+		# print(Ti)
+		# Make the point.
+		p = np.hstack([point,1])
+		# Translate, rotate, and reposition the point.
+		print('point:',p)
+		P = T@p
+		print('translated:',P)
+		P = R@P
+		print('rotated:',P)
+		P = Ti@P
+		print('R:')
+		print(R)
+		# print('T:')
+		# print(T)
+		# print('Ti:')
+		# print(Ti)
+		# print('Everything')
+		# print(T@R@Ti)
+
+		# P = T@R@Ti@p
+		print('rehomed:',P)
+
+		return P[:3]
+

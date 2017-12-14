@@ -180,6 +180,7 @@ class dataset:
 		self.image = np.empty(ref.FractionGroupSequence[0].NumberOfBeams,dtype=object)
 		# CT isocenter.
 		temp = np.array(ref.BeamSequence[0].ControlPointSequence[0].IsocenterPosition)
+		# self.ctisocenter = np.array([temp[0],temp[2],temp[1]])
 		self.ctisocenter = np.array([temp[0],temp[2],temp[1]])
 
 		# Load the GPU interface.
@@ -265,3 +266,6 @@ class dataset:
 			self.image[i].pixelSize = gpu.pixelSize
 			self.image[i].isocenter = gpu.isocenter
 			self.image[i].extent = gpu.extent
+
+
+			# BLOCK 5 RTP Y IS IN WRONG DIRECTION... FIX PLEASE.
