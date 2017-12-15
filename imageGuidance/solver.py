@@ -14,7 +14,7 @@ class solver:
 	def __init__(self):
 		self._leftPoints = np.zeros((3,3))
 		self._rightPoints = np.zeros((3,3))
-		self._patientIsocenter = np.zeros((3,))
+		self._patientIsocenter = None
 		self._machineIsocenter = np.zeros((3,))
 		self._axesDirection = np.ones((3,))
 		self._scale = 0
@@ -41,11 +41,17 @@ class solver:
 		# Change left (dicom) points to match axis directions for the synchrotron.
 		for i in range(n):
 			self._leftPoints[i,:] *= self._axesDirection
-		self._patientIsocenter *= self._axesDirection
 
 		# Find the centroids of the LEFT and RIGHT WCS.
 		self._leftCentroid = centroid(self._leftPoints)
 		self._rightCentroid = centroid(self._rightPoints)
+
+		# If no patient isocenter is set, align to the centroid.
+		if self._patientIsocenter == None:
+			self._patientIsocenter = self._leftCentroid
+
+		# Rotate the isocenter with the axes direction.
+		self._patientIsocenter *= self._axesDirection
 
 		print('Axes Direction:',self._axesDirection)
 		print('Left Points:',self._leftPoints)

@@ -240,7 +240,7 @@ class stage:
 			# Get the x y z translation or rotation value.
 			value = variables[index]
 			# Apply the value.
-			# motor.shiftPosition(value)
+			motor.shiftPosition(value)
 			print('Moving ',motor._name,value)
 			# Set the taken variable to 0. This stops any future motor from taking this value.
 			variables[index] = 0

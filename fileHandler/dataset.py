@@ -133,7 +133,12 @@ class dataset:
 				)
 		elif self.image[0].patientPosition == 'FFS':
 			# This would be another scan position for the patient.
-			# Can add this at a later date.
+			kwargs = (
+				['090'],
+				self.image[0].pixelSize,
+				self.extent,
+				None
+				)
 			pass
 
 		# Run the gpu rotation.
@@ -250,7 +255,7 @@ class dataset:
 			block5 = '090'
 
 			# spesh = '0'+str(-self.image[i].gantry)
-			rotationSet1 = [block3]
+			rotationSet1 = [block5]
 			# rotationSet1 = [patsup]
 			# rotationSet2 = [gantry,col]
 			kwargs = (
