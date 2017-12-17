@@ -228,7 +228,7 @@ class stage:
 			print('Self Motion on success:',self._motion)
 			return variables
 
-	def applyMotion(self,variables):
+	def applyMotion(self,variables=None):
 		# If no motion is passed, then apply the preloaded motion.
 		if variables == None:
 			variables = self._motion

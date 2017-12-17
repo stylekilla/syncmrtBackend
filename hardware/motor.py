@@ -44,9 +44,11 @@ class motor:
 		self._ui = motor.ui(ui)
 
 	def setPosition(self,position):
+		position *= self._direction
 		self._control.write(position,mode='absolute')
 
 	def shiftPosition(self,position):
+		position *= self._direction
 		self._control.write(position,mode='relative')
 
 	def readPosition(self):

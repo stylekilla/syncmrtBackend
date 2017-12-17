@@ -139,7 +139,14 @@ class dataset:
 				self.extent,
 				None
 				)
-			pass
+		elif self.image[0].patientPosition == 'HFP':
+			# This would be another scan position for the patient.
+			kwargs = (
+				['090','2180'],
+				self.image[0].pixelSize,
+				self.extent,
+				None
+				)
 
 		# Run the gpu rotation.
 		self.image[0].array = gpu.rotate(self.image[0].array,*kwargs)
