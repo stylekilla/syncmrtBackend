@@ -71,8 +71,8 @@ class gpu:
 		maxs = np.absolute(np.amax(outputShape,axis=0))
 		outputShape = np.rint(mins+maxs).astype(int)
 
-		print('In Shape',arrIn.shape)
-		print('Out Shape',outputShape)
+		# print('In Shape',arrIn.shape)
+		# print('Out Shape',outputShape)
 
 		# Create empty output array set to -1000.
 		arrOut = np.zeros(outputShape).astype(np.int32)-1000
@@ -124,26 +124,26 @@ class gpu:
 		offset_z = extent[4] + axes[2]*(extentLength[4]+extentLength[5])/2
 		offset = np.array([offset_x,offset_y,offset_z])
 
-		print('Extent:',extent)
-		print('Extent Length:',extentLength)
-		print('Axes direction:',axes)
-		print('Offset:',offset)
+		# print('Extent:',extent)
+		# print('Extent Length:',extentLength)
+		# print('Axes direction:',axes)
+		# print('Offset:',offset)
 
 		# Rotate the pixelSize if specified.
 		if pixelSize is not None: 
 			# Apply the rotations.
-			print('pixel input:',pixelSize)
+			# print('pixel input:',pixelSize)
 			self.pixelSize = rotations@pixelSize
-			print('pixel rotated:',self.pixelSize)
+			# print('pixel rotated:',self.pixelSize)
 
 		# Rotate the isocenter if specified.
 		if isocenter is not None: 
 			# Apply the rotations.
-			print('isocenter input:',isocenter)
+			# print('isocenter input:',isocenter)
 			self.isocenter = (rotations@isocenter)*np.sign(self.pixelSize).astype(int)
 			# self.isocenter = self.rotateWithOffset(isocenter,rotations,offset)*np.sign(self.pixelSize).astype(int)
 			# self.isocenter = np.array([isocenter[pyAxes[0]], isocenter[pyAxes[1]], isocenter[pyAxes[2]]])
-			print('isocenter rotated:',self.isocenter)
+			# print('isocenter rotated:',self.isocenter)
 
 		if extent is not None: 
 			# Make the 8 corners of the bounding box as (y,x,z) coordinates for python.
@@ -177,8 +177,8 @@ class gpu:
 			extentMin = np.min(inputExtent,axis=0)
 			extentMax = np.max(inputExtent,axis=0)	
 
-			print('Basic Box Axes Ordered')
-			print(basicBox)
+			# print('Basic Box Axes Ordered')
+			# print(basicBox)
 
 			# 1.2 Create input list of box corners in mm.
 			inputExtent = np.zeros(basicBox.shape)
@@ -194,8 +194,8 @@ class gpu:
 					inputExtent[:,i] += (basicBox==boxMin[i])[:,i]*extentMin[i]
 					inputExtent[:,i] += (basicBox==boxMax[i])[:,i]*extentMax[i]
 
-			print('Input Extent')
-			print(inputExtent)
+			# print('Input Extent')
+			# print(inputExtent)
 
 			# 2.1.1 Make another 8 corner array to rotate the basic box and see the outcome.
 			basicBoxTest = np.empty(inputExtent.shape)
@@ -203,12 +203,12 @@ class gpu:
 			outputExtent = np.array(inputExtent)
 			# 2.1.3 Center input extent.
 			extentOffset = extentMin + ( (extentMax-extentMin)/2 )
-			print('extentOffset',extentOffset)
+			# print('extentOffset',extentOffset)
 			# Take extent offset away from input extent.
 			inputExtent -= extentOffset
 			# Rotate extent offset.
 			extentOffset = np.absolute(rotations)@extentOffset
-			print('rotated extent offset',extentOffset)
+			# print('rotated extent offset',extentOffset)
 
 			# 2.2 Rotate the basicBox and outputExtent.
 			for i in range(8):
@@ -223,10 +223,10 @@ class gpu:
 			# Add back the rotated offset.
 			outputExtent += extentOffset
 
-			print('BasicBox Rotated Test')
-			print(basicBoxTest)				
-			print('Output Extent')
-			print(outputExtent)
+			# print('BasicBox Rotated Test')
+			# print(basicBoxTest)				
+			# print('Output Extent')
+			# print(outputExtent)
 
 			# 2.3 Find the minimum point in each direction of the basic box test.
 			# minimumPoints = np.argmin(basicBoxTest,axis=0)
@@ -234,8 +234,8 @@ class gpu:
 			minimumPoints = np.min(outputExtent,axis=0)
 			maximumPoints = np.max(outputExtent,axis=0)
 
-			print('minimumPoints:',minimumPoints)
-			print('maximumPoints:',maximumPoints)
+			# print('minimumPoints:',minimumPoints)
+			# print('maximumPoints:',maximumPoints)
 
 			# Add 1 to output shape for extent (one extra pixel involved).
 			# outputShape += 1
@@ -262,8 +262,8 @@ class gpu:
 			# Compile values into extent.
 			# self.extent = np.array([x1,x2,y1,y2,z1,z2])
 
-			print('In Extent',extent)
-			print('Out Extent',self.extent)
+			# print('In Extent',extent)
+			# print('Out Extent',self.extent)
 
 		# Trigger for setting bottom left corner as 0,0,0. WHAT EVEN IS THIS???
 		self.zeroExtent = False
@@ -330,14 +330,14 @@ class gpu:
 		# Make the point.
 		p = np.hstack([point,1])
 		# Translate, rotate, and reposition the point.
-		print('point:',p)
+		# print('point:',p)
 		P = T@p
-		print('translated:',P)
+		# print('translated:',P)
 		P = R@P
-		print('rotated:',P)
+		# print('rotated:',P)
 		P = Ti@P
-		print('R:')
-		print(R)
+		# print('R:')
+		# print(R)
 		# print('T:')
 		# print(T)
 		# print('Ti:')
@@ -346,7 +346,7 @@ class gpu:
 		# print(T@R@Ti)
 
 		# P = T@R@Ti@p
-		print('rehomed:',P)
+		# print('rehomed:',P)
 
 		return P[:3]
 

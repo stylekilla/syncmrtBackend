@@ -3,13 +3,13 @@ mpl.use('Qt5Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from PyQt5 import QtGui, QtCore
+from PyQt5 import QtGui, QtCore, QtWidgets
 from syncmrt.imageGuidance import optimiseFiducials
 
 # from skimage import exposure
 from skimage.external import tifffile as tiff
 
-class mpl2DFigure:
+class plot:
 	'''
 	Documentation for now:
 	- imageLoad(filename, pixelsize, oreitnation, imagenumber(/2), fileformat): Load image into canvas.
@@ -68,8 +68,12 @@ class mpl2DFigure:
 		self.canvas._pickerActive = False
 
 	def imageLoad(self,array,extent=np.array([-1,1,-1,1]),imageOrientation='',imageIndex=0):
+		# Clear the canvas and start again:
+		self.ax.cla()
+		# Load the image.
 		self.imageIndex = imageIndex
-		self.data3d = array
+		self.data3d = np.array(array,dtype=np.float32)
+
 		if len(self.data3d.shape) == 3:
 			# 3D Image (CT/MRI etc).
 			if imageIndex == 0:
@@ -83,6 +87,8 @@ class mpl2DFigure:
 			# 2D Image (General X-ray).
 			self.data2d = np.array(self.data3d)
 			self.extent = extent
+
+		self.data = np.array(self.data2d)
 
 		# Rescale 2d image between 0 and 65535 (16bit)
 		# self.imageNormalise()
@@ -108,7 +114,7 @@ class mpl2DFigure:
 		# 		self.ax.set_xlabel('S')
 		# 		self.ax.set_ylabel('A')
 
-		self.image = self.ax.imshow(self.data2d, cmap='bone', extent=self.extent)
+		self.image = self.ax.imshow(self.data, cmap='bone', extent=self.extent)
 		self.ax.set_xlim(extent[0:2])
 		self.ax.set_ylim(extent[2:4])
 		self.ax.set_aspect("equal", "datalim")
@@ -116,55 +122,55 @@ class mpl2DFigure:
 		# Start Callback ID
 		self.cid = self.canvas.mpl_connect('button_press_event', self.eventFilter)
 
-	def imageWindow(self,windows):
-		'''Mask 3D array, flatten and redraw 2D array. windows as List of Lists(upper and lower limit)'''
-		conditions = ''
-		for window in windows:
-			conditions += '((self.data3d>'+str(window[0])+')&(self.data3d<'+str(window[1])+'))|'
-		conditions = conditions[:-1]
-		mask = eval(conditions)
-		self.data2d = self.data3d*mask
+	# def imageWindow(self,windows):
+	# 	'''Mask 3D array, flatten and redraw 2D array. windows as List of Lists(upper and lower limit)'''
+	# 	conditions = ''
+	# 	for window in windows:
+	# 		conditions += '((self.data3d>'+str(window[0])+')&(self.data3d<'+str(window[1])+'))|'
+	# 	conditions = conditions[:-1]
+	# 	mask = eval(conditions)
+	# 	self.data = self.data3d*mask
 
-		if self.imageIndex == 0:
-			direction = 2
-		elif self.imageIndex == 1:
-			direction = 1
+	# 	if self.imageIndex == 0:
+	# 		direction = 2
+	# 	elif self.imageIndex == 1:
+	# 		direction = 1
 			
-		if self._radiographMode == 'max':
-			self.data2d = np.amax(self.data2d,axis=direction)
-		elif self._radiographMode == 'sum':
-			self.data2d = np.sum(self.data2d,axis=direction)
-		else:
-			pass
+	# 	if self._radiographMode == 'max':
+	# 		self.data = np.amax(self.data,axis=direction)
+	# 	elif self._radiographMode == 'sum':
+	# 		self.data = np.sum(self.data,axis=direction)
+	# 	else:
+	# 		pass
 
-		# Rescale 2d image between 0 and 65535 (16bit)
-		self.imageNormalise(mask=True)
-		self.image.set_data(self.data2d)
-		self.image.set_clim(vmin=self.data2d.min())
-		self.image.set_clim(vmax=self.data2d.max())
-		self.canvas.draw()
+	# 	# Rescale 2d image between 0 and 65535 (16bit)
+	# 	self.imageNormalise(mask=True)
+	# 	self.image.set_data(self.data)
+	# 	self.image.set_clim(vmin=self.data.min())
+	# 	self.image.set_clim(vmax=self.data.max())
+	# 	self.canvas.draw()
 
-	def imageNormalise(self,lower=0,upper=65535,mask=False):
-		# 16-bit image: 65536 levels.
-		maximum = np.amax(self.data2d)
-		if mask:
-			# Find second smallest number (assuming smallest is now zero due to earlier masking).
-			try:
-				minimum = np.unique(self.data2d)[1]
-			except: 
-				minimum = np.amin(self.data2d)
+	# def imageNormalise(self,lower=0,upper=65535,mask=False):
+	# 	# 16-bit image: 65536 levels.
+	# 	maximum = np.amax(self.data)
+	# 	if mask:
+	# 		# Find second smallest number (assuming smallest is now zero due to earlier masking).
+	# 		try:
+	# 			minimum = np.unique(self.data)[1]
+	# 		except: 
+	# 			minimum = np.amin(self.data)
 
-		else:
-			minimum = np.amin(self.data2d)
+	# 	else:
+	# 		minimum = np.amin(self.data)
 
-		test = np.absolute(maximum-minimum)
-		if test == 0:
-			test = 1
+	# 	test = np.absolute(maximum-minimum)
+	# 	if test == 0:
+	# 		test = 1
 
-		scale = (upper-lower)/test
+	# 	scale = (upper-lower)/test
 
-		self.data2d = (self.data2d - minimum)*scale
-		# self.data2d[self.data2d<0] = 0
+	# 	self.data = (self.data - minimum)*scale
+		# self.data[self.data<0] = 0
 
 	def markerAdd(self,x,y):
 		'''Append marker position if it is within the maximum marker limit.'''
@@ -246,8 +252,8 @@ class mpl2DFigure:
 		# Call syncMRT optimise points module. Send points,data,dims,markersize.
 		pointsIn = np.column_stack((self.pointsX,self.pointsY))
 		extent = self.image.get_extent()
-		# points = optimiseFiducials(pointsIn,self.data2d,extent,fiducialSize,threshold)
-		points = optimiseFiducials(pointsIn,np.array(self.data2d),extent,fiducialSize,threshold)
+		# points = optimiseFiducials(pointsIn,self.data,extent,fiducialSize,threshold)
+		points = optimiseFiducials(pointsIn,np.array(self.data),extent,fiducialSize,threshold)
 		self.pointsXoptimised = points[:,0]
 		self.pointsYoptimised = points[:,1]
 
@@ -270,8 +276,6 @@ class mpl2DFigure:
 			- 1: Machine Isocenter overlay
 			- 2: Patient Isocenter overlay
 		'''
-		print('Overaly type:',overlayType)
-		print('State:',state)
 		if overlayType == 0:
 			# Centroid overlay.
 			if self.ctd is not None:
@@ -319,17 +323,12 @@ class mpl2DFigure:
 			if state is True:
 				# Get image index for isoc numbers.
 				if self.imageIndex == 0:
-					# a = 1
-					# b = 2
 					a = 0
 					b = 1
 				elif self.imageIndex == 1:
-					# a = 0
-					# b = 2
 					a = 2
 					b = 1
 				# Plot overlay lines.
-				print('patient iso in MPL:',self.patientIsocenter)
 				# Plot overlay scatter points.
 				x,y = [self.patientIsocenter[a],self.patientIsocenter[b]]
 				self.overlay['patIso'] = self.ax.scatter(x,y,c='g',marker='+',s=50)
@@ -347,14 +346,9 @@ class mpl2DFigure:
 
 	def setExtent(self,newExtent):
 		# Change extent and markers.
-		print('extent')
-		print(self.extent)
-		print(newExtent)
 
 		change = newExtent-self.extent
 
-		print('change')
-		print(change)
 
 		''' Update markers '''
 		# Get values and add changes.
@@ -387,3 +381,169 @@ class mpl2DFigure:
 		# If mouse button 1 is clicked (left click).
 		if (event.button == 1) & (self.canvas._pickerActive):
 			self.markerAdd(event.xdata,event.ydata)
+
+class histogram:
+	def __init__(self,plot):
+		# Bing the parent plot.
+		self.parent = plot
+		# A figure instance to plot on.
+		self.figure = plt.figure()
+		# This is the Canvas Widget that displays the `figure`.
+		self.canvas = FigureCanvas(self.figure)
+		# Add axes for plotting on.
+		self.ax = self.figure.add_axes([0,0,1,1])
+		# Redraw.
+		self.canvas.draw()
+		# Initialise histogram max to zero.
+		self.histMax = 0
+
+	def refresh(self):
+		# Get maximum value of array for sliders.
+		dataMin = np.min(self.parent.data3d)
+		dataMax = np.max(self.parent.data3d)
+		# Add histogram.
+		# bins = 64
+		self.histMax,_,_ = self.ax.hist(self.parent.data3d.ravel(),facecolor='k',alpha=0.5,bins=64)
+		self.histMax = np.max(self.histMax)
+		# Histogram window
+		self.ax.plot([dataMin,dataMax],[dataMin,self.histMax],'k-', lw=1)
+		self.ax.plot([dataMax,dataMax],[dataMin,self.histMax],'k--', lw=1)
+		# Redraw.
+		self.canvas.draw()	
+
+	def update(self,minimum,maximum):
+		# Remove old window.
+		for i in range(len(self.ax.lines)):
+			self.ax.lines[0].remove()
+		# Add new window.
+		self.ax.plot([minimum,maximum],[minimum,self.histMax],'k-', lw=1)
+		self.ax.plot([maximum,maximum],[minimum,self.histMax],'k--', lw=1)
+		# Redraw.
+		self.canvas.draw()
+
+class window:
+	def __init__(self,parent,plot,advanced=False):
+		# Must pass a parent plot to it (MPL2DFigure).
+		self.parent = parent
+		self.plot = plot
+		self.advanced = advanced
+		# Set the size.
+		# sizePolicy = QtWidgets.QSizePolicy.Minimum
+		# self.parent.setSizePolicy(QtWidgets.QSizePolicy.Minimum,QtWidgets.QSizePolicy.Minimum)
+		# self.parent.setContentsMargins(0,0,0,0)
+		self.parent.setMaximumSize(500,170)
+		# Get image details from parent.
+		self.dataMin = 0
+		self.dataMax = 0
+		# Create a layout.
+		layout = QtWidgets.QFormLayout()
+		# Create widgets.
+		self.histogram = histogram(plot)
+		self.widget = {}
+		# Min Slider.
+		self.widget['sl_min'] = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+		self.widget['sl_min'].setTracking(False)
+		self.widget['sl_min'].setEnabled(False)
+		# Max Slider.
+		self.widget['sl_max'] = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+		self.widget['sl_max'].setTracking(False)
+		self.widget['sl_max'].setEnabled(False)
+		# Labels.
+		lb_min = QtWidgets.QLabel('Min')
+		lb_max = QtWidgets.QLabel('Max')
+		# Connect buttons.
+		self.widget['sl_min'].valueChanged.connect(self.updateWindow)
+		self.widget['sl_max'].valueChanged.connect(self.updateWindow)
+		# Assign layout.
+		layout.addRow(self.histogram.canvas)
+		layout.addRow(lb_min,self.widget['sl_min'])
+		layout.addRow(lb_max,self.widget['sl_max'])
+		# Check for advanced options.
+		if self.advanced == True:
+			# Add radio buttons for 3d arrays where flattening option can be chosen.
+			self.widget['rb_sum'] = QtWidgets.QRadioButton('Sum')
+			self.widget['rb_max'] = QtWidgets.QRadioButton('Max')
+			self.widget['rb_sum'].toggled.connect(self.updateFlatteningMode)
+			self.widget['rb_max'].toggled.connect(self.updateFlatteningMode)
+			# Defaults.
+			self.widget['rb_sum'].setChecked(True)
+			self.widget['rb_max'].setChecked(False)
+			# Add to layout.
+			layout.addRow(self.widget['rb_sum'],self.widget['rb_max'])
+		# Set layout.
+		self.parent.setLayout(layout)
+
+	def refreshControls(self):
+		# Get image details from parent.
+		self.dataMin = np.min(self.plot.data3d)
+		self.dataMax = np.max(self.plot.data3d)
+		# Slider Min Controls
+		self.widget['sl_min'].setMinimum(self.dataMin)
+		self.widget['sl_min'].setMaximum(self.dataMax-1)
+		self.widget['sl_min'].setValue(self.dataMin)
+		# Slider Max Controls
+		self.widget['sl_max'].setMinimum(self.dataMin+1)
+		self.widget['sl_max'].setMaximum(self.dataMax)
+		self.widget['sl_max'].setValue(self.dataMax)
+		# Enable Sliders
+		self.widget['sl_min'].setEnabled(True)
+		self.widget['sl_max'].setEnabled(True)
+		# Refresh histogram.
+		self.histogram.refresh()
+
+	def updateFlatteningMode(self):
+		if self.widget['rb_sum'].isChecked() == True:
+			mode = 'sum'
+		elif self.widget['rb_max'].isChecked() == True:
+			mode = 'max'
+		self.plot._radiographMode = mode
+
+	def updateWindow(self):
+		if self.plot.image == None:
+			# If there is no image yet loaded, do nothing.
+			return
+
+		# Get minimum and maximum values from sliders.
+		minimum = self.widget['sl_min'].value()
+		maximum = self.widget['sl_max'].value()
+		# Calculate scale.
+		scale = (self.dataMax-self.dataMin) / (maximum-minimum)
+		# Find shifted maximum.
+		# shift = minimum - self.dataMin
+		# maximum_shifted = maximum - np.absolute(minimum)
+		shift = -minimum
+		maximum_shifted = maximum + shift
+		# Copy array data.
+		self.plot.data = np.array(self.plot.data3d)
+		# Shift array.
+		self.plot.data += shift
+		# Set every negative value to zero.
+		# self.plot.data[self.plot.data < self.dataMin] = self.dataMin
+		self.plot.data[self.plot.data < 0] = 0
+		# Set everything above the maximum value to max.
+		self.plot.data[self.plot.data > maximum_shifted] = maximum_shifted
+		# Scale data.
+		self.plot.data *= scale
+		# Shift back to original position.
+		self.plot.data += self.dataMin
+		# Check for advanced options.
+		if self.advanced == True:
+			# Check plot number.
+			if self.plot.imageIndex == 0:
+				direction = 2
+			elif self.plot.imageIndex == 1:
+				direction = 1
+			# Check flattening mode.
+			if self.plot._radiographMode == 'max':
+				self.plot.data = np.amax(self.plot.data,axis=direction)
+			elif self.plot._radiographMode == 'sum':
+				self.plot.data = np.sum(self.plot.data,axis=direction)
+			else:
+				pass
+		# Set data.
+		self.plot.image.set_data(self.plot.data)
+		# Redraw canvas.
+		self.plot.canvas.draw()
+		# Update histogram overlay.
+		self.histogram.update(minimum,maximum)
+		# Restrict the value of each slider?? So that one can't go past the other.

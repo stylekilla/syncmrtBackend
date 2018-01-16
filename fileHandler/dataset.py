@@ -43,11 +43,11 @@ class dataset:
 
 		return natsorted(files)
 
-	def reloadFiles(self,files):
-		# Reload the files without losing plot or patient information.
-		self.ds = ds
-		self.fp = os.path.dirname(ds[0])
-		self.importXR()
+	# def reloadFiles(self,files):
+	# 	# Reload the files without losing plot or patient information.
+	# 	self.ds = ds
+	# 	self.fp = os.path.dirname(ds[0])
+	# 	self.importXR()
 
 	def importCT(self):
 		# We are reading in a CT DICOM file.
@@ -143,6 +143,13 @@ class dataset:
 			# This would be another scan position for the patient.
 			kwargs = (
 				['090','2180'],
+				self.image[0].pixelSize,
+				self.extent,
+				None
+				)
+		else:
+			kwargs = (
+				[],
 				self.image[0].pixelSize,
 				self.extent,
 				None
