@@ -32,8 +32,11 @@ class gpu:
 			cpuList += plt.get_devices(cl.device_type.CPU)
 			gpuList += plt.get_devices(cl.device_type.GPU)
 		# Create a device context.
-		# self.ctx = cl.Context(devices=[cpuList[0]])
-		self.ctx = cl.Context(devices=[gpuList[0]])
+		try:
+			self.ctx = cl.Context(devices=[gpuList[0]])
+		except:
+			self.ctx = cl.Context(devices=[cpuList[0]])
+			
 		# Create a device queue.
 		self.queue = cl.CommandQueue(self.ctx)
 

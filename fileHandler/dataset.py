@@ -1,9 +1,9 @@
 import os
 import dicom
 import numpy as np
-from syncmrt.fileHandler import image
+from syncmrtBackend.fileHandler import image
 from natsort import natsorted
-from syncmrt.tools.opencl import gpu as gpuInterface
+from syncmrtBackend.tools.opencl import gpu as gpuInterface
 import h5py
 
 class dataset:
@@ -120,40 +120,48 @@ class dataset:
 				- Any Isocenters
 		'''
 
-		if self.image[0].patientPosition == 'HFS':
-			'''
-			Head First Supine position.
-			Here we rotate the CT to orientate it in an upright position (assuming the patient is upright at the synchrotron).
-			'''
-			kwargs = (
-				['0-90'],
-				self.image[0].pixelSize,
-				self.extent,
-				None
-				)
-		elif self.image[0].patientPosition == 'FFS':
-			# This would be another scan position for the patient.
-			kwargs = (
-				['090'],
-				self.image[0].pixelSize,
-				self.extent,
-				None
-				)
-		elif self.image[0].patientPosition == 'HFP':
-			# This would be another scan position for the patient.
-			kwargs = (
-				['090','2180'],
-				self.image[0].pixelSize,
-				self.extent,
-				None
-				)
-		else:
-			kwargs = (
-				[],
-				self.image[0].pixelSize,
-				self.extent,
-				None
-				)
+		# if self.image[0].patientPosition == 'HFS':
+		# 	'''
+		# 	Head First Supine position.
+		# 	Here we rotate the CT to orientate it in an upright position (assuming the patient is upright at the synchrotron).
+		# 	'''
+		# 	kwargs = (
+		# 		['0-90'],
+		# 		self.image[0].pixelSize,
+		# 		self.extent,
+		# 		None
+		# 		)
+		# elif self.image[0].patientPosition == 'FFS':
+		# 	# This would be another scan position for the patient.
+		# 	kwargs = (
+		# 		['090'],
+		# 		self.image[0].pixelSize,
+		# 		self.extent,
+		# 		None
+		# 		)
+		# elif self.image[0].patientPosition == 'HFP':
+		# 	# This would be another scan position for the patient.
+		# 	kwargs = (
+		# 		['090','2180'],
+		# 		self.image[0].pixelSize,
+		# 		self.extent,
+		# 		None
+		# 		)
+		# else:
+		# 	kwargs = (
+		# 		[],
+		# 		self.image[0].pixelSize,
+		# 		self.extent,
+		# 		None
+		# 		)
+
+		# Override
+		kwargs = (
+			['090'],
+			self.image[0].pixelSize,
+			self.extent,
+			None
+			)
 
 		# Run the gpu rotation.
 		self.image[0].array = gpu.rotate(self.image[0].array,*kwargs)

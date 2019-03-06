@@ -1,5 +1,5 @@
-from syncmrt.hardware.motor import motor
-from syncmrt.widgets import QEMotor
+from syncmrtBackend.hardware.motor import motor
+from syncmrtBackend.widgets import QEMotor
 import numpy as np
 
 class stage:
@@ -22,8 +22,8 @@ class stage:
 
 		# Get stagelist and motors.
 		import csv, os
-		# Open CSV file.
-		f = open(os.path.join(os.path.dirname(__file__),motorList))
+		# Open CSV file
+		f = open(motorList)
 		r = csv.DictReader(f)
 		# Save as ordered dict.
 		self.motorList = []

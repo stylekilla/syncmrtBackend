@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt5 import QtGui, QtCore, QtWidgets
-from syncmrt.imageGuidance import optimiseFiducials
+from syncmrtBackend.imageGuidance import optimiseFiducials
 
 # from skimage import exposure
 from skimage.external import tifffile as tiff

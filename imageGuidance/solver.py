@@ -47,7 +47,7 @@ class solver:
 		self._rightCentroid = centroid(self._rightPoints)
 
 		# If no patient isocenter is set, align to the centroid.
-		if self._patientIsocenter == None:
+		if self._patientIsocenter is None:
 			self._patientIsocenter = self._leftCentroid
 
 		# Rotate the isocenter with the axes direction.
