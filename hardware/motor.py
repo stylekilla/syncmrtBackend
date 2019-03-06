@@ -1,5 +1,5 @@
-from syncmrtBackend import math
-from syncmrtBackend.epics import controls
+from synctools import math
+from synctools.epics import controls
 import numpy as np
 
 class motor:

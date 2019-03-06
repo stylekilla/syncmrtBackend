@@ -1,5 +1,5 @@
-from syncmrtBackend.hardware.motor import motor
-from syncmrtBackend.widgets import QEMotor
+from synctools.hardware.motor import motor
+from synctools.widgets import QEMotor
 import numpy as np
 
 class stage:

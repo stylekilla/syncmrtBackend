@@ -1,9 +1,9 @@
 import os
 import dicom
 import numpy as np
-from syncmrtBackend.fileHandler import image
+from synctools.fileHandler import image
 from natsort import natsorted
-from syncmrtBackend.tools.opencl import gpu as gpuInterface
+from synctools.tools.opencl import gpu as gpuInterface
 import h5py
 
 class dataset:

@@ -1,4 +1,4 @@
-from syncmrtBackend import hardware, imageGuidance
+from synctools import hardware, imageGuidance
 
 '''
 class system:
