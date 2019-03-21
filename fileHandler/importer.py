@@ -5,43 +5,62 @@ from synctools.fileHandler import image
 from natsort import natsorted
 from synctools.tools.opencl import gpu as gpuInterface
 import h5py
+import logging
 
-class dataset:
+class importFiles:
 	def __init__(self,ds,modality,ctImage=None):
+		# Modality: 'xray' or 'ct'.
 		self.modality = modality
+		# Link to the dataset (Could be many files, for example, ct slices).
 		self.ds = ds
 		self.fp = os.path.dirname(ds[0])
+		# Patient Name...?
 		self.patientName = 'Unknown'
-
-		self.image = [None,None]
-		self.patientIso = None
-		self.plot = None
+		# Image array.
+		# self.image = [None,None]
+		self.image = []
+		# Patient isocenter.
+		self.patientIsoc = None
+		# self.plot = None
 		
 		if modality == 'CT':
-			self.ds = self.checkModality(modality)
+			self.ds = self.checkDicomModality(modality)
 			self.importCT()
 		elif modality == 'MR':
 			pass
 		elif modality == 'XR':
-			self.importXR()
+			if len(self.ds) == 1:
+				self.importXR()
+			else:
+				logging.critical('Synctools:fileHandler.dataset.py: Expected one file, instead recieved %i files.',len(self.ds))
 		elif modality == 'RTPLAN':
-			self.ds = self.checkModality(modality)
+			self.ds = self.checkDicomModality(modality)
 			self.importRTPLAN(ctImage)
 		else:
 			# raise invalidModality
+			logging.critical('Synctools:fileHandler.dataset.py: Invalid modality: %s.',modality)
 			pass
 
 
-	def checkModality(self,modality):
-		files = []
+	def checkDicomModality(self,modality):
+		# Start with empty list of files.
+		files = {}
 		for i in range(len(self.ds)):
+			# Read the file in.
 			testFile = dicom.read_file(self.ds[i])
 			if testFile.Modality == modality:
-				files.append(self.ds[i])
+				# Save in dict where the key is the slice position.
+				files[int(testFile.SliceLocation)] = self.ds[i]
 			else:
 				pass
 
-		return natsorted(files)
+		# Sort the files based on slice location.
+		sortedFiles = []
+		for key in sorted(files.keys()):
+			sortedFiles.append(files[key])
+
+		# Return the sorted file list.
+		return sortedFiles
 
 	# def reloadFiles(self,files):
 	# 	# Reload the files without losing plot or patient information.
@@ -179,22 +198,16 @@ class dataset:
 		self.image[0].fp = os.path.dirname(self.image[0].ds[0])
 
 	def importXR(self):
-		# Create an image list.
-		self.image = [image(),image()]
 		# Read in hdf5 image arrays.
 		file = h5py.File(self.ds[0],'r')
-		# Ensure it has two images.
-		if file.attrs['NumberOfImages'] != 2: 
-			print('HDF5 file must contain only two images.')
-			return
-		self.image[0].array = file['0'][:]
-		self.image[1].array = file['1'][:]
-		# Extract the extent information, should be available in image.
-		self.image[0].extent = file['0'].attrs['extent']
-		self.image[1].extent = file['1'].attrs['extent']
-		# Image isocenter (typically the beam isocenter).
-		self.image[0].isocenter = file['0'].attrs['isocenter']
-		self.image[1].isocenter = file['1'].attrs['isocenter']
+		# Load the images in.
+		for i in range(file.attrs['NumberOfImages']):
+			self.image.append(image())
+			self.image[i].array = file[str(i)][:]
+			# Extract the extent information, should be available in image.
+			self.image[i].extent = file[str(i)].attrs['extent']
+			# Image isocenter (typically the beam isocenter).
+			self.image[i].isocenter = file[str(i)].attrs['isocenter']
 
 	def importRTPLAN(self,ctImage):
 		# Firstly, read in DICOM rtplan file.

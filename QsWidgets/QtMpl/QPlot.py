@@ -9,7 +9,7 @@ from synctools.imageGuidance import optimiseFiducials
 # from skimage import exposure
 from skimage.external import tifffile as tiff
 
-class plot:
+class QPlot:
 	'''
 	Documentation for now:
 	- imageLoad(filename, pixelsize, oreitnation, imagenumber(/2), fileformat): Load image into canvas.
@@ -19,9 +19,8 @@ class plot:
 	- eventFilter(event): Based on the event identifier we can tell it to do something.
 	'''
 
-	def __init__(self,model):
-		self.logMessage = ()
-		self.logRank = ()
+	def __init__(self,tableModel):
+		print(tableModel)
 		self.image = None
 		self.plotDimensions = None
 		self.pointsX = []
@@ -30,7 +29,7 @@ class plot:
 		self.markersMaximum = 0
 		self.markersList = []
 		self.markersListOptimised = []
-		self.markerModel = model
+		self.markerModel = tableModel
 		self._radiographMode = 'sum'
 
 		self.overlay = {}
@@ -66,8 +65,10 @@ class plot:
 		self.canvas.draw()
 
 		self.canvas._pickerActive = False
+		# Testing only.
+		self.cid = self.canvas.mpl_connect('button_press_event', self.eventFilter)
 
-	def imageLoad(self,array,extent=np.array([-1,1,-1,1]),imageOrientation='',imageIndex=0):
+	def imageLoad(self,array,extent=np.array([-1,1,-1,1])):
 		# Clear the canvas and start again:
 		self.ax.cla()
 		# Load the image.
@@ -89,30 +90,6 @@ class plot:
 			self.extent = extent
 
 		self.data = np.array(self.data2d)
-
-		# Rescale 2d image between 0 and 65535 (16bit)
-		# self.imageNormalise()
-			
-		# if imageOrientation == 'HFS':
-		# 	if imageIndex == 0:
-		# 		self.ax.set_title('HFS')
-		# 	if imageIndex == 1:
-		# 		self.ax.set_title('HFS1 lol?')
-		# elif imageOrientation == 'FHS':
-		# 	if imageIndex == 0:
-		# 		self.ax.set_title('FHS')
-		# 	if imageIndex == 1:
-		# 		self.ax.set_title('FHS1 lol?')
-		# else:
-		# 	if imageIndex == 0:
-		# 		self.ax.set_title('Normal')
-		# 		self.ax.set_xlabel('S')
-		# 		self.ax.set_ylabel('L')
-		# 		self.ax.text(0.95, 0.5, 'R',transform=self.ax.transAxes,color='green', fontsize=10)
-		# 	if imageIndex == 1:
-		# 		self.ax.set_title('Orthogonal')
-		# 		self.ax.set_xlabel('S')
-		# 		self.ax.set_ylabel('A')
 
 		self.image = self.ax.imshow(self.data, cmap='bone', extent=self.extent)
 		self.ax.set_xlim(extent[0:2])
@@ -379,10 +356,13 @@ class plot:
 
 	def eventFilter(self,event):
 		# If mouse button 1 is clicked (left click).
+		print('Event button: ',event.button)
+		print('Canvas Picker Active: ',self.canvas._pickerActive)
 		if (event.button == 1) & (self.canvas._pickerActive):
+			print('In pick event.')
 			self.markerAdd(event.xdata,event.ydata)
 
-class histogram:
+class QsHistogram:
 	def __init__(self,plot):
 		# Bing the parent plot.
 		self.parent = plot
@@ -421,7 +401,7 @@ class histogram:
 		# Redraw.
 		self.canvas.draw()
 
-class window:
+class QsWindow:
 	def __init__(self,parent,plot,advanced=False):
 		# Must pass a parent plot to it (MPL2DFigure).
 		self.parent = parent

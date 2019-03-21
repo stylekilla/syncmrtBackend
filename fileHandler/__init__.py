@@ -2,5 +2,5 @@
 # Files
 # Submodules
 from .image import image
-from .dataset import dataset
+from .importer import importFiles
 # from . import dicom
