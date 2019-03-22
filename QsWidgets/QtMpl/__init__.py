@@ -1,1 +1,1 @@
-from .QPlot import QPlot
+from .QPlot import *

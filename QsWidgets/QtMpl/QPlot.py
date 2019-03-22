@@ -5,9 +5,9 @@ import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt5 import QtGui, QtCore, QtWidgets
 from synctools.imageGuidance import optimiseFiducials
+from functools import partial
 
-# from skimage import exposure
-from skimage.external import tifffile as tiff
+__all__ = ['QPlot','QHistogramWindow']
 
 class QPlot:
 	'''
@@ -20,7 +20,6 @@ class QPlot:
 	'''
 
 	def __init__(self,tableModel):
-		print(tableModel)
 		self.image = None
 		self.plotDimensions = None
 		self.pointsX = []
@@ -40,7 +39,6 @@ class QPlot:
 		self.fig = plt.figure()
 		self.fig.patch.set_facecolor('#000000')
 		self.ax = self.fig.add_axes([0,0,1,1])
-		# self.ax.set_axis_bgcolor('#000000')
 		self.ax.set_facecolor('#000000')
 		self.ax.title.set_color('#FFFFFF')
 		self.ax.xaxis.label.set_color('#FFFFFF')
@@ -65,31 +63,29 @@ class QPlot:
 		self.canvas.draw()
 
 		self.canvas._pickerActive = False
-		# Testing only.
-		self.cid = self.canvas.mpl_connect('button_press_event', self.eventFilter)
 
 	def imageLoad(self,array,extent=np.array([-1,1,-1,1])):
 		# Clear the canvas and start again:
 		self.ax.cla()
 		# Load the image.
-		self.imageIndex = imageIndex
-		self.data3d = np.array(array,dtype=np.float32)
+		# self.imageIndex = imageIndex
+		# self.data3d = np.array(array,dtype=np.float32)
 
-		if len(self.data3d.shape) == 3:
-			# 3D Image (CT/MRI etc).
-			if imageIndex == 0:
-				self.data2d = np.sum(self.data3d,axis=2)
-				# Extent is L,R,B,T
-				self.extent = extent[:4]
-			elif imageIndex == 1:
-				self.data2d = np.sum(self.data3d,axis=1)
-				self.extent = np.concatenate((extent[4:6],extent[2:4]))
-		else:
-			# 2D Image (General X-ray).
-			self.data2d = np.array(self.data3d)
-			self.extent = extent
+		# Always make it float32. Always assume it is a flat 2D array.
+		self.data = np.array(array,dtype=np.float32)
+		self.extent = extent
 
-		self.data = np.array(self.data2d)
+		# if len(self.data3d.shape) == 3:
+		# 	self.data2d = np.sum(self.data3d,axis=2)
+		# 	# Extent is L,R,B,T.
+		# 	self.extent = extent[:4]
+		# 	# elif imageIndex == 1:
+		# 		# self.data2d = np.sum(self.data3d,axis=1)
+		# 		# self.extent = np.concatenate((extent[4:6],extent[2:4]))
+		# else:
+		# 2D Image (General X-ray).
+		# self.data2d = np.array(self.data3d)
+		# self.data = np.array(self.data2d)
 
 		self.image = self.ax.imshow(self.data, cmap='bone', extent=self.extent)
 		self.ax.set_xlim(extent[0:2])
@@ -99,55 +95,11 @@ class QPlot:
 		# Start Callback ID
 		self.cid = self.canvas.mpl_connect('button_press_event', self.eventFilter)
 
-	# def imageWindow(self,windows):
-	# 	'''Mask 3D array, flatten and redraw 2D array. windows as List of Lists(upper and lower limit)'''
-	# 	conditions = ''
-	# 	for window in windows:
-	# 		conditions += '((self.data3d>'+str(window[0])+')&(self.data3d<'+str(window[1])+'))|'
-	# 	conditions = conditions[:-1]
-	# 	mask = eval(conditions)
-	# 	self.data = self.data3d*mask
 
-	# 	if self.imageIndex == 0:
-	# 		direction = 2
-	# 	elif self.imageIndex == 1:
-	# 		direction = 1
-			
-	# 	if self._radiographMode == 'max':
-	# 		self.data = np.amax(self.data,axis=direction)
-	# 	elif self._radiographMode == 'sum':
-	# 		self.data = np.sum(self.data,axis=direction)
-	# 	else:
-	# 		pass
-
-	# 	# Rescale 2d image between 0 and 65535 (16bit)
-	# 	self.imageNormalise(mask=True)
-	# 	self.image.set_data(self.data)
-	# 	self.image.set_clim(vmin=self.data.min())
-	# 	self.image.set_clim(vmax=self.data.max())
-	# 	self.canvas.draw()
-
-	# def imageNormalise(self,lower=0,upper=65535,mask=False):
-	# 	# 16-bit image: 65536 levels.
-	# 	maximum = np.amax(self.data)
-	# 	if mask:
-	# 		# Find second smallest number (assuming smallest is now zero due to earlier masking).
-	# 		try:
-	# 			minimum = np.unique(self.data)[1]
-	# 		except: 
-	# 			minimum = np.amin(self.data)
-
-	# 	else:
-	# 		minimum = np.amin(self.data)
-
-	# 	test = np.absolute(maximum-minimum)
-	# 	if test == 0:
-	# 		test = 1
-
-	# 	scale = (upper-lower)/test
-
-	# 	self.data = (self.data - minimum)*scale
-		# self.data[self.data<0] = 0
+	def applyWindow(self,imin,imax):
+		# Set the color scale to match the window.
+		self.image.set_clim(vmin=imin,vmax=imax)
+		self.canvas.draw()
 
 	def markerAdd(self,x,y):
 		'''Append marker position if it is within the maximum marker limit.'''
@@ -356,48 +308,105 @@ class QPlot:
 
 	def eventFilter(self,event):
 		# If mouse button 1 is clicked (left click).
-		print('Event button: ',event.button)
-		print('Canvas Picker Active: ',self.canvas._pickerActive)
+		# print('Event button: ',event.button)
+		# print('Canvas Picker Active: ',self.canvas._pickerActive)
 		if (event.button == 1) & (self.canvas._pickerActive):
-			print('In pick event.')
+			# print('In pick event.')
 			self.markerAdd(event.xdata,event.ydata)
 
-class QsHistogram:
-	def __init__(self,plot):
-		# Bing the parent plot.
-		self.parent = plot
+CENTER_HEADING = """
+QGroupBox::title {
+	subcontrol-origin: margin;
+	subcontrol-position: top;
+}
+"""
+
+class QHistogramWindow(QtWidgets.QGroupBox):
+	windowUpdated = QtCore.pyqtSignal(int,int)
+
+	def __init__(self):
+		super().__init__()
+		# Create histogram plot.
+		self.histogram = Histogram()
+		# Sliders.
+		self.range = []
+		self.range.append(QtWidgets.QSlider(QtCore.Qt.Horizontal))
+		self.range.append(QtWidgets.QSlider(QtCore.Qt.Horizontal))
+		# Flattening method buttons.
+		self.button = []
+		self.button.append(QtWidgets.QRadioButton('Sum'))
+		self.button.append(QtWidgets.QRadioButton('Max'))
+		options = QtWidgets.QWidget()
+		optionsLayout = QtWidgets.QHBoxLayout()
+		optionsLayout.addWidget(self.button[0])
+		optionsLayout.addWidget(self.button[1])
+		options.setLayout(optionsLayout)
+		# Layout.
+		layout = QtWidgets.QVBoxLayout()
+		layout.addWidget(self.histogram.canvas)
+		layout.addWidget(self.range[0])
+		layout.addWidget(self.range[1])
+		layout.addWidget(options)
+		# Set layout.
+		self.setLayout(layout)
+		self.setStyleSheet(CENTER_HEADING)
+
+		# When sliders change update histogram.
+		for i in range(len(self.range)):
+			self.range[i].valueChanged.connect(self.updateHistogram)
+			self.range[i].sliderReleased.connect(self.updatePlot)
+
+	def updateHistogram(self):
+		self.histogram.update(self.range[0].value(), self.range[1].value())
+
+	def updatePlot(self):
+		self.windowUpdated.emit(self.range[0].value(), self.range[1].value())
+
+	def setData(self,data):
+		# Give histogram the data to work with.
+		self.histogram.loadImage(data)
+		# Give the slider widgets a max and min value to work with.
+		vmin = np.min(data)
+		vmax = np.max(data)
+		for i in range(len(self.range)):
+			self.range[i].setMinimum(vmin)
+			self.range[i].setMaximum(vmax)
+		self.range[0].setValue(vmin)
+		self.range[1].setValue(vmax)
+
+class Histogram:
+	def __init__(self):
+		# super().__init__()
 		# A figure instance to plot on.
 		self.figure = plt.figure()
 		# This is the Canvas Widget that displays the `figure`.
 		self.canvas = FigureCanvas(self.figure)
 		# Add axes for plotting on.
 		self.ax = self.figure.add_axes([0,0,1,1])
-		# Redraw.
+		# Draw the canvas.
 		self.canvas.draw()
-		# Initialise histogram max to zero.
-		self.histMax = 0
 
-	def refresh(self):
-		# Get maximum value of array for sliders.
-		dataMin = np.min(self.parent.data3d)
-		dataMax = np.max(self.parent.data3d)
-		# Add histogram.
-		# bins = 64
-		self.histMax,_,_ = self.ax.hist(self.parent.data3d.ravel(),facecolor='k',alpha=0.5,bins=64)
-		self.histMax = np.max(self.histMax)
-		# Histogram window
-		self.ax.plot([dataMin,dataMax],[dataMin,self.histMax],'k-', lw=1)
-		self.ax.plot([dataMax,dataMax],[dataMin,self.histMax],'k--', lw=1)
-		# Redraw.
-		self.canvas.draw()	
+	def loadImage(self,data,**kwargs):
+		# Data min and max.
+		dmin = np.min(data)
+		dmax = np.max(data)
+		# Take the data and make a histogram.
+		nbins = kwargs.get('nbins',64)
+		histogramValues,_,_ = self.ax.hist(data.ravel(),facecolor='k',alpha=0.5,bins=nbins)
+		self.hmax = np.max(histogramValues)
+		# Draw lines over the plot.
+		self.ax.plot([dmin,dmax],[0,self.hmax],'k-',lw=1)
+		self.ax.plot([dmax,dmax],[0,self.hmax],'k--',lw=1)
 
-	def update(self,minimum,maximum):
-		# Remove old window.
+	def update(self,rmin,rmax):
+		'''Update the histogram scale line to match the sliders.'''
+		# Remove old lines.
 		for i in range(len(self.ax.lines)):
+			# This will recursively remove the first line until there are no lines left.
 			self.ax.lines[0].remove()
-		# Add new window.
-		self.ax.plot([minimum,maximum],[minimum,self.histMax],'k-', lw=1)
-		self.ax.plot([maximum,maximum],[minimum,self.histMax],'k--', lw=1)
+		# Add new lines.
+		self.ax.plot([rmin,rmax],[0,self.hmax],'k-', lw=1)
+		self.ax.plot([rmax,rmax],[0,self.hmax],'k--', lw=1)
 		# Redraw.
 		self.canvas.draw()
 

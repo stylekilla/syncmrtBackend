@@ -1,5 +1,5 @@
 import os
-import dicom
+import pydicom as dicom
 import numpy as np
 from synctools.fileHandler import image
 from natsort import natsorted
@@ -41,6 +41,24 @@ class importFiles:
 			logging.critical('Synctools:fileHandler.dataset.py: Invalid modality: %s.',modality)
 			pass
 
+	def importXR(self):
+		# Read in hdf5 image arrays.
+		file = h5py.File(self.ds[0],'r')
+		# Load the images in.
+		for i in range(file.attrs['NumberOfImages']):
+			self.image.append(image())
+			self.image[i].array = file[str(i)][:]
+			# Extract the extent information, should be available in image.
+			self.image[i].extent = file[str(i)].attrs['extent']
+			# Image isocenter (typically the beam isocenter).
+			self.image[i].isocenter = file[str(i)].attrs['isocenter']
+			# Import image view.
+			# self.image[i].view = file[str(i)].attrs['view']
+			self.image[i].view = {
+					'title':'AP',
+					'xLabel':'LR',
+					'yLabel':'SI',
+				}
 
 	def checkDicomModality(self,modality):
 		# Start with empty list of files.
@@ -196,18 +214,6 @@ class importFiles:
 		np.save(self.fp+'/ct0.npy',self.image[0].array)
 		self.image[0].ds = [self.fp+'/ct0.npy']
 		self.image[0].fp = os.path.dirname(self.image[0].ds[0])
-
-	def importXR(self):
-		# Read in hdf5 image arrays.
-		file = h5py.File(self.ds[0],'r')
-		# Load the images in.
-		for i in range(file.attrs['NumberOfImages']):
-			self.image.append(image())
-			self.image[i].array = file[str(i)][:]
-			# Extract the extent information, should be available in image.
-			self.image[i].extent = file[str(i)].attrs['extent']
-			# Image isocenter (typically the beam isocenter).
-			self.image[i].isocenter = file[str(i)].attrs['isocenter']
 
 	def importRTPLAN(self,ctImage):
 		# Firstly, read in DICOM rtplan file.

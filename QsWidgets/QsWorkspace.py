@@ -6,6 +6,9 @@ import matplotlib as mpl
 mpl.use('Qt5Agg')
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 
+import logging
+from functools import partial
+
 # For PyInstaller:
 import sys, os
 if getattr(sys, 'frozen', False):
@@ -19,65 +22,106 @@ image_path = application_path+'synctools/QsWidgets/QtMpl/images/'
 
 class QPlotEnvironment(QtWidgets.QWidget):
 	'''
-	An advanced QWidget specifically designed for plotting with MatPlotLib.
+	An advanced widget specifically designed for plotting with MatPlotLib in Qt5.
 	It has a navbar, plot and table.
 	'''
-	def __init__(self,**kwargs):
+	# def __init__(self,**kwargs):
+	def __init__(self):
+		# Start as a blank layout.
 		super().__init__()
-		labels = {
-			'xLabel':kwargs.get('xLabel','X'),
-			'yLabel':kwargs.get('yLabel','Y')
-		}
-		# A table model is required for the table view.
-		self.tableModel = QPlotTableModel(labels)
-		self.tableView = QtWidgets.QTableView()
-		# The plot needs the table model for data.
-		self.plot = QtMpl.QPlot(self.tableModel)
-		# The navbar needs the plot widget and the parent widget.
-		self.navbar = QNavigationBar(self.plot.canvas)
+		self.layout = QtWidgets.QHBoxLayout()
+		self.layout.setContentsMargins(0,0,0,0)
+		self.setLayout(self.layout)
+		# Empty lists.
+		self.navbar = []
+		self.plot = []
+		self.tableModel = []
+		self.tableView = []
+		self.histogram = []
 
-		# Configure table view.
-		self.tableView.setAlternatingRowColors(True)
-		self.tableView.setModel(self.tableModel)
-		self.tableView.setColumnWidth(0,200)
-		self.tableView.verticalHeader().setDefaultSectionSize(20)
-		self.tableView.verticalHeader().hide()
-		self.tableView.horizontalHeader().setStretchLastSection(True)
-		
-		# Add layout to parent.
-		layout = QtWidgets.QVBoxLayout()
-		# Add widgets to layout.
-		layout.addWidget(self.navbar)
-		# QSplitter for resizing between plot and table.
-		splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
-		splitter.addWidget(self.plot.canvas)
-		splitter.addWidget(self.tableView)
-		# Set stretch factors.
-		splitter.setSizes([200,100])
-		# splitter.setStretchFactor(0,0.5)
-		# splitter.setStretchFactor(1,0.5)
-		# Add splitter to layout.
-		layout.addWidget(splitter)
-		# Add layout to widget.
-		self.setLayout(layout)
+	def loadImage(self,image):
+		'''Load up to 2 images and send to plot.'''
+		amount = len(image)
+		if amount not in {1,2}:
+			# Throw error.
+			logging.critical('synctools.QsWidgets.QPlotEnvironment: Can only create a maximum of 2 subplots, attempted to create ',len(image))
+			return
+
+		# First create the blank subplots.
+		self.addSubplot(amount)
+		# Now load the images into the subplots.
+		for i in range(amount):
+			self.plot[i].imageLoad(image[i].array,image[i].extent)
+			self.tableModel[i].setLabels(image[i].view)
+			self.histogram[i].setTitle('View: '+image[i].view['title'])
+			self.histogram[i].setData(image[i].array)
+
+	def addSubplot(self,amount):
+		# Can only have a maximum of 2 subplots as per loadImage().
+		for i in range(amount):
+			subplotWidget = QtWidgets.QWidget()
+			# A table model is required for the table view.
+			self.tableModel.append(QPlotTableModel())
+			self.tableView.append(QtWidgets.QTableView())
+			# The plot needs the table model for data.
+			self.plot.append(QtMpl.QPlot(self.tableModel[i]))
+			# The navbar needs the plot widget and the parent widget.
+			self.navbar.append(QNavigationBar(self.plot[i].canvas))
+			# Configure table view.
+			self.tableView[i].setAlternatingRowColors(True)
+			self.tableView[i].setModel(self.tableModel[i])
+			self.tableView[i].setColumnWidth(0,200)
+			self.tableView[i].verticalHeader().setDefaultSectionSize(20)
+			self.tableView[i].verticalHeader().hide()
+			self.tableView[i].horizontalHeader().setStretchLastSection(True)
+			# Create layout for subplot widget.
+			subplotLayout = QtWidgets.QVBoxLayout()
+			subplotLayout.setContentsMargins(0,0,0,0)
+			# Add widgets to layout.
+			subplotLayout.addWidget(self.navbar[i])
+			# QSplitter for resizing between plot and table.
+			splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+			splitter.addWidget(self.plot[i].canvas)
+			splitter.addWidget(self.tableView[i])
+			# Set stretch factors.
+			splitter.setSizes([200,100])
+			# Add splitter to layout.
+			subplotLayout.addWidget(splitter)
+			# Add layout to widget.
+			subplotWidget.setLayout(subplotLayout)
+			# Add widget to plotenvironment.
+			self.layout.addWidget(subplotWidget)
+			# Create a histogram widget for the plot.
+			self.histogram.append(QtMpl.QHistogramWindow())
+			# When histogram changed then update plot.
+			self.histogram[i].windowUpdated.connect(partial(self.plot[i].applyWindow))
+
+	def getPlotHistogram(self):
+		return self.histogram
 
 	def setRadiographMode(self,mode):
 		'''Set radiograph mode to 'sum' or 'max.''' 
-		self.plot._radiographMode = mode
+		self.plot[i]._radiographMode = mode
 
 	def settings(self,setting,value):
 		if setting == 'maxMarkers':
-			self.plot.markerModel.setMarkerRows(value)
-			self.plot.markersMaximum = value
+			for i in range(len(self.plot)):
+				self.plot[i].markerModel.setMarkerRows(value)
+				self.plot[i].markersMaximum = value
 		else:
 			pass
 
 	def updatePatientIsocenter(self,newIsoc):
-		# Update value in plot.
-		self.plot.patientIsocenter = newIsoc
-		# Refresh plot by toggling overlay off/on.
-		self.plot.toggleOverlay(2,False)
-		self.plot.toggleOverlay(2,True)
+		for i in range(len(self.plot)):
+			# Update value in plot.
+			self.plot[i].patientIsocenter = newIsoc
+			# Refresh plot by toggling overlay off/on.
+			self.plot[i].toggleOverlay(2,False)
+			self.plot[i].toggleOverlay(2,True)
+
+	def resetWidget(self):
+		# Removes all widgets and items associated with the layout. Essentially creates a new one.
+		self.__init__()
 
 class QPlotTableModel(QtGui.QStandardItemModel):
 	'''
@@ -86,7 +130,7 @@ class QPlotTableModel(QtGui.QStandardItemModel):
 	Markers are stored in dict with x,y vals.
 	The model will always have a limit of rows set by the maximum marker condition/setting.
 	'''
-	def __init__(self,labels):
+	def __init__(self,labels={}):
 		# Initialise the standard item model first.
 		super().__init__()
 		# Set column and row count.
@@ -94,11 +138,10 @@ class QPlotTableModel(QtGui.QStandardItemModel):
 		self.setMarkerRows(0)
 		self.items = {}
 		self._locked = False
-
 		self.setHorizontalHeaderLabels([
-			'#',
-			labels.get('xLabel','x'),
-			labels.get('yLabel','y')
+			labels.get('title','-'),
+			labels.get('xLabel','-'),
+			labels.get('yLabel','-')
 		])
 
 	def addPoint(self,row,x,y):
@@ -140,8 +183,15 @@ class QPlotTableModel(QtGui.QStandardItemModel):
 			self.insertRows(current,difference)
 		else:
 			pass
-
 		self.layoutChanged.emit()
+
+	def setLabels(self,labels):
+		# Set the column header labels.
+		self.setHorizontalHeaderLabels([
+			'View: '+labels.get('title','Unknown?'),
+			labels.get('xLabel','X?'),
+			labels.get('yLabel','Y?')
+		])
 
 	def clearMarkers(self,newRows):
 		'''Clear the model of all it's rows and re-add empty rows in their place.'''

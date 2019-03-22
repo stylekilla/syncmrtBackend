@@ -353,12 +353,14 @@ class QXrayProperties(QtWidgets.QWidget):
 		windowGroup.setTitle('X-ray Windowing')
 		self.window['layout'] = QtWidgets.QVBoxLayout()
 		# Add two widgets to layout.
-		self.window['window'] = [QtWidgets.QWidget(),QtWidgets.QWidget()]
+		# self.window['window'] = [QtWidgets.QWidget(),QtWidgets.QWidget()]
 		# self.window['window'] = QtWidgets.QWidget()
 		# Layouts for widgets.
-		self.window['layout'].addWidget(self.window['window'][0])
-		self.window['layout'].addWidget(self.window['window'][1])
-		self.window['histogram'] = [None,None]
+		# self.window['layout'].addWidget(self.window['window'][0])
+		# self.window['layout'].addWidget(self.window['window'][1])
+		# self.window['histogram'] = QtWidgets.QWidget()
+		# self.window['histogram'].setLayout(QtWidgets.QVBoxLayout())
+		# self.window['histogram'] = [None,None]
 		# self.window['layouts'] = [QtWidgets.QFormLayout(),QtWidgets.QFormLayout()]
 		# self.window['window1'].setLayout(self.window['layouts'][0])
 		# self.window['window2'].setLayout(self.window['layouts'][1])
@@ -373,8 +375,14 @@ class QXrayProperties(QtWidgets.QWidget):
 		self.layout.addStretch(1)
 		self.setLayout(self.layout)
 
-	def addPlotWindow(self,plot,index):
-		self.window['histogram'][index] = widgets.mpl.window(self.window['window'][index],plot)
+	def addPlotHistogramWindow(self,widget):
+		# These are new ones each time. Remove old wdigets.
+		layout = self.window['layout'].layout()
+		for i in range(layout.count()):
+			layout.removeItem(i)
+		# New widgets.
+		for i in range(len(widget)):
+			layout.addWidget(widget[i])
 
 	# def plotSettings(self,plot):
 		# Add histogram and sliders to widget for plot control.
