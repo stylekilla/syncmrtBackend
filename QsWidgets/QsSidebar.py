@@ -1,4 +1,5 @@
 from PyQt5 import QtWidgets, QtGui, QtCore
+from functools import partial
 
 class QAlignment(QtWidgets.QWidget):
 	def __init__(self):
@@ -300,6 +301,8 @@ class QSettings(QtWidgets.QWidget):
 		del self.layout
 
 class QXrayProperties(QtWidgets.QWidget):
+	toggleOverlay = QtCore.pyqtSignal(int,bool)
+
 	def __init__(self,parent=None):
 		super().__init__()
 		# self.parent = parent
@@ -343,6 +346,9 @@ class QXrayProperties(QtWidgets.QWidget):
 		overlayGroupLayout.addWidget(self.widget['cbCentroid'])
 		# Defaults
 		# Signals and Slots
+		self.widget['cbBeamIsoc'].stateChanged.connect(partial(self.emitToggleOverlay,'cbBeamIsoc'))
+		self.widget['cbPatIsoc'].stateChanged.connect(partial(self.emitToggleOverlay,'cbPatIsoc'))
+		self.widget['cbCentroid'].stateChanged.connect(partial(self.emitToggleOverlay,'cbCentroid'))
 		# Group inclusion to page
 		overlayGroup.setLayout(overlayGroupLayout)
 		self.layout.addWidget(overlayGroup)
@@ -383,6 +389,16 @@ class QXrayProperties(QtWidgets.QWidget):
 		# New widgets.
 		for i in range(len(widget)):
 			layout.addWidget(widget[i])
+
+	def emitToggleOverlay(self,button,state):
+		# Make the state a bool
+		if state == 0: state = False
+		elif state == 2: state = True
+		else: state = False
+		# Send the signal.
+		if button == 'cbCentroid': self.toggleOverlay.emit(0,state)
+		elif button == 'cbBeamIsoc': self.toggleOverlay.emit(1,state)
+		elif button == 'cbPatIsoc': self.toggleOverlay.emit(2,state)
 
 	# def plotSettings(self,plot):
 		# Add histogram and sliders to widget for plot control.

@@ -25,7 +25,8 @@ class QPlotEnvironment(QtWidgets.QWidget):
 	An advanced widget specifically designed for plotting with MatPlotLib in Qt5.
 	It has a navbar, plot and table.
 	'''
-	# def __init__(self,**kwargs):
+	toggleSettings = QtCore.pyqtSignal()
+
 	def __init__(self):
 		# Start as a blank layout.
 		super().__init__()
@@ -67,6 +68,8 @@ class QPlotEnvironment(QtWidgets.QWidget):
 			self.plot.append(QtMpl.QPlot(self.tableModel[i]))
 			# The navbar needs the plot widget and the parent widget.
 			self.navbar.append(QNavigationBar(self.plot[i].canvas))
+			self.navbar[i].toggleImageSettings.connect(self.toggleImageSettings)
+			self.navbar[i].clearAll.connect(self.plot[i].removeMarker)
 			# Configure table view.
 			self.tableView[i].setAlternatingRowColors(True)
 			self.tableView[i].setModel(self.tableModel[i])
@@ -118,6 +121,14 @@ class QPlotEnvironment(QtWidgets.QWidget):
 			# Refresh plot by toggling overlay off/on.
 			self.plot[i].toggleOverlay(2,False)
 			self.plot[i].toggleOverlay(2,True)
+
+	def toggleOverlay(self,overlay,state):
+		for i in range(len(self.plot)):
+			# Overlay = 0 (ctd), 1 (mach iso), 2 (pat iso)
+			self.plot[i].toggleOverlay(overlay,state)
+
+	def toggleImageSettings(self):
+		self.toggleSettings.emit()
 
 	def resetWidget(self):
 		# Removes all widgets and items associated with the layout. Essentially creates a new one.
@@ -200,6 +211,9 @@ class QPlotTableModel(QtGui.QStandardItemModel):
 		self.setMarkerRows(newRows)
 
 class QNavigationBar(NavigationToolbar2QT):
+	clearAll = QtCore.pyqtSignal()
+	toggleImageSettings = QtCore.pyqtSignal()
+
 	def __init__(self,canvas):
 		self.toolitems = (
 				('Home', 'Reset original view', 'home', 'home'),
@@ -207,7 +221,7 @@ class QNavigationBar(NavigationToolbar2QT):
 				('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
 				('Pick', 'Click to select marker', 'help', 'pick'),
 				('Clear', 'Clear all the markers', 'help', 'clear'),
-				('Settings', 'Show the image settings', 'help', 'settings'),
+				# ('Settings', 'Show the image settings', 'help', 'settings'),
 				(None, None, None, None),
 				('Save', 'Save the figure', 'filesave', 'save_figure'),
 			)
@@ -277,10 +291,10 @@ class QNavigationBar(NavigationToolbar2QT):
 		self.release(event)
 
 	def clear(self):
-		pass
+		self.clearAll.emit()
 	
 	def settings(self):
-		pass
+		self.toggleImageSettings.emit()
 
 # toolitems = (
 #     ('Home', 'Reset original view', 'home', 'home'),

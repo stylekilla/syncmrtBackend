@@ -30,6 +30,8 @@ class QPlot:
 		self.markersListOptimised = []
 		self.markerModel = tableModel
 		self._radiographMode = 'sum'
+		# Axis takes on values {1: first axis, 2: second axis, 0: null axis}.
+		self.axis = [1,2,0]
 
 		self.overlay = {}
 		self.machineIsocenter = [0,0,0]
@@ -144,7 +146,7 @@ class QPlot:
 						self.pointsX[key] = x
 						self.pointsY[key] = y
 
-	def markerRemove(self,marker=-1):
+	def removeMarker(self,marker=-1):
 		'''Clear the specified marker. Else clear all markers.'''
 		# Remove all markers: 
 		if marker == -1:
@@ -176,7 +178,7 @@ class QPlot:
 	def markerOptimise(self,fiducialSize,threshold):
 		'''Optimise markers that are selected in plot.'''
 		# Remove any existing markers.
-		self.markerRemove(marker=-2)
+		self.removeMarker(marker=-2)
 
 		# Call syncMRT optimise points module. Send points,data,dims,markersize.
 		pointsIn = np.column_stack((self.pointsX,self.pointsY))
@@ -205,17 +207,13 @@ class QPlot:
 			- 1: Machine Isocenter overlay
 			- 2: Patient Isocenter overlay
 		'''
+		a = self.axis.index(1)
+		b = self.axis.index(2)
+
 		if overlayType == 0:
 			# Centroid overlay.
 			if self.ctd is not None:
 				if state is True:
-					# Get image index for isoc numbers.
-					if self.imageIndex == 0:
-						a = 1
-						b = 2
-					elif self.imageIndex == 1:
-						a = 0
-						b = 2
 					# Plot overlay scatter points.
 					x,y = [self.ctd[a],self.ctd[b]]
 					self.overlay['ctd'] = self.ax.scatter(x,y,c='b',marker='+',s=50)
@@ -228,17 +226,9 @@ class QPlot:
 						self.overlay['ctdLabel'].remove()
 					except:
 						pass
-
 		elif overlayType == 1:
 			# Machine isocenter overlay.
 			if state is True:
-				# Get image index for isoc numbers.
-				if self.imageIndex == 0:
-					a = 1
-					b = 2
-				elif self.imageIndex == 1:
-					a = 0
-					b = 2
 				# Plot overlay lines.
 				self.overlay['machIsoV'] = self.ax.axvline(self.machineIsocenter[a],c='g',alpha=0.5)
 				self.overlay['machIsoH'] = self.ax.axhline(self.machineIsocenter[b],c='g',alpha=0.5)
@@ -246,18 +236,9 @@ class QPlot:
 				# Remove overlay lines.
 				self.overlay['machIsoH'].remove()
 				self.overlay['machIsoV'].remove()
-
 		elif overlayType == 2:
 			# Machine isocenter overlay.
 			if state is True:
-				# Get image index for isoc numbers.
-				if self.imageIndex == 0:
-					a = 0
-					b = 1
-				elif self.imageIndex == 1:
-					a = 2
-					b = 1
-				# Plot overlay lines.
 				# Plot overlay scatter points.
 				x,y = [self.patientIsocenter[a],self.patientIsocenter[b]]
 				self.overlay['patIso'] = self.ax.scatter(x,y,c='g',marker='+',s=50)
@@ -294,7 +275,7 @@ class QPlot:
 		# Get new positions
 		
 		# Remove markers
-		self.markerRemove()
+		self.removeMarker()
 		# Add new points
 		for i in range(len(x)):
 			self.markerAdd(x[i],y[i])
@@ -308,10 +289,7 @@ class QPlot:
 
 	def eventFilter(self,event):
 		# If mouse button 1 is clicked (left click).
-		# print('Event button: ',event.button)
-		# print('Canvas Picker Active: ',self.canvas._pickerActive)
 		if (event.button == 1) & (self.canvas._pickerActive):
-			# print('In pick event.')
 			self.markerAdd(event.xdata,event.ydata)
 
 CENTER_HEADING = """
