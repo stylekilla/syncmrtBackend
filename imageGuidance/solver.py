@@ -142,6 +142,8 @@ class solver:
 		# self._syncPatientIsocenter *= self._axesDirection
 		self._leftCentroid *= self._axesDirection
 
+		return self.solution
+
 # Obtain scale factor between coordinate systems. Requires left and right points in reference to centroids.
 def scale(lp,rp,R):
 	n = np.shape(lp)[0]

@@ -301,7 +301,7 @@ class QSettings(QtWidgets.QWidget):
 		del self.layout
 
 class QXrayProperties(QtWidgets.QWidget):
-	toggleOverlay = QtCore.pyqtSignal(int,bool)
+	toggleOverlay = QtCore.pyqtSignal(int,int)
 
 	def __init__(self,parent=None):
 		super().__init__()
@@ -358,18 +358,6 @@ class QXrayProperties(QtWidgets.QWidget):
 		windowGroup = QtWidgets.QGroupBox()
 		windowGroup.setTitle('X-ray Windowing')
 		self.window['layout'] = QtWidgets.QVBoxLayout()
-		# Add two widgets to layout.
-		# self.window['window'] = [QtWidgets.QWidget(),QtWidgets.QWidget()]
-		# self.window['window'] = QtWidgets.QWidget()
-		# Layouts for widgets.
-		# self.window['layout'].addWidget(self.window['window'][0])
-		# self.window['layout'].addWidget(self.window['window'][1])
-		# self.window['histogram'] = QtWidgets.QWidget()
-		# self.window['histogram'].setLayout(QtWidgets.QVBoxLayout())
-		# self.window['histogram'] = [None,None]
-		# self.window['layouts'] = [QtWidgets.QFormLayout(),QtWidgets.QFormLayout()]
-		# self.window['window1'].setLayout(self.window['layouts'][0])
-		# self.window['window2'].setLayout(self.window['layouts'][1])
 		# Set the layout of group.
 		windowGroup.setLayout(self.window['layout'])
 		# Add group to sidebar layout.
@@ -400,48 +388,10 @@ class QXrayProperties(QtWidgets.QWidget):
 		elif button == 'cbBeamIsoc': self.toggleOverlay.emit(1,state)
 		elif button == 'cbPatIsoc': self.toggleOverlay.emit(2,state)
 
-	# def plotSettings(self,plot):
-		# Add histogram and sliders to widget for plot control.
-		# self.window['histogram'] = widgets.window(windowGroup,)
-
-	# def addWindows(self):
-	# 	'''Add or remove windowing fields as required.'''
-	# 	difference = int(self.window['numWindows'].value() - len(self.window['window'])/2)
-
-	# 	# If number greater than, then add windows.
-	# 	if difference > 0:
-	# 		length = len(self.window['window'])
-	# 		for i in range(difference):
-	# 			# Add to dict, add to layout.
-	# 			self.window['window'][length+i*2] = QXraySpinBox()
-	# 			self.window['window'][length+i*2+1] = QXraySpinBox()
-	# 			self.window['window'][length+i*2+1].setValue(10000)
-	# 			self.window['layout'].insertRow(self.window['layout'].rowCount()-1,
-	# 				self.window['window'][length+i],self.window['window'][length+i*2+1])
-
-	# 	# If number less than, remove windows.
-	# 	if difference < 0:
-	# 		length = len(self.window['window'])
-	# 		for i in range(abs(difference)):
-	# 			# Remove from layout, remove from dict.
-	# 			self.window['window'][length-i*2-1].deleteLater()
-	# 			self.window['window'][length-i*2-2].deleteLater()
-	# 			del self.window['window'][length-i*2-1]
-	# 			del self.window['window'][length-i*2-2]
-
-	# def getWindows(self):
-	# 	'''Get window values as list of lists. Need scale slope and intercept.'''
-	# 	windows = []
-
-	# 	for i in range(int(len(self.window['window'])/2)):
-	# 		window = [self.window['window'][i*2].value(),self.window['window'][i*2+1].value()]
-	# 		windows.append(window)
-
-	# 	return windows
-
 class QCtProperties(QtWidgets.QWidget):
 	# Qt signals.
 	isocenterChanged = QtCore.pyqtSignal(float,float,float)
+	toggleOverlay = QtCore.pyqtSignal(int,int)
 
 	def __init__(self):
 		# Init QObject class.
@@ -451,7 +401,7 @@ class QCtProperties(QtWidgets.QWidget):
 		self.widget = {}
 		self.layout = QtWidgets.QVBoxLayout()
 
-		# Group 1: Overlays.
+		# Group: Overlays.
 		overlayGroup = QtWidgets.QGroupBox()
 		overlayGroup.setTitle('Plot Overlays')
 		self.widget['cbPatIsoc'] = QtWidgets.QCheckBox('Patient Isocenter')
@@ -462,11 +412,13 @@ class QCtProperties(QtWidgets.QWidget):
 		overlayGroupLayout.addWidget(self.widget['cbCentroid'])
 		# Defaults
 		# Signals and Slots
+		self.widget['cbPatIsoc'].stateChanged.connect(partial(self.emitToggleOverlay,'cbPatIsoc'))
+		self.widget['cbCentroid'].stateChanged.connect(partial(self.emitToggleOverlay,'cbCentroid'))
 		# Group inclusion to page
 		overlayGroup.setLayout(overlayGroupLayout)
 		self.layout.addWidget(overlayGroup)
 
-		# Group 2: Editable Isocenter
+		# Group: Editable Isocenter
 		# self.group['editIsocenter'] = editIsocenter = QtWidgets.QGroupBox()
 		self.group['editIsocenter'] = QtWidgets.QGroupBox()
 		self.group['editIsocenter'].setTitle('Edit Treatment Isocenter')
@@ -507,23 +459,25 @@ class QCtProperties(QtWidgets.QWidget):
 		windowGroup = QtWidgets.QGroupBox()
 		windowGroup.setTitle('CT Windowing')
 		self.window['layout'] = QtWidgets.QVBoxLayout()
-		# Add two widgets to layout.
-		self.window['window'] = [QtWidgets.QWidget(),QtWidgets.QWidget()]
-		# Layouts for widgets.
-		self.window['layout'].addWidget(self.window['window'][0])
-		self.window['layout'].addWidget(self.window['window'][1])
-		self.window['histogram'] = [None,None]
 		# Set the layout of group.
 		windowGroup.setLayout(self.window['layout'])
 		# Add group to sidebar layout.
 		self.layout.addWidget(windowGroup)
 
 		# Finish page.
+		# spacer = QtWidgets.QSpacerItem(0,0)
+		# self.layout.addSpacerItem(spacer)
 		self.layout.addStretch(1)
 		self.setLayout(self.layout)
 
-	def addPlotWindow(self,plot,index):
-		self.window['histogram'][index] = widgets.mpl.window(self.window['window'][index],plot,advanced=True)
+	def addPlotHistogramWindow(self,widget):
+		# These are new ones each time. Remove old wdigets.
+		layout = self.window['layout'].layout()
+		for i in range(layout.count()):
+			layout.removeItem(i)
+		# New widgets.
+		for i in range(len(widget)):
+			layout.addWidget(widget[i])
 
 	def updateIsocenter(self):
 		# Get all three coordinates.
@@ -533,6 +487,16 @@ class QCtProperties(QtWidgets.QWidget):
 		# Emit signal with all three coordinates.
 		logging.debug('Emitting updateIsocenter signal.')
 		self.isocenterChanged.emit(x,y,z)
+
+	def emitToggleOverlay(self,button,state):
+		# Make the state a bool
+		if state == 0: state = False
+		elif state == 2: state = True
+		else: state = False
+		# Send the signal.
+		if button == 'cbCentroid': self.toggleOverlay.emit(0,state)
+		elif button == 'cbBeamIsoc': self.toggleOverlay.emit(1,state)
+		elif button == 'cbPatIsoc': self.toggleOverlay.emit(2,state)
 
 class QHUSpinBox(QtWidgets.QSpinBox):
 	'''CT HU windowing spinbox'''

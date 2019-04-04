@@ -52,10 +52,10 @@ class QPlotEnvironment(QtWidgets.QWidget):
 		self.addSubplot(amount)
 		# Now load the images into the subplots.
 		for i in range(amount):
-			self.plot[i].imageLoad(image[i].array,image[i].extent)
+			self.plot[i].imageLoad(image[i].pixelArray,image[i].extent)
 			self.tableModel[i].setLabels(image[i].view)
 			self.histogram[i].setTitle('View: '+image[i].view['title'])
-			self.histogram[i].setData(image[i].array)
+			self.histogram[i].setData(image[i].pixelArray)
 
 	def addSubplot(self,amount):
 		# Can only have a maximum of 2 subplots as per loadImage().
@@ -295,91 +295,3 @@ class QNavigationBar(NavigationToolbar2QT):
 	
 	def settings(self):
 		self.toggleImageSettings.emit()
-
-# toolitems = (
-#     ('Home', 'Reset original view', 'home', 'home'),
-#     ('Back', 'Back to previous view', 'back', 'back'),
-#     ('Forward', 'Forward to next view', 'forward', 'forward'),
-#     (None, None, None, None),
-#     ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
-#     ('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
-#     ('Subplots', 'Configure subplots', 'subplots', 'configure_subplots'),
-#     (None, None, None, None),
-#     ('Save', 'Save the figure', 'filesave', 'save_figure'),
-#   )
-# def pan(self, *args):
-#     """Activate the pan/zoom tool. pan with left button, zoom with right"""
-#     # set the pointer icon and button press funcs to the
-#     # appropriate callbacks
-
-#     if self._active == 'PAN':
-#         self._active = None
-#     else:
-#         self._active = 'PAN'
-#     if self._idPress is not None:
-#         self._idPress = self.canvas.mpl_disconnect(self._idPress)
-#         self.mode = ''
-
-#     if self._idRelease is not None:
-#         self._idRelease = self.canvas.mpl_disconnect(self._idRelease)
-#         self.mode = ''
-
-#     if self._active:
-#         self._idPress = self.canvas.mpl_connect(
-#             'button_press_event', self.press_pan)
-#         self._idRelease = self.canvas.mpl_connect(
-#             'button_release_event', self.release_pan)
-#         self.mode = 'pan/zoom'
-#         self.canvas.widgetlock(self)
-#     else:
-#         self.canvas.widgetlock.release(self)
-
-#     for a in self.canvas.figure.get_axes():
-#         a.set_navigate_mode(self._active)
-
-#     self.set_message(self.mode)
-
-# def press_pan(self, event):
-#     """Callback for mouse button press in pan/zoom mode."""
-
-#     if event.button == 1:
-#         self._button_pressed = 1
-#     elif event.button == 3:
-#         self._button_pressed = 3
-#     else:
-#         self._button_pressed = None
-#         return
-
-#     if self._nav_stack() is None:
-#         # set the home button to this view
-#         self.push_current()
-
-#     x, y = event.x, event.y
-#     self._xypress = []
-#     for i, a in enumerate(self.canvas.figure.get_axes()):
-#         if (x is not None and y is not None and a.in_axes(event) and
-#                 a.get_navigate() and a.can_pan()):
-#             a.start_pan(x, y, event.button)
-#             self._xypress.append((a, i))
-#             self.canvas.mpl_disconnect(self._idDrag)
-#             self._idDrag = self.canvas.mpl_connect('motion_notify_event',
-#                                                    self.drag_pan)
-
-#     self.press(event)
-# def release_pan(self, event):
-#     """Callback for mouse button release in pan/zoom mode."""
-
-#     if self._button_pressed is None:
-#         return
-#     self.canvas.mpl_disconnect(self._idDrag)
-#     self._idDrag = self.canvas.mpl_connect(
-#         'motion_notify_event', self.mouse_move)
-#     for a, ind in self._xypress:
-#         a.end_pan()
-#     if not self._xypress:
-#         return
-#     self._xypress = []
-#     self._button_pressed = None
-#     self.push_current()
-#     self.release(event)
-#     self.draw()

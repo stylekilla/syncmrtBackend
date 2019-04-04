@@ -1,11 +1,23 @@
 import os
 import pydicom as dicom
 import numpy as np
-from synctools.fileHandler import image
+from synctools.fileHandler.image import image2d, image3d
 from natsort import natsorted
 from synctools.tools.opencl import gpu as gpuInterface
 import h5py
 import logging
+
+'''
+The importer class takes DICOM/HDF5 images and turns them into a
+	class (image2d or image3d) for plotting in QsWidgets.QPlot().
+	This is where we disconnect the DICOM information and take
+	only what the internals of SyncMRT requires to operate. Maybe
+	in the future such integrations could just see the use of
+	DICOM throughout but then things would have to be re-written
+	to understand DICOM. This is just currently my own interface.
+Think of this class as the interface to QPlot. As such it should
+	probably be packaged with it.
+'''
 
 class importFiles:
 	def __init__(self,ds,modality,ctImage=None):
@@ -46,26 +58,28 @@ class importFiles:
 		file = h5py.File(self.ds[0],'r')
 		# Load the images in.
 		for i in range(file.attrs['NumberOfImages']):
-			self.image.append(image())
-			self.image[i].array = file[str(i)][:]
+			self.image.append(image2d())
+			self.image[i].pixelArray = file[str(i)][:]
 			# Extract the extent information, should be available in image.
 			self.image[i].extent = file[str(i)].attrs['extent']
-			# Image isocenter (typically the beam isocenter).
-			self.image[i].isocenter = file[str(i)].attrs['isocenter']
+			# Patient isocenter (typically the beam isocenter).
+			self.image[i].patientIsocenter = file[str(i)].attrs['isocenter']
 			# Import image view.
 			# self.image[i].view = file[str(i)].attrs['view']
+			# self.image[i].axis = file[str(i)].attrs['axis']
 			self.image[i].view = {
 					'title':'AP',
 					'xLabel':'LR',
 					'yLabel':'SI',
 				}
+			self.image[i].orientation = [1,2,0]
 
 	def checkDicomModality(self,modality):
 		# Start with empty list of files.
 		files = {}
 		for i in range(len(self.ds)):
 			# Read the file in.
-			testFile = dicom.read_file(self.ds[i])
+			testFile = dicom.dcmread(self.ds[i])
 			if testFile.Modality == modality:
 				# Save in dict where the key is the slice position.
 				files[int(testFile.SliceLocation)] = self.ds[i]
@@ -80,70 +94,157 @@ class importFiles:
 		# Return the sorted file list.
 		return sortedFiles
 
-	# def reloadFiles(self,files):
-	# 	# Reload the files without losing plot or patient information.
-	# 	self.ds = ds
-	# 	self.fp = os.path.dirname(ds[0])
-	# 	self.importXR()
-
 	def importCT(self):
 		# We are reading in a CT DICOM file.
-		ref = dicom.read_file(self.ds[0])
-		self.patientName = ref.PatientName
-		# Create an image list.
-		self.image = [image()]
-		# Get DICOM shape.
-		# shape = np.array([int(ref.Rows), int(ref.Columns), len(self.ds)])
+		ref = dicom.dcmread(self.ds[0])
+		# Get CT shape.
 		shape = np.array([int(ref.Columns), int(ref.Rows), len(self.ds)])
 		# Initialize image with array of zeros.
-		self.image[0].array = np.zeros(shape, dtype=np.int32)
-		# For each slice extract the pixel data and put in respective z slice in array. 
+		self.ctDataset = image3d()
+		self.ctDataset.pixelArray = np.zeros(shape, dtype=np.int16)
+		# self.ctDataset.pixelArray = np.zeros(shape, dtype=np.int32)
+		# Read array in one slice at a time.
 		for fn in self.ds:
-			data = dicom.read_file(fn)
-			self.image[0].array[:,:,shape[2]-self.ds.index(fn)-1] = data.pixel_array
-			# self.image[0].array[:,:,shape[2]-self.ds.index(fn)-1] = np.flipud(data.pixel_array)
-		# Patient setup variables.
-		self.image[0].position = ref.ImagePositionPatient
-		self.image[0].patientPosition = ref.PatientPosition
+			slice = dicom.dcmread(fn)
+			self.ctDataset.pixelArray[:,:,shape[2]-self.ds.index(fn)-1] = slice.pixel_array
+			# Should send signal of import status here.
+			# pct = self.ds.index(fn)/len(self.ds)
+			# progress.emit(pct)
 		# Rescale the Hounsfield Units.
-		self.image[0].array = (self.image[0].array*ref.RescaleSlope) + ref.RescaleIntercept
-		# Sometimes the spacing between slices tag doesn't exist, if it doesn't, create it.
-		try:
-			spacingBetweenSlices = ref.SpacingBetweenSlices
-		except:
-			start = ref.ImagePositionPatient[2]
-			file = dicom.read_file(self.ds[-1])
-			end = file.ImagePositionPatient[2]
-			spacingBetweenSlices = abs(end-start)/(len(self.ds)-1)
-		# Voxel shape determined by detector element sizes and CT slice thickness.
-		# self.image[0].pixelSize = [-ref.PixelSpacing[1],ref.PixelSpacing[0], spacingBetweenSlices]
-		self.image[0].pixelSize = [ref.PixelSpacing[0], -ref.PixelSpacing[1], spacingBetweenSlices]
-		# Note the axes that we are working on, these will change as we work.
-		# self.image[0].axes = np.array([0,1,2])
-
-		# CT array extent NP(l,r,b,t,f,b) or as DICOM(-x,x,y,-y,-z,z)
-		# l, -x
-		x1 = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0]
-		# r, +x
-		x2 = ref.ImagePositionPatient[0]-0.5*self.image[0].pixelSize[0] + (shape[1]+1)*self.image[0].pixelSize[0]
-		# b, +y
-		y1 = ref.ImagePositionPatient[1]+0.5*self.image[0].pixelSize[1] - (shape[0]+1)*self.image[0].pixelSize[1]
-		# t, -y
-		y2 = ref.ImagePositionPatient[1]+0.5*self.image[0].pixelSize[1]
-		# f, -z
-		z1 = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2] - (shape[2]+1)*self.image[0].pixelSize[2]
-		# b, +z
-		z2 = ref.ImagePositionPatient[2]+0.5*self.image[0].pixelSize[2]
+		self.ctDataset.pixelArray = (self.ctDataset.pixelArray*ref.RescaleSlope) + ref.RescaleIntercept
+		# Get the extent details of the dataset.
+		# CT array extent NP(l,r,b,t,f,b)
+		verticesPatient1 = [
+			[0,0,0,1],
+			[ref.Columns-1,0,0,1],
+			[0,ref.Rows-1,0,1],
+			[ref.Columns-1,ref.Rows-1,0,1]
+		]
+		verticesPatient2 = [
+			[0,0,len(self.ds)-1,1],
+			[ref.Columns-1,0,len(self.ds)-1,1],
+			[0,ref.Rows-1,len(self.ds)-1,1],
+			[ref.Columns-1,ref.Rows-1,len(self.ds)-1,1],
+		]
+		# Get the image plane attributes.
+		pix = list(map(float, ref.PixelSpacing))
+		ori = list(map(int, ref.ImageOrientationPatient))
+		pos1 = list(map(float, dicom.dcmread(self.ds[-1]).ImagePositionPatient))
+		pos2 = list(map(float, ref.ImagePositionPatient))
+		# Get the patient vertices for the first and last slice.
+		# M, is from eqn C.7.6.2.1-1 in the DICOM Image Plane Module.
+		verticesPatient = []
+		M = np.array([
+			[ori[0]*pix[0],	ori[3]*pix[1],	0,	pos1[0]],
+			[ori[1]*pix[0],	ori[4]*pix[1],	0,	pos1[1]],
+			[ori[2]*pix[0],	ori[5]*pix[1],	0,	pos1[2]],
+			[0,				0,				0,	1]
+		])
+		for vertice in verticesPatient1:
+			verticesPatient.append(np.array(M@np.transpose(vertice)))
+		M = np.array([
+			[ori[0]*pix[0],	ori[3]*pix[1],	0,	pos2[0]],
+			[ori[1]*pix[0],	ori[4]*pix[1],	0,	pos2[1]],
+			[ori[2]*pix[0],	ori[5]*pix[1],	0,	pos2[2]],
+			[0,				0,				0,	1]
+		])
+		for vertice in verticesPatient2:
+			verticesPatient.append(np.array(M@np.transpose(vertice)))
+		# Create a singular array.
+		verticesPatient = np.array(verticesPatient)
+		# Create generic vertices to map to the patient position. 
+		vertices = np.array([
+			[0,0,0],
+			[ref.Columns-1,0,0],
+			[0,ref.Rows,0],
+			[ref.Columns-1,ref.Rows,0],
+			[0,0,len(self.ds)-1],
+			[ref.Columns-1,0,len(self.ds)-1],
+			[0,ref.Rows,len(self.ds)-1],
+			[ref.Columns-1,ref.Rows,len(self.ds)-1]
+		])
+		M = np.array([
+			[ori[0]*pix[0],	ori[3]*pix[1],	1],
+			[ori[1]*pix[0],	ori[4]*pix[1],	1],
+			[ori[2]*pix[0],	ori[5]*pix[1],	1],
+		])
+		verticesAligned = []
+		for p in vertices:
+			verticesAligned.append(np.array(M@np.transpose(p)))
+		# Turn into a single array.
+		verticesAligned = np.array(verticesAligned)
+		# Find the minimum and maximum points in the vertices.
+		xn, yn, zn = np.argmin(verticesAligned,axis=0)
+		xp, yp, zp = np.argmax(verticesAligned,axis=0)
+		# Find Minimum Point in X:
+		x1 = verticesPatient[xn,0] + np.sign(xp-xn)*(np.absolute(xp-xn)/ref.Columns)
+		x2 = verticesPatient[xp,0] + np.sign(xp-xn)*(np.absolute(xp-xn)/ref.Columns)
+		y1 = verticesPatient[yp,1] + np.sign(yp-yn)*(np.absolute(yp-yn)/ref.Rows)
+		y2 = verticesPatient[yn,1] + np.sign(yp-yn)*(np.absolute(yp-yn)/ref.Rows)
+		z1 = verticesPatient[zp,2] + np.sign(zp-zn)*(np.absolute(zp-zn)/len(self.ds))
+		z2 = verticesPatient[zn,2] + np.sign(zp-zn)*(np.absolute(zp-zn)/len(self.ds))
 		self.extent = np.array([x1,x2,y1,y2,z1,z2])
+		# Start gpu context.
+		gpu = gpuInterface()
+		# Load array onto GPU.
+		gpu.loadData(self.ctDataset.pixelArray)
+		# Get current CT orientation.
+		self.ctDataset.orientation = ref.ImageOrientationPatient
+		# Create a 2d image list for plotting.
+		self.image = [image2d(),image2d()]
+		# Flatten the 3d image to the two 2d images.
+		self.image[0].pixelArray = np.sum(self.ctDataset.pixelArray,axis=2)
+		self.image[0].extent = np.array([ self.extent[0], self.extent[1], self.extent[2], self.extent[3] ])
+		self.image[1].pixelArray = np.fliplr(np.sum(self.ctDataset.pixelArray,axis=1))
+		self.image[1].extent = np.array([ self.extent[4], self.extent[5], self.extent[2], self.extent[3] ])
+
+		# Sometimes the spacing between slices tag doesn't exist, if it doesn't, create it.
+		# try:
+		# 	spacingBetweenSlices = ref.SpacingBetweenSlices
+		# except:
+		# 	logging.debug('Assuming that the CT has equally spaced slices.')
+		# 	start = ref.ImagePositionPatient[2]
+		# 	file = dicom.dcmread(self.ds[-1])
+		# 	end = file.ImagePositionPatient[2]
+		# 	spacingBetweenSlices = abs(end-start)/(len(self.ds)-1)
+		# # Voxel shape determined by detector element sizes and CT slice thickness.
+		# self.image[0].pixelSize = [ref.PixelSpacing[0], -ref.PixelSpacing[1], spacingBetweenSlices]
+		# # Note the axes that we are working on, these will change as we work.
+		# self.image[0].orientation = np.array([0,1,2])
+
+
+
+		# Assume (0020,0037) Image Orientation (Patient): 1\0\0\0\1\0
+		patientVector = None
+		if list(map(int,ref.ImageOrientationPatient)) == [1,0,0,0,1,0]:
+			# patientVector describes cosines of FH / LR -> x,y,z axes.
+			if ref.PatientPosition == 'HFS': patientVector = [0,0,1,-1,0,0]
+			if ref.PatientPosition == 'FFS': patientVector = [0,0,-1,1,0,0]
+			if ref.PatientPosition == 'HFP': patientVector = [0,0,1,1,0,0]
+			if ref.PatientPosition == 'FFP': patientVector = [0,0,-1,-1,0,0]
+		else:
+			logging.critical('Cannot process image with patient orientation: ',ref.ImageOrientationPatient)
+
+		patientViews = {}
+		# [['xvector'],['yvector'],['zvector']]
+		# vector describes the DICOM axes in terms of the python axes.
+		# x is column to right
+		# y is row to bottom
+		# z is depth to back
+		patientViews['AP'] = [[1,0,0],[0,0,1],[0,1,0]]
+		patientViews['PA'] = [[-1,0,0],[0,0,-1],[0,-1,0]]
+		patientViews['LR'] = [[0,0,-1],[1,0,0],[0,-1,0]]
+		patientViews['RL'] = [[0,0,1],[-1,0,0],[0,-1,0]]
+		patientViews['SI(S)'] = [[-1,0,0],[0,1,0],[0,0,-1]]
+		patientViews['SI(P)'] = [[1,0,0],[0,-1,0],[0,0,-1]]
+		patientViews['IS(S)'] = [[1,0,0],[0,1,0],[0,0,1]]
+		patientViews['IS(P)'] = [[-1,0,0],[0,-1,0],[0,0,1]]
 
 		'''
 		Here we orientate the CT data with two assumptions:
 			1. The CT was taken in HFS.
 			2. At the synchrotron the patient is in an upright position.
 		'''
-
-		# GPU drivers.
-		gpu = gpuInterface()
 
 		'''
 		The GPU has the following protocol:
@@ -192,32 +293,36 @@ class importFiles:
 		# 		None
 		# 		)
 
-		# Override
-		kwargs = (
-			['090'],
-			self.image[0].pixelSize,
-			self.extent,
-			None
-			)
+		# # Override
+		# kwargs = (
+		# 	['090'],
+		# 	self.image[0].pixelSize,
+		# 	self.extent,
+		# 	None
+		# 	)
 
-		# Run the gpu rotation.
-		self.image[0].array = gpu.rotate(self.image[0].array,*kwargs)
+		# # Run the gpu rotation.
+		# newView = gpu.rotate(self.image[0].array,*kwargs)
 
-		# Update rotated variables from gpu.
-		# self.image[0].axes = gpu.axes
-		self.image[0].pixelSize = gpu.pixelSize
-		self.image[0].extent = gpu.extent
-		# Set empty isocenter for ct loading, update when rtplan is loaded.
-		self.isocenter = np.array([0,0,0])
+		# # Create an image list.
+		# self.image[0].pixelArray = np.sum(newView,axis=0)
+		# self.image[1].pixelArray = np.sum(newView,axis=1)
+
+		# # Update rotated variables from gpu.
+		# # self.image[0].axes = gpu.axes
+		# self.image[0].pixelSize = gpu.pixelSize
+		# self.image[0].extent = gpu.extent
+		# # Set empty isocenter for ct loading, update when rtplan is loaded.
+		# self.isocenter = np.array([0,0,0])
 
 		# Save and write fp and ds.
-		np.save(self.fp+'/ct0.npy',self.image[0].array)
-		self.image[0].ds = [self.fp+'/ct0.npy']
-		self.image[0].fp = os.path.dirname(self.image[0].ds[0])
+		np.save(self.fp+'/dicom_ct.npy',self.ctDataset.pixelArray)
+		self.ctDataset.ds = [self.fp+'/dicom_ct.npy']
+		self.ctDataset.fp = os.path.dirname(self.fp)
 
 	def importRTPLAN(self,ctImage):
 		# Firstly, read in DICOM rtplan file.
-		ref = dicom.read_file(self.ds[0])
+		ref = dicom.dcmread(self.ds[0])
 		# Set file path.
 		self.fp = os.path.dirname(self.ds[0])
 		# We are reading in a RTPLAN DICOM file.

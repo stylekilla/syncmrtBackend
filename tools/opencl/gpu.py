@@ -33,21 +33,34 @@ class gpu:
 			gpuList += plt.get_devices(cl.device_type.GPU)
 		# Create a device context.
 		try:
-			self.ctx = cl.Context(devices=[gpuList[0]])
+			for device in gpuList:
+				if device.vendor == 'NVIDIA':
+					self.ctx = cl.Context(devices=[device])
 		except:
+			# Use the CPU.
 			self.ctx = cl.Context(devices=[cpuList[0]])
 			
 		# Create a device queue.
 		self.queue = cl.CommandQueue(self.ctx)
 
-	def rotate(self,data,rotations=[],pixelSize=None,extent=None,isocenter=None):
+	def loadData(self,data):
+		# Specify inpput buffer.
+		array = np.array(data,order='C').astype(np.int32)
+		self._inputBuffer = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=array)
+		self._inputBufferShape = np.shape(array)
+
+	def getData(self):
+		return self._outputBuffer
+
+	# def rotate(self,data,rotations=[],pixelSize=None,extent=None,isocenter=None):
+	def rotate(self,rotations=[],pixelSize=None,extent=None,isocenter=None):
 		'''
 		Here we give the data to be copied to the GPU and give some deacriptors about the data.
 		We must enforce datatypes as we are dealing with c and memory access/copies.
 		Rotations happen about real world (x,y,z) axes.
 		'''
 		# Read in array and force the datatype for the gpu.
-		arrIn = np.array(data,order='C').astype(np.int32)
+		# arrIn = np.array(data,order='C').astype(np.int32)
 
 		# Get rotation matrices (one for GPU and one for Python, they operate differently)!
 		rotations,gpuRotations = self.generateRotationMatrix(rotations)
@@ -62,10 +75,8 @@ class gpu:
 			[0,1,1],
 			[1,0,1],
 			[1,1,1]])
-
 		# Input array shape
-		inputShape =  basicBox*arrIn.shape
-
+		inputShape =  basicBox*self._inputBufferShape
 		# Output array shape after rotation.
 		outputShape = np.empty((8,3),dtype=int)
 		for i in range(8):
@@ -73,10 +84,6 @@ class gpu:
 		mins = np.absolute(np.amin(outputShape,axis=0))
 		maxs = np.absolute(np.amax(outputShape,axis=0))
 		outputShape = np.rint(mins+maxs).astype(int)
-
-		# print('In Shape',arrIn.shape)
-		# print('Out Shape',outputShape)
-
 		# Create empty output array set to -1000.
 		arrOut = np.zeros(outputShape).astype(np.int32)-1000
 		arrOutShape = np.array(arrOut.shape).astype(np.int32)
@@ -87,67 +94,50 @@ class gpu:
 			- Then we run the program.
 			- Then we get the results.
 		'''
-
 		# Create memory flags.
 		mf = cl.mem_flags
 		# GPU buffers.
-		gpuIn = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=arrIn)
+		# gpuIn = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=arrIn)
 		gpuRotation = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=gpuRotations)
 		gpuOut = cl.Buffer(self.ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=arrOut)
 		gpuOutShape = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=arrOutShape)
-
 		# Get kernel source.
 		import inspect,os
 		fp = os.path.dirname(inspect.getfile(gpu))
-		sourceKernel = open(fp+"/kernels/rotate.cl", "r").read()		
+		kernel = open(fp+"/kernels/rotate.cl", "r").read()
 		# Compile kernel.
-		program = cl.Program(self.ctx,sourceKernel).build()
+		program = cl.Program(self.ctx,kernel).build()
 		# Kwargs
-		kwargs = (gpuIn,
+		kwargs = (self._inputBuffer,
 			gpuRotation,
 			gpuOut,
 			gpuOutShape
 			)
 		# Run the program.
-		program.rotate3d(self.queue,arrIn.shape,None,*(kwargs))
-
+		program.rotate3d(self.queue,self._inputBufferShape,None,*(kwargs))
 		# Get results
 		cl.enqueue_copy(self.queue, arrOut, gpuOut)
-
 		# Remove any dirty array values in the output.
 		arrOut = np.nan_to_num(arrOut)
-
 		# Get axes directions.
-		axes = np.sign(pixelSize).astype(int)
-
+		# axes = np.sign(pixelSize).astype(int)
 		# Get dicom origin offset from middle of array.
 		extentLength = np.absolute(extent)
 		offset_x = extent[0] + axes[0]*(extentLength[0]+extentLength[1])/2
 		offset_y = extent[2] + axes[1]*(extentLength[2]+extentLength[3])/2
 		offset_z = extent[4] + axes[2]*(extentLength[4]+extentLength[5])/2
 		offset = np.array([offset_x,offset_y,offset_z])
-
-		# print('Extent:',extent)
-		# print('Extent Length:',extentLength)
-		# print('Axes direction:',axes)
-		# print('Offset:',offset)
-
 		# Rotate the pixelSize if specified.
-		if pixelSize is not None: 
+		if pixelSize is not None:
 			# Apply the rotations.
-			# print('pixel input:',pixelSize)
 			self.pixelSize = rotations@pixelSize
-			# print('pixel rotated:',self.pixelSize)
-
 		# Rotate the isocenter if specified.
 		if isocenter is not None: 
 			# Apply the rotations.
-			# print('isocenter input:',isocenter)
 			self.isocenter = (rotations@isocenter)*np.sign(self.pixelSize).astype(int)
 			# self.isocenter = self.rotateWithOffset(isocenter,rotations,offset)*np.sign(self.pixelSize).astype(int)
 			# self.isocenter = np.array([isocenter[pyAxes[0]], isocenter[pyAxes[1]], isocenter[pyAxes[2]]])
 			# print('isocenter rotated:',self.isocenter)
-
 		if extent is not None: 
 			# Make the 8 corners of the bounding box as (y,x,z) coordinates for python.
 			basicBox = np.array([

@@ -1,31 +1,36 @@
-'''
-CLASS IMAGE
-+ Houses information about array + metadata.
-+ Metadata is:
--	filepath 		the filepath to the folder containing the dataset
--	dataset 		the dataset of file(s)
--	array 			a numpy 2D array of values
--	extent 			the extent of the image (LRBT)
--	pixel size 		pixel size of the image
--	position		position where the image was taken
--	isocenter 		location of isocenter of the 2D image
-'''
-class image:
+__all__ = ['image2d','image3d']
+
+class image2d:
 	def __init__(self):
 		# The local filepath to the image dataset.
 		self.fp = None
 		# The file dataset for the image(s).
 		self.ds = None
 		# Array data for image.
-		self.array = None
-		# Extent of image, BT-LR-FB.
-		self.extent = None
+		self.pixelArray = None
 		# Pixel size of image.
 		self.pixelSize = None
+		# Extent of image, BT-LR-FB.
+		self.extent = None
 		# Top left corner of image.
-		self.position = None
-		# Isocenter of the image.
-		self.isocenter = None
+		# self.position = None
+		# Patient isocenter within image, assumes single isoc.
+		self.patientIsocenter = None
+		# Orientation of the image.
+		# self.orientation = [1,2,0]
+		# Image view.
+		self.view = {
+			'title':'None',
+			'xLabel':'None',
+			'yLabel':'None',
+		}
+
+class image3d:
+	def __init__(self):
+		super()
+		self.orientation = None
+		self.fp = None
+		self.ds = None
 		'''
 		FOR RTPLANS
 		'''
@@ -36,3 +41,5 @@ class image:
 		self.collimator = None
 		self.gantry = None
 		self.patientSupport = None
+		# Support mutiple views of the image?
+		self.views = None
