@@ -2,6 +2,8 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 from functools import partial
 
 class QAlignment(QtWidgets.QWidget):
+	markersChanged = QtCore.pyqtSignal(int)
+
 	def __init__(self):
 		super().__init__()
 		self.widget = {}
@@ -12,6 +14,8 @@ class QAlignment(QtWidgets.QWidget):
 		markerGroup.setTitle('Marker Options')
 		label1 = QtWidgets.QLabel('No. of Markers:')
 		self.widget['maxMarkers'] = QtWidgets.QSpinBox()
+		self.widget['maxMarkers'].setRange(3,10)
+		self.widget['maxMarkers'].valueChanged.connect(self.updateMarkers)
 		self.widget['anatomical'] = QtWidgets.QRadioButton('Anatomical')
 		self.widget['fiducial'] = QtWidgets.QRadioButton('Fiducial')
 		self.widget['optimise'] = QtWidgets.QCheckBox('Optimise')
@@ -87,6 +91,10 @@ class QAlignment(QtWidgets.QWidget):
 
 	def updateLayout(self):
 		self.setLayout(self.layout)
+
+	def updateMarkers(self,value):
+		# Send signal that the number of markers has changed.
+		self.markersChanged.emit(value)
 
 	def markerMode(self):
 		'''If fiducial markers are chosen then enable optimisation checkbox and sizing.'''
