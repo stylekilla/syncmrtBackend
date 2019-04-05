@@ -19,6 +19,86 @@ Think of this class as the interface to QPlot. As such it should
 	probably be packaged with it.
 '''
 
+
+def calculate2DViewLabels(patientPosition,rcs,axis=0):
+	'''
+	patientPosition can be Head/Feet First Supine/Prone.
+	rcs is the dicomFile.ImageOrientation (the cosine mappings of the X and Y axes).
+
+	Labels are calculated as degrees from axis:
+	-90  -60  -45  -30   0   +30  +45  +60  +90
+	 |----|////|////|----|----|////|////|----|
+	"B"      "AB"       "A"       "AC"      "C"
+	'''
+
+	# Set the labels for the patient position.
+	rcsLabels = None 
+	if patientPosition == 'HFS': rcsLabels = np.array(['R','L','P','A','I','S'])
+	elif patientPosition == 'HFP': rcsLabels = np.array(['R','L','A','P','I','S'])
+	elif patientPosition == 'FFS': rcsLabels = np.array(['L','R','P','A','S','I'])
+	elif patientPosition == 'FFP': rcsLabels = np.array(['L','R','A','P','S','I'])
+
+	# Specify vectors for axes.
+	wcs_x = np.array(rcs[:3])
+	wcs_y = np.array(rcs[3:])
+	wcs_z = np.cross(wcs_x,wcs_y)
+
+	# Check to see if wcs_x = wcs_y (i.e they are at 45 deg)
+	if np.array_equal(wcs_x,wcs_y):
+		# It is preferred to keep them on their same axes.
+		wcs_x = np.sign(wcs_x[0])*[1,0,0]
+		wcs_y = np.sign(wcs_y[0])*[0,1,0]
+
+	wcsLabels = {}
+	wcsLabels['title'] = '?'
+	wcsLabels['xLabel'] = '?'
+	wcsLabels['yLabel'] = '?'
+
+	# Find which axis each is maximised on.
+	wcs_axes = [wcs_x, wcs_y, wcs_z]
+	wcs_max = [np.argmax(np.absolute(wcs_x)), np.argmax(np.absolute(wcs_y)), np.argmax(np.absolute(wcs_z))]
+	wcs_max = wcs_max * np.sign([np.amax(wcs_x), np.amax(wcs_y), np.amax(wcs_z)])
+
+	for idx, val in enumerate(wcs_max):
+		# Get direction and axis.
+		wcs_axis = np.absolute(val)
+		# Find corresponding labels.
+		labels = rcsLabels[wcs_axis*2:wcs_axis*2+2]
+		# Order labels.
+		if np.sign(val) == -1: labels = np.flip(labels)
+		# Special case for axis 1 because we really flatten it in -1 (reverse direction).
+		if (axis == 1) & (idx == 0): labels = np.flip(labels)
+		# Assign to label.
+		if axis == 2:		
+			if idx == 0: wcsLabels['xLabel'] = ''.join(labels)
+			elif idx == 1: wcsLabels['yLabel'] = ''.join(labels)
+			elif idx == 2: wcsLabels['title'] = ''.join(labels)
+		elif axis == 1:		
+			if idx == 2: wcsLabels['xLabel'] = ''.join(labels)
+			elif idx == 1: wcsLabels['yLabel'] = ''.join(labels)
+			elif idx == 0: wcsLabels['title'] = ''.join(labels)
+		elif axis == 0:		
+			if idx == 0: wcsLabels['xLabel'] = ''.join(labels)
+			elif idx == 2: wcsLabels['yLabel'] = ''.join(labels)
+			elif idx == 1: wcsLabels['title'] = ''.join(labels)
+
+	return wcsLabels
+
+def roundInt(value):
+	sign = np.sign(value)
+	value = np.absolute(value)
+	if (value > (2**-0.5)): 
+		# value = 1
+		if sign == 1.0:
+			value = 0
+		else:
+			value = 1
+	else:
+		# value = 0
+		value = -1
+	return value
+
+
 class importFiles:
 	def __init__(self,ds,modality,ctImage=None):
 		# Modality: 'xray' or 'ct'.
@@ -112,7 +192,10 @@ class importFiles:
 			# progress.emit(pct)
 		# Rescale the Hounsfield Units.
 		self.ctDataset.pixelArray = (self.ctDataset.pixelArray*ref.RescaleSlope) + ref.RescaleIntercept
-		# Get the extent details of the dataset.
+
+		'''
+		Map the DICOM CS (RCS) to the python CS (WCS):
+		'''
 		# CT array extent NP(l,r,b,t,f,b)
 		verticesPatient1 = [
 			[0,0,0,1],
@@ -184,61 +267,48 @@ class importFiles:
 		z1 = verticesPatient[zp,2] + np.sign(zp-zn)*(np.absolute(zp-zn)/len(self.ds))
 		z2 = verticesPatient[zn,2] + np.sign(zp-zn)*(np.absolute(zp-zn)/len(self.ds))
 		self.extent = np.array([x1,x2,y1,y2,z1,z2])
+
 		# Start gpu context.
 		gpu = gpuInterface()
-		# Load array onto GPU.
+		# Load array onto GPU for future reference.
 		gpu.loadData(self.ctDataset.pixelArray)
 		# Get current CT orientation.
-		self.ctDataset.orientation = ref.ImageOrientationPatient
+		self.ctDataset.orientation = list(map(int,ref.ImageOrientationPatient))
 		# Create a 2d image list for plotting.
 		self.image = [image2d(),image2d()]
 		# Flatten the 3d image to the two 2d images.
 		self.image[0].pixelArray = np.sum(self.ctDataset.pixelArray,axis=2)
 		self.image[0].extent = np.array([ self.extent[0], self.extent[1], self.extent[2], self.extent[3] ])
+		self.image[0].view = calculate2DViewLabels(ref.PatientPosition,self.ctDataset.orientation,axis=2)
 		self.image[1].pixelArray = np.fliplr(np.sum(self.ctDataset.pixelArray,axis=1))
 		self.image[1].extent = np.array([ self.extent[4], self.extent[5], self.extent[2], self.extent[3] ])
-
-		# Sometimes the spacing between slices tag doesn't exist, if it doesn't, create it.
-		# try:
-		# 	spacingBetweenSlices = ref.SpacingBetweenSlices
-		# except:
-		# 	logging.debug('Assuming that the CT has equally spaced slices.')
-		# 	start = ref.ImagePositionPatient[2]
-		# 	file = dicom.dcmread(self.ds[-1])
-		# 	end = file.ImagePositionPatient[2]
-		# 	spacingBetweenSlices = abs(end-start)/(len(self.ds)-1)
-		# # Voxel shape determined by detector element sizes and CT slice thickness.
-		# self.image[0].pixelSize = [ref.PixelSpacing[0], -ref.PixelSpacing[1], spacingBetweenSlices]
-		# # Note the axes that we are working on, these will change as we work.
-		# self.image[0].orientation = np.array([0,1,2])
-
-
+		self.image[1].view = calculate2DViewLabels(ref.PatientPosition,self.ctDataset.orientation,axis=1)
 
 		# Assume (0020,0037) Image Orientation (Patient): 1\0\0\0\1\0
-		patientVector = None
-		if list(map(int,ref.ImageOrientationPatient)) == [1,0,0,0,1,0]:
-			# patientVector describes cosines of FH / LR -> x,y,z axes.
-			if ref.PatientPosition == 'HFS': patientVector = [0,0,1,-1,0,0]
-			if ref.PatientPosition == 'FFS': patientVector = [0,0,-1,1,0,0]
-			if ref.PatientPosition == 'HFP': patientVector = [0,0,1,1,0,0]
-			if ref.PatientPosition == 'FFP': patientVector = [0,0,-1,-1,0,0]
-		else:
-			logging.critical('Cannot process image with patient orientation: ',ref.ImageOrientationPatient)
+		# patientVector = None
+		# if list(map(int,ref.ImageOrientationPatient)) == [1,0,0,0,1,0]:
+		# 	# patientVector describes cosines of FH / LR -> x,y,z axes.
+		# 	if ref.PatientPosition == 'HFS': patientVector = [0,0,1,-1,0,0]
+		# 	if ref.PatientPosition == 'FFS': patientVector = [0,0,-1,1,0,0]
+		# 	if ref.PatientPosition == 'HFP': patientVector = [0,0,1,1,0,0]
+		# 	if ref.PatientPosition == 'FFP': patientVector = [0,0,-1,-1,0,0]
+		# else:
+		# 	logging.critical('Cannot process image with patient orientation: ',ref.ImageOrientationPatient)
 
-		patientViews = {}
-		# [['xvector'],['yvector'],['zvector']]
-		# vector describes the DICOM axes in terms of the python axes.
-		# x is column to right
-		# y is row to bottom
-		# z is depth to back
-		patientViews['AP'] = [[1,0,0],[0,0,1],[0,1,0]]
-		patientViews['PA'] = [[-1,0,0],[0,0,-1],[0,-1,0]]
-		patientViews['LR'] = [[0,0,-1],[1,0,0],[0,-1,0]]
-		patientViews['RL'] = [[0,0,1],[-1,0,0],[0,-1,0]]
-		patientViews['SI(S)'] = [[-1,0,0],[0,1,0],[0,0,-1]]
-		patientViews['SI(P)'] = [[1,0,0],[0,-1,0],[0,0,-1]]
-		patientViews['IS(S)'] = [[1,0,0],[0,1,0],[0,0,1]]
-		patientViews['IS(P)'] = [[-1,0,0],[0,-1,0],[0,0,1]]
+		# patientViews = {}
+		# # [['xvector'],['yvector'],['zvector']]
+		# # vector describes the DICOM axes in terms of the python axes.
+		# # x is column to right
+		# # y is row to botto Establish image orientation.
+		# # z is depth to back
+		# patientViews['AP'] = [[1,0,0],[0,0,1],[0,1,0]]
+		# patientViews['PA'] = [[-1,0,0],[0,0,-1],[0,-1,0]]
+		# patientViews['LR'] = [[0,0,-1],[1,0,0],[0,-1,0]]
+		# patientViews['RL'] = [[0,0,1],[-1,0,0],[0,-1,0]]
+		# patientViews['SI(S)'] = [[-1,0,0],[0,1,0],[0,0,-1]]
+		# patientViews['SI(P)'] = [[1,0,0],[0,-1,0],[0,0,-1]]
+		# patientViews['IS(S)'] = [[1,0,0],[0,1,0],[0,0,1]]
+		# patientViews['IS(P)'] = [[-1,0,0],[0,-1,0],[0,0,1]]
 
 		'''
 		Here we orientate the CT data with two assumptions:
