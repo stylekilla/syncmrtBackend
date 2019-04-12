@@ -1,4 +1,4 @@
-__all__ = ['image2d','image3d']
+__all__ = ['image2d']
 
 class image2d:
 	def __init__(self):
@@ -25,21 +25,21 @@ class image2d:
 			'yLabel':'None',
 		}
 
-class image3d:
-	def __init__(self):
-		super()
-		self.orientation = None
-		self.fp = None
-		self.ds = None
-		'''
-		FOR RTPLANS
-		'''
-		# Mask Options
-		self.mask = None
-		self.maskThickness = None
-		# Rotation options
-		self.collimator = None
-		self.gantry = None
-		self.patientSupport = None
-		# Support mutiple views of the image?
-		self.views = None
+# class image3d:
+# 	def __init__(self):
+# 		super()
+# 		self.orientation = None
+# 		self.fp = None
+# 		self.ds = None
+# 		'''
+# 		FOR RTPLANS
+# 		'''
+# 		# Mask Options
+# 		self.mask = None
+# 		self.maskThickness = None
+# 		# Rotation options
+# 		self.collimator = None
+# 		self.gantry = None
+# 		self.patientSupport = None
+# 		# Support mutiple views of the image?
+# 		self.views = None

@@ -1,14 +1,22 @@
-from synctools.fileHandler import importFiles
+from synctools.fileHandler import importer
+from synctools.tools.opencl import gpu
 
 class patient:
 	def __init__(self,name='Default'):
 		self.name = name
+		# Program internals.
+		self._gpuContext = None
 	# Load Patient Data.
-	def loadCT(self,dataset):
-		self.ct = importFiles(dataset,modality='CT')
-	def loadMRI(self,dataset):
-		self.mri = importFiles(dataset,modality='MR')
-	def loadRTPLAN(self,dataset,ctImage):
-		self.rtplan = importFiles(dataset,modality='RTPLAN',ctImage=ctImage)
-	def loadXR(self,dataset):
-		self.xr = importFiles(dataset,modality='XR')
+	def load(self,dataset,dtype):
+		if dtype == 'DX': self.dx = importer.sync_dx(dataset)
+		elif dtype == 'CT': 
+			# Create a GPU context for the ct array.
+			self._gpuContext = gpu()
+			self.ct = importer.dicom_ct(dataset,self._gpuContext)
+		elif dtype == 'RTPLAN': 
+			if self.ct != None: 
+				self.rtplan = importer.dicom_rtplan(dataset,self.ct._RCS,self._gpuContext)
+			else: 
+				logging.critical('No CT Dataset loaded. Cannot import treatment plan.')
+		else: logging.critical('No importer for file type: ',dtype)
+		# self.rtstructure = importer.dicom_rtstructure(dataset)

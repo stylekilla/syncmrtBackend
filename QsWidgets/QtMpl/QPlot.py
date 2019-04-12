@@ -88,7 +88,7 @@ class QPlot:
 		# 2D Image (General X-ray).
 		# self.data2d = np.array(self.data3d)
 		# self.data = np.array(self.data2d)
-		print(np.shape(self.data))
+		
 		self.image = self.ax.imshow(self.data, cmap='bone', extent=self.extent)
 		self.ax.set_xlim(extent[0:2])
 		self.ax.set_ylim(extent[2:4])
