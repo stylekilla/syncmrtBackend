@@ -31,10 +31,11 @@ __kernel void rotate3d(
 
 	// Rotate points (active rotation?).
 	float point[3] = {
-		i*gpuRotation[0] + j*gpuRotation[3] + k*gpuRotation[6],
-		i*gpuRotation[1] + j*gpuRotation[4] + k*gpuRotation[7],
-		i*gpuRotation[2] + j*gpuRotation[5] + k*gpuRotation[8]
+		i*gpuRotation[0] + j*gpuRotation[1] + k*gpuRotation[2],
+		i*gpuRotation[3] + j*gpuRotation[4] + k*gpuRotation[5],
+		i*gpuRotation[6] + j*gpuRotation[7] + k*gpuRotation[8]
 	};
+
 
 	// New origin based of output shape size.
 	float outOrigin[3] = {
@@ -49,6 +50,7 @@ __kernel void rotate3d(
 		(int)(point[1] + 0.5 + outOrigin[1]),
 		(int)(point[2] + 0.5 + outOrigin[2])
 	};
+	// printf("Output origin (%f %f %f) \n",outOrigin[0],outOrigin[1],outOrigin[2]);
 
 	// idx is the new point id.
 	int idxNew = newPoint[2] + 

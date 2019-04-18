@@ -8,6 +8,8 @@ from synctools.math import wcs2wcs
 import h5py
 import logging
 
+np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
+
 '''
 The importer class takes DICOM/HDF5 images and turns them into a
 	class (image2d or image3d) for plotting in QsWidgets.QPlot().
@@ -68,13 +70,12 @@ class dicom_ct:
 		self.fp = os.path.dirname(dataset[0])
 		# Are we reading in a CT DICOM file?
 		dataset = checkDicomModality(dataset,'CT')
-		# ref = dicom.dcmread(dataset[0])
 		ref = dicom.dcmread(dataset[0])
 		# Get CT shape.
 		shape = np.array([int(ref.Columns), int(ref.Rows), len(dataset)])
 		# Initialize image with array of zeros.
-		self.pixelArray = np.zeros(shape, dtype=np.int16)
-		# self.pixelArray = np.zeros(shape, dtype=np.int32)
+		# self.pixelArray = np.zeros(shape, dtype=np.int16)
+		self.pixelArray = np.zeros(shape, dtype=np.int32)
 		# Read array in one slice at a time.
 		for fn in dataset:
 			slice = dicom.dcmread(fn)
@@ -97,45 +98,19 @@ class dicom_ct:
 		y = dcmAxes[3:6]
 		z = np.cross(x,y)
 		self.orientation = np.vstack((x,y,z))
-		self._RCS = np.vstack((x,y,z))
+		self.RCS = np.vstack((x,y,z))
 		z1 = list(map(float,ref.ImagePositionPatient))[2]
 		z2 = list(map(float,dicom.dcmread(dataset[-1]).ImagePositionPatient))[2]
 		spacingBetweenSlices = (z2-z1)/len(dataset)
 		# Get vars for transform.
-		pix = np.append(np.array(list(map(float,ref.PixelSpacing))),spacingBetweenSlices)
-		pos = np.array(list(map(float,ref.ImagePositionPatient)))
-		# # Transform to take pixel location into dicom location.
-		# M = np.array([
-		# 	[x[0]*pix[0], y[0]*pix[1],  z[0]*pix[2], pos[0]],
-		# 	[x[1]*pix[0], y[1]*pix[1],  z[1]*pix[2], pos[1]],
-		# 	[x[2]*pix[0], y[2]*pix[1],  z[2]*pix[2], pos[2]],
-		# 	[0, 0, 0, 1]
-		# ])
-		# '''
-		# Find the origin. Point (P), Transform (M), Coordinate (C):
-		# 	P = MC
-		# 	(M^-1)P = C
-		# '''
-		# originCoordinate = np.linalg.inv(M)@np.transpose(np.array([0,0,0,1]))
-		# # New pixel size.
-		# test = np.transpose(np.append(pix,1))
-		# R = np.array([
-		# 	[x[0], y[0],  z[0], 0],
-		# 	[x[1], y[1],  z[1], 0],
-		# 	[x[2], y[2],  z[2], 0],
-		# 	[0, 0, 0, 1]
-		# ])
-		# pix = np.transpose(R@test)
-		# # Calculate extent (lr,bt,fb). Swapped y1 and y2 as the axis goes in the other direction for mpl extent... stupid.
-		# x1 =  -(originCoordinate[0]+0.5)*pix[0]
-		# x2 =  ((ref.Columns-originCoordinate[0])+0.5)*pix[0]
-		# y2 =  -(originCoordinate[1]+0.5)*pix[1]
-		# y1 =  ((ref.Rows-originCoordinate[1])+0.5)*pix[1]
-		# z1 =  -(originCoordinate[2]+0.5)*pix[2]
-		# z2 =  ((len(dataset)-originCoordinate[2])+0.5)*pix[2]
-		# # Extent
-		# self.extent = np.array([x1,x2,y1,y2,z1,z2])
-		self.extent = calculateExtent(pos,dcmAxes,self.pixelArray.shape,pix)
+		self.pixelSize = np.append(np.array(list(map(float,ref.PixelSpacing))),spacingBetweenSlices)
+		leftTop = np.array(list(map(float,ref.ImagePositionPatient)))
+		# Calculate Extent.
+		print("Calc CT Extent:")
+		# ncs,newArraySize,oldPixelSize,leftTop=None,centrePosition=None
+		self.extent = calculateExtent(self.RCS,self.pixelArray.shape,self.pixelSize,leftTop=leftTop,updatePixelSize=False)
+		self.RCS_LEFTTOP = np.array([self.extent[0],self.extent[3],self.extent[4]])
+		print("---------------")
 		# Load array onto GPU for future reference.
 		gpu.loadData(self.pixelArray,self.extent)
 
@@ -169,7 +144,7 @@ class beamClass:
 		self._rcs2bcs = None
 
 class dicom_rtplan:
-	def __init__(self,dataset,rcs,gpu):
+	def __init__(self,dataset,rcs,rcsLeftTop,ctArrayShape,ctArrayPixelSize,gpuContext):
 		# Firstly, read in DICOM rtplan file.
 		ref = dicom.dcmread(dataset[0])
 		# Set file path.
@@ -182,23 +157,17 @@ class dicom_rtplan:
 		# for i in range(len(self.beam)):
 		for i in range(1):
 			self.beam[i] = beamClass()
+			# If a block is specified for the MLC then get it.
 			if ref.BeamSequence[0].NumberOfBlocks > 0:
 				self.beam[i].mask = ref.BeamSequence[i].BlockSequence[0].BlockData
 				self.beam[i].maskThickness = ref.BeamSequence[i].BlockSequence[0].BlockThickness
-
-			'''
-			We must now read in the Patient Support, Gantry, and Collimator rotation angles.
-			These are rotations about the following axes:
-				- Patient Support: Rotation about DICOM y in the CW direction.
-				- Gantry: Rotation about DICOM z in the CCW direction.
-				- Collimator: Rotation about rotated DICOM y axis in the ??CCW?? direction, after gantry rotation.
-			'''
+			# Get the jaws position for backup.
+			# Get the machine positions.
 			self.beam[i].gantry = float(ref.BeamSequence[i].ControlPointSequence[0].GantryAngle)
 			self.beam[i].patientSupport = float(ref.BeamSequence[i].ControlPointSequence[0].PatientSupportAngle)
 			self.beam[i].collimator = float(ref.BeamSequence[i].ControlPointSequence[0].BeamLimitingDeviceAngle)
 			self.beam[i].pitch = float(ref.BeamSequence[i].ControlPointSequence[0].TableTopPitchAngle)
 			self.beam[i].roll = float(ref.BeamSequence[i].ControlPointSequence[0].TableTopRollAngle)
-
 			# Take RCS (patient) and begin modifying it's position.
 			# Rotate it into the view of the collimator.
 			temp_cs = rotate_cs(rcs,[self.beam[i].pitch],[0])
@@ -207,13 +176,17 @@ class dicom_rtplan:
 			self.beam[i].bcs = rotate_cs(temp_cs,[self.beam[i].gantry,self.beam[i].collimator],[1,2])
 
 			# Solve the transform that takes the RCS into the BCS (Beam Coordinate System).
-			# self.beam[i]._rcs2bcs = np.identity(3)
 			self.beam[i]._rcs2bcs = wcs2wcs(rcs,self.beam[i].bcs)
-
-			# extent = calculateExtent()
-			extent = calculateExtent(pos,dcmAxes,self.pixelArray.shape,pix)
-			# Handle this on GPU ^^^^^^^^
-			pixelArray = gpu.rotate(self.beam[i]._rcs2bcs)
+			# Rotate the dataset.
+			# pixelArray = gpuContext.copy()
+			# self.beam[i]._rcs2bcs = np.identity(3)
+			pixelArray = gpuContext.rotate(self.beam[i]._rcs2bcs)
+			# Calculate the extent.
+			print("CALC RT EXTENT:")
+			# extent = calculateExtent(self.beam[i]._rcs2bcs,rcsLeftTop,pixelArray.shape,ctArrayPixelSize)
+			ctArrayCentre = rcsLeftTop + (ctArrayPixelSize*(np.array(ctArrayShape)/2))
+			extent = calculateExtent(self.beam[i]._rcs2bcs,pixelArray.shape,ctArrayPixelSize,centrePosition=ctArrayCentre)
+			print("---------------")
 			# Create images.
 			self.beam[i].image = [image2d(),image2d()]
 			# Flatten the 3d image to the two 2d images.
@@ -222,7 +195,7 @@ class dicom_rtplan:
 			self.beam[i].image[0].view = { 'xLabel': 'x', 'yLabel': 'y', 'title':'No Title' }
 			# self.image[0].extent = np.array([ self.extent[0], self.extent[1], self.extent[2], self.extent[3] ])
 			# self.image[0].view = calculate2DViewLabels(ref.PatientPosition,self.orientation,axis=2)
-			self.beam[i].image[1].pixelArray = np.fliplr(np.sum(pixelArray,axis=2))
+			self.beam[i].image[1].pixelArray = np.sum(pixelArray,axis=2)
 			self.beam[i].image[1].extent = np.array([extent[3],extent[2],extent[4],extent[5]])
 			self.beam[i].image[1].view = { 'xLabel': 'x', 'yLabel': 'y', 'title':'No Title' }
 			# self.image[1].extent = np.array([ self.extent[4], self.extent[5], self.extent[2], self.extent[3] ])
@@ -247,48 +220,55 @@ def rotate_cs(cs,theta,axis):
 	# Rotate coordinate system.
 	for i in range(3):
 		rotated_cs[i] = np.transpose(m@np.transpose(cs[i]))
-	# Return the rotated cs.
+	# Return the rotated cs.+self.pixelSize*np.sign()
 	return rotated_cs
 
-def calculateExtent(imagePosition,imageOrientation,imageSize,pixelSize):
-	# Image position and orientation is as per DICOM descriptor.
-	# Image size is shape of array.
-	# Pixel size is for all three axes (including spacingBetweenSlices.
+def calculateExtent(ncs,newArraySize,oldPixelSize,leftTop=None,centrePosition=None,updatePixelSize=True):
+	# oldPixelSize, centrePosition and leftTop must be in mm.
+	# newArraySize must be in np.shape format.
+	# ncs must be a 3x3 transform (row0: x, row1: y, row2: z).
 	# X and Y mappings onto the coordinate system.
-	x = imageOrientation[:3]
-	y = imageOrientation[3:6]
-	z = np.cross(x,y)
-	# Transform to take pixel location into dicom location.
-	M = np.array([
-		[x[0]*pixelSize[0], y[0]*pixelSize[1],  z[0]*pixelSize[2], imagePosition[0]],
-		[x[1]*pixelSize[0], y[1]*pixelSize[1],  z[1]*pixelSize[2], imagePosition[1]],
-		[x[2]*pixelSize[0], y[2]*pixelSize[1],  z[2]*pixelSize[2], imagePosition[2]],
-		[0, 0, 0, 1]
-	])
-	'''
-	Find the origin. Point (P), Transform (M), Coordinate (C):
-		P = MC
-		(M^-1)P = C
-	'''
-	originCoordinate = np.linalg.inv(M)@np.transpose(np.array([0,0,0,1]))
-	# New pixel size.
-	test = np.transpose(np.append(pixelSize,1))
-	R = np.array([
-		[x[0], y[0],  z[0], 0],
-		[x[1], y[1],  z[1], 0],
-		[x[2], y[2],  z[2], 0],
-		[0, 0, 0, 1]
-	])
-	pixelSize = np.transpose(R@test)
+	x = ncs[0]
+	y = ncs[1]
+	z = ncs[2]
+	# Calculate new pixelsize.
+	newPixelSize = ncs@np.transpose(oldPixelSize)
+	# Ensure newarraysize is np array.
+	newArraySize = np.array(newArraySize)
+	if (leftTop is None) & (centrePosition is None):
+		logging.critical('Cannot calculate extent when no reference point is given. Either leftTop or centrePosition must be assigned a vector.')
+		return
+	else:
+		if leftTop is None:
+			# No leftTop value, calculate it from centrePosition.
+			newCentrePosition = ncs@np.transpose(centrePosition)
+			leftTop = newCentrePosition - newPixelSize*(newArraySize/2)
+		else:
+			# Left top is specified. 
+			pass
+	# Calculate the transform to take pixel location into dicom location.
+	# M = np.array([
+	# 	[x[0]*pixelSize[0], y[0]*pixelSize[1],  z[0]*pixelSize[2], leftTop[0]],
+	# 	[x[1]*pixelSize[0], y[1]*pixelSize[1],  z[1]*pixelSize[2], leftTop[1]],
+	# 	[x[2]*pixelSize[0], y[2]*pixelSize[1],  z[2]*pixelSize[2], leftTop[2]],
+	# 	[0, 0, 0, 1]
+	# ])
+
+	# Find centre of array (mm).
+	# centre = M@np.array(imageSize/2)
+	# print('centre: ',centre)
+	# Get new pixel size (mm).
+	# newPixelSize = M@np.transpose(np.array([1,1,1,0]))
 	# Calculate extent (lr,bt,fb). Swapped y1 and y2 as the axis goes in the other direction for mpl extent... stupid.
-	x1 =  -(originCoordinate[0]+0.5)*pixelSize[0]
-	x2 =  ((imageSize[0]-originCoordinate[0])+0.5)*pixelSize[0]
-	y2 =  -(originCoordinate[1]+0.5)*pixelSize[1]
-	y1 =  ((imageSize[1]-originCoordinate[1])+0.5)*pixelSize[1]
-	z1 =  -(originCoordinate[2]+0.5)*pixelSize[2]
-	z2 =  ((imageSize[2]-originCoordinate[2])+0.5)*pixelSize[2]
-	# Return extent.
-	return np.array([x1,x2,y1,y2,z1,z2])
+	x1 = leftTop[0]
+	y2 = leftTop[1]
+	z1 = leftTop[2]
+	x2 = leftTop[0] + newArraySize[0]*newPixelSize[0]
+	y1 = leftTop[1] + newArraySize[1]*newPixelSize[1]
+	z2 = leftTop[2] + newArraySize[2]*newPixelSize[2]
+	extent = np.array([x1,x2,y1,y2,z1,z2])
+	# print('extent: ',extent)
+	return extent
 
 def calculate2DViewLabels(patientPosition,rcs,axis=0):
 	'''

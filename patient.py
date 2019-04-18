@@ -15,7 +15,14 @@ class patient:
 			self.ct = importer.dicom_ct(dataset,self._gpuContext)
 		elif dtype == 'RTPLAN': 
 			if self.ct != None: 
-				self.rtplan = importer.dicom_rtplan(dataset,self.ct._RCS,self._gpuContext)
+				self.rtplan = importer.dicom_rtplan(
+						dataset,
+						self.ct.RCS,
+						self.ct.RCS_LEFTTOP,
+						self.ct.pixelArray.shape,
+						self.ct.pixelSize,
+						self._gpuContext
+					)
 			else: 
 				logging.critical('No CT Dataset loaded. Cannot import treatment plan.')
 		else: logging.critical('No importer for file type: ',dtype)
