@@ -99,13 +99,9 @@ class gpu:
 		# Create memory flags.
 		mf = cl.mem_flags
 		# GPU buffers.
-		# print(rotationMatrix)
-		# print(rotationMatrix.dtype)
-		# print(rotationMatrix.flatten())
 		gpuRotation = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=rotationMatrix.astype('float32'))
 		gpuOut = cl.Buffer(self.ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=arrOut)
 		gpuOutShape = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=arrOutShape)
-		# print(arrOutShape)
 		# Get kernel source.
 		fp = os.path.dirname(inspect.getfile(gpu))
 		kernel = open(fp+"/kernels/rotate.cl", "r").read()
@@ -124,8 +120,6 @@ class gpu:
 		cl.enqueue_copy(self.queue, arrOut, gpuOut)
 		# Remove any dirty array values in the output.
 		# arrOut = np.nan_to_num(arrOut)
-		# print('Output Array:')
-		# print(arrOut)
 		return arrOut
 
 	def copy(self):

@@ -106,11 +106,9 @@ class dicom_ct:
 		self.pixelSize = np.append(np.array(list(map(float,ref.PixelSpacing))),spacingBetweenSlices)
 		leftTop = np.array(list(map(float,ref.ImagePositionPatient)))
 		# Calculate Extent.
-		print("Calc CT Extent:")
 		# ncs,newArraySize,oldPixelSize,leftTop=None,centrePosition=None
 		self.extent = calculateExtent(self.RCS,self.pixelArray.shape,self.pixelSize,leftTop=leftTop,updatePixelSize=False)
 		self.RCS_LEFTTOP = np.array([self.extent[0],self.extent[3],self.extent[4]])
-		print("---------------")
 		# Load array onto GPU for future reference.
 		gpu.loadData(self.pixelArray,self.extent)
 
@@ -125,8 +123,8 @@ class dicom_ct:
 		self.image[1].view = calculate2DViewLabels(ref.PatientPosition,self.orientation,axis=1)
 
 		# Save and write fp and ds.
-		np.save(self.fp+'/dicom_ct.npy',self.pixelArray)
-		self.ds = [self.fp+'/dicom_ct.npy']
+		# np.save(self.fp+'/dicom_ct.npy',self.pixelArray)
+		# self.ds = [self.fp+'/dicom_ct.npy']
 		self.fp = os.path.dirname(self.fp)
 
 class beamClass:
@@ -154,8 +152,7 @@ class dicom_rtplan:
 		self.isocenter = np.array(list(map(float,ref.BeamSequence[0].ControlPointSequence[0].IsocenterPosition)))
 
 		# Extract confromal mask data.
-		# for i in range(len(self.beam)):
-		for i in range(1):
+		for i in range(len(self.beam)):
 			self.beam[i] = beamClass()
 			# If a block is specified for the MLC then get it.
 			if ref.BeamSequence[0].NumberOfBlocks > 0:
@@ -168,53 +165,67 @@ class dicom_rtplan:
 			self.beam[i].collimator = float(ref.BeamSequence[i].ControlPointSequence[0].BeamLimitingDeviceAngle)
 			self.beam[i].pitch = float(ref.BeamSequence[i].ControlPointSequence[0].TableTopPitchAngle)
 			self.beam[i].roll = float(ref.BeamSequence[i].ControlPointSequence[0].TableTopRollAngle)
+			# RCS fixed to MCS fixed.
+			rcsf2mcsf = np.array([[1,0,0],[0,0,1],[0,-1,0]])
+			# BCS.
+			temp_cs = rotate_cs(np.identity(3),[self.beam[i].pitch],['x'])
+			temp_cs = rotate_cs(temp_cs,[self.beam[i].roll],['y'])
+			temp_cs = rotate_cs(temp_cs,[self.beam[i].patientSupport],['z'])
+			bcs = rotate_cs(temp_cs,[self.beam[i].gantry,self.beam[i].collimator],['y','z'])
+			# RCS 2 MCS.
+			self.beam[i]._rcs2bcs = (bcs)@(rcsf2mcsf)@(rcs)
+
+			print('------------------------------------------')
+			print('self.beam[i].gantry: ',self.beam[i].gantry)
+			print('self.beam[i].patientSupport: ',self.beam[i].patientSupport)
+			print('self.beam[i].collimator: ',self.beam[i].collimator)
+			print('self.beam[i].pitch: ',self.beam[i].pitch)
+			print('self.beam[i].roll: ',self.beam[i].roll)
 			# Take RCS (patient) and begin modifying it's position.
 			# Rotate it into the view of the collimator.
-			temp_cs = rotate_cs(rcs,[self.beam[i].pitch],[0])
-			temp_cs = rotate_cs(temp_cs,[self.beam[i].roll],[1])
-			temp_cs = rotate_cs(temp_cs,[self.beam[i].patientSupport],[2])
-			self.beam[i].bcs = rotate_cs(temp_cs,[self.beam[i].gantry,self.beam[i].collimator],[1,2])
+			# print('rcs: ',rcs)
+			print('self.beam[i]._rcs2bcs: ',self.beam[i]._rcs2bcs)
 
-			# Solve the transform that takes the RCS into the BCS (Beam Coordinate System).
-			self.beam[i]._rcs2bcs = wcs2wcs(rcs,self.beam[i].bcs)
+			# Solve the transform that takes the RCS into the MCS (Machine Coordinate System).
+			# self.beam[i]._rcs2mcs = wcs2wcs(rcs,self.beam[i].mcs)
+			# self.isocenter = self.beam[i]._rcs2bcs@np.transpose(self.isocenter)
 			# Rotate the dataset.
 			# pixelArray = gpuContext.copy()
 			# self.beam[i]._rcs2bcs = np.identity(3)
 			pixelArray = gpuContext.rotate(self.beam[i]._rcs2bcs)
 			# Calculate the extent.
-			print("CALC RT EXTENT:")
 			# extent = calculateExtent(self.beam[i]._rcs2bcs,rcsLeftTop,pixelArray.shape,ctArrayPixelSize)
 			ctArrayCentre = rcsLeftTop + (ctArrayPixelSize*(np.array(ctArrayShape)/2))
 			extent = calculateExtent(self.beam[i]._rcs2bcs,pixelArray.shape,ctArrayPixelSize,centrePosition=ctArrayCentre)
-			print("---------------")
 			# Create images.
 			self.beam[i].image = [image2d(),image2d()]
 			# Flatten the 3d image to the two 2d images.
-			self.beam[i].image[0].pixelArray = np.sum(pixelArray,axis=1)
+			self.beam[i].image[0].pixelArray = np.sum(pixelArray,axis=2)
 			self.beam[i].image[0].extent = np.array([extent[0],extent[1],extent[4],extent[5]])
 			self.beam[i].image[0].view = { 'xLabel': 'x', 'yLabel': 'y', 'title':'No Title' }
-			# self.image[0].extent = np.array([ self.extent[0], self.extent[1], self.extent[2], self.extent[3] ])
+			# self.beam[i].image[0].extent = np.array([ self.extent[0], self.extent[1], self.extent[2], self.extent[3] ])
 			# self.image[0].view = calculate2DViewLabels(ref.PatientPosition,self.orientation,axis=2)
-			self.beam[i].image[1].pixelArray = np.sum(pixelArray,axis=2)
+			self.beam[i].image[1].pixelArray = np.sum(pixelArray,axis=1)
 			self.beam[i].image[1].extent = np.array([extent[3],extent[2],extent[4],extent[5]])
 			self.beam[i].image[1].view = { 'xLabel': 'x', 'yLabel': 'y', 'title':'No Title' }
-			# self.image[1].extent = np.array([ self.extent[4], self.extent[5], self.extent[2], self.extent[3] ])
+			# self.beam[i].image[1].extent = np.array([ self.extent[4], self.extent[5], self.extent[2], self.extent[3] ])
 			# self.image[1].view = calculate2DViewLabels(ref.PatientPosition,self.orientation,axis=1)
+
 
 def rotate_cs(cs,theta,axis):
 	# Put angles into radians.
 	rotations = []
 	for i in range(len(theta)):
 		t = np.deg2rad(theta[i])
-		if axis[i] == 0: r = np.array([[1,0,0],[0,np.cos(t),-np.sin(t)],[0,np.sin(t),np.cos(t)]])
-		elif axis[i] == 1: r = np.array([[np.cos(t),0,np.sin(t)],[0,1,0],[-np.sin(t),0,np.cos(t)]])
-		elif axis[i] == 2: r = np.array([[np.cos(t),-np.sin(t),0],[np.sin(t),np.cos(t),0],[0,0,1]])
+		if axis[i] == 'x': r = np.array([[1,0,0],[0,np.cos(t),-np.sin(t)],[0,np.sin(t),np.cos(t)]])
+		elif axis[i] == 'y': r = np.array([[np.cos(t),0,np.sin(t)],[0,1,0],[-np.sin(t),0,np.cos(t)]])
+		elif axis[i] == 'z': r = np.array([[np.cos(t),-np.sin(t),0],[np.sin(t),np.cos(t),0],[0,0,1]])
 		rotations.append(r)
 
 	# Calculate out the combined rotations.
 	m = np.identity(3)
 	for i in range(len(rotations)):
-		m = rotations[len(rotations)-1-i]@m
+		m = rotations[-(i+1)]@m
 
 	rotated_cs = np.zeros(cs.shape)
 	# Rotate coordinate system.
@@ -245,6 +256,7 @@ def calculateExtent(ncs,newArraySize,oldPixelSize,leftTop=None,centrePosition=No
 			leftTop = newCentrePosition - newPixelSize*(newArraySize/2)
 		else:
 			# Left top is specified. 
+			newCentrePosition = np.nan
 			pass
 	# Calculate the transform to take pixel location into dicom location.
 	# M = np.array([
@@ -267,6 +279,16 @@ def calculateExtent(ncs,newArraySize,oldPixelSize,leftTop=None,centrePosition=No
 	y1 = leftTop[1] + newArraySize[1]*newPixelSize[1]
 	z2 = leftTop[2] + newArraySize[2]*newPixelSize[2]
 	extent = np.array([x1,x2,y1,y2,z1,z2])
+	print('------------------------------------------')
+	print('ncs:', ncs)
+	print('newArraySize:', newArraySize)
+	print('oldPixelSize:', oldPixelSize)
+	print('newPixelSize:', newPixelSize)
+	print('centrePosition:', centrePosition)
+	print('newCentrePosition:', newCentrePosition)
+	print('leftTop:', leftTop)
+	print('extent:', extent)
+
 	# print('extent: ',extent)
 	return extent
 

@@ -30,6 +30,7 @@ class QPlot:
 		self.markersListOptimised = []
 		self.markerModel = tableModel
 		self._radiographMode = 'sum'
+		self._R = np.identity(3)
 		# Axis takes on values {1: first axis, 2: second axis, 0: null axis}.
 		self.axis = [1,2,0]
 
@@ -65,6 +66,10 @@ class QPlot:
 		self.canvas.draw()
 
 		self.canvas._pickerActive = False
+
+	def loadCoordinate(self,name,vector):
+		# Pull in DICOM information in XYZ mm and turn it into the current view of the dataset.
+		self.coordinate[name] = self._R@np.transpose(np.array(vector))
 
 	def imageLoad(self,array,extent=np.array([-1,1,-1,1])):
 		# Clear the canvas and start again:
