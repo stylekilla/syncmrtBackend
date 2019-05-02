@@ -50,13 +50,11 @@ class gpu:
 		# Create a device queue.
 		self.queue = cl.CommandQueue(self.ctx)
 
-	def loadData(self,data,extent):
+	def loadData(self,data):
 		# Specify inpput buffer.
 		array = np.array(data,order='C').astype(np.int32)
 		self._inputBuffer = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=array)
 		self._inputBufferShape = np.shape(array)
-		# Save the extent.
-		self._inpuytArrayExtent = extent
 
 	def getData(self):
 		return self._outputBuffer
@@ -89,6 +87,7 @@ class gpu:
 		outputShape = np.rint(mins+maxs).astype(int)
 		# Create empty output array set to -1000.
 		arrOut = np.zeros(outputShape).astype(np.int32)-1000
+		# Swap the x and y size of the arr shape.
 		arrOutShape = np.array(arrOut.shape).astype(np.int32)
 		'''
 		The GPU wizardry:

@@ -18,9 +18,10 @@ class patient:
 				self.rtplan = importer.dicom_rtplan(
 						dataset,
 						self.ct.RCS,
-						self.ct.RCS_LEFTTOP,
+						self.ct.leftTopFront,
 						self.ct.pixelArray.shape,
 						self.ct.pixelSize,
+						self.ct.patientPosition,
 						self._gpuContext
 					)
 			else: 

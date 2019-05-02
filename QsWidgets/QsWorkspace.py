@@ -66,6 +66,8 @@ class QPlotEnvironment(QtWidgets.QWidget):
 			self.tableView.append(QtWidgets.QTableView())
 			# The plot needs the table model for data.
 			self.plot.append(QtMpl.QPlot(self.tableModel[i]))
+			# On model change update the plot markers.
+			self.tableModel[i].itemChanged.connect(self.plot[i].markerUpdate)
 			# The navbar needs the plot widget and the parent widget.
 			self.navbar.append(QNavigationBar(self.plot[i].canvas))
 			self.navbar[i].toggleImageSettings.connect(self.toggleImageSettings)
