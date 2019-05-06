@@ -387,8 +387,8 @@ class QXrayProperties(QtWidgets.QWidget):
 	def addPlotHistogramWindow(self,widget):
 		# These are new ones each time. Remove old wdigets.
 		layout = self.window['layout'].layout()
-		for i in range(layout.count()):
-			layout.removeItem(i)
+		for i in reversed(range(layout.count())): 
+			layout.itemAt(i).widget().setParent(None)
 		# New widgets.
 		for i in range(len(widget)):
 			layout.addWidget(widget[i])

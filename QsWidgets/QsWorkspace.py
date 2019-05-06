@@ -104,6 +104,15 @@ class QPlotEnvironment(QtWidgets.QWidget):
 	def getPlotHistogram(self):
 		return self.histogram
 
+	def reset(self):
+		for i in reversed(range(self.layout.count())): 
+			self.layout.itemAt(i).widget().setParent(None)
+		self.navbar = []
+		self.plot = []
+		self.tableModel = []
+		self.tableView = []
+		self.histogram = []
+
 	def setRadiographMode(self,mode):
 		'''Set radiograph mode to 'sum' or 'max.''' 
 		self.plot[i]._radiographMode = mode
