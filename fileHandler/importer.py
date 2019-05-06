@@ -160,7 +160,11 @@ class dicom_rtplan:
 			self.beam[i] = beamClass()
 			# If a block is specified for the MLC then get it.
 			if ref.BeamSequence[0].NumberOfBlocks > 0:
-				self.beam[i].mask = ref.BeamSequence[i].BlockSequence[0].BlockData
+				temp = np.array(list(map(float,ref.BeamSequence[i].BlockSequence[0].BlockData)))
+				class _data:
+					x = np.append(temp[0::2],temp[0])
+					y = np.append(temp[1::2],temp[1])
+				self.beam[i].mask = _data
 				self.beam[i].maskThickness = ref.BeamSequence[i].BlockSequence[0].BlockThickness
 			# Get the jaws position for backup.
 			# Get the machine positions.
@@ -181,19 +185,9 @@ class dicom_rtplan:
 			self.beam[i]._arr2bcs = (bcs)
 			self.beam[i].BCS = (bcs)
 			self.beam[i].isocenter = np.absolute(bcs)@self.isocenter
-
-
-			# Solve the transform that takes the RCS into the MCS (Machine Coordinate System).
-			# self.beam[i]._rcs2mcs = wcs2wcs(rcs,self.beam[i].mcs)
-			# self.isocenter = self.beam[i]._arr2bcs@np.transpose(self.isocenter)
 			# Rotate the dataset.
 			pixelArray = gpuContext.rotate(self.beam[i]._arr2bcs)
-			# Calculate the extent.
-			# extent = calculateExtent(self.beam[i]._arr2bcs,rcsLeftTop,pixelArray.shape,ctArrayPixelSize)
-			# ctArrayCentre = rcsLeftTop + (ctArrayPixelSize*(np.array(ctArrayShape)/2))
-			# extent = calculateExtent(self.beam[i]._arr2bcs,pixelArray.shape,ctArrayPixelSize,centrePosition=ctArrayCentre)
-
-			# Create images.
+			# Create the 2d projection images.
 			self.beam[i].image = [image2d(),image2d()]
 			# Get the relevant information for the new image.
 			pixelSize = bcs@dcm2python@ctArrayPixelSize
@@ -227,9 +221,6 @@ def rotate_cs(cs,theta,axis):
 	for i in range(3):
 		rotated_cs[i] = m@np.transpose(cs[i])
 
-	print('-'*10)
-	print('In: \n',cs)
-	print('Out: \n',rotated_cs)
 	return rotated_cs
 
 def calculateNewImageInformation(patientPosition,cs,arraySize,pixelSize,leftTopFront):
@@ -239,9 +230,6 @@ def calculateNewImageInformation(patientPosition,cs,arraySize,pixelSize,leftTopF
 	sy = np.sign(cs[:,1][magnitudes[1]])
 	sz = np.sign(cs[:,2][magnitudes[2]])
 	signs = np.array([sx,sy,sz])
-	print('cs: ',cs)
-	print('magnitudes: \n',magnitudes)
-	print('signs: \n',signs)
 
 	# Set the labels for the patient position.
 	rcsLabels = np.array(['?','?','?','?','?','?'])
@@ -286,145 +274,4 @@ def calculateNewImageInformation(patientPosition,cs,arraySize,pixelSize,leftTopF
 	extent = np.array([left,right,bottom,top,front,back])
 	labels = np.array([xAxis,yAxis,zAxis])
 
-	print('extent: \n',extent)
-	print('labels: \n',labels)
-
 	return extent, labels
-
-def calculateExtent(ncs,newArraySize,oldPixelSize,leftTop=None,centrePosition=None,updatePixelSize=True):
-	# oldPixelSize, centrePosition and leftTop must be in mm.
-	# newArraySize must be in np.shape format.
-	# ncs must be a 3x3 transform (row0: x, row1: y, row2: z).
-	x = ncs[0]
-	y = ncs[1]
-	z = ncs[2]
-	# Calculate new pixelsize.
-	newPixelSize = ncs@np.transpose(oldPixelSize)
-	# Ensure newarraysize is np array.
-	newArraySize = np.array(newArraySize)
-	if (leftTop is None) & (centrePosition is None):
-		logging.critical('Cannot calculate extent when no reference point is given. Either leftTop or centrePosition must be assigned a vector.')
-		return
-	else:
-		if leftTop is None:
-			# No leftTop value, calculate it from centrePosition.
-			newCentrePosition = ncs@np.transpose(centrePosition)
-			leftTop = newCentrePosition - newPixelSize*(newArraySize/2)
-		else:
-			# Left top is specified. 
-			newCentrePosition = np.nan
-			pass
-	# Calculate the transform to take pixel location into dicom location.
-	# M = np.array([
-	# 	[x[0]*pixelSize[0], y[0]*pixelSize[1],  z[0]*pixelSize[2], leftTop[0]],
-	# 	[x[1]*pixelSize[0], y[1]*pixelSize[1],  z[1]*pixelSize[2], leftTop[1]],
-	# 	[x[2]*pixelSize[0], y[2]*pixelSize[1],  z[2]*pixelSize[2], leftTop[2]],
-	# 	[0, 0, 0, 1]
-	# ])
-
-	# Find centre of array (mm).
-	# centre = M@np.array(imageSize/2)
-	# print('centre: ',centre)
-	# Get new pixel size (mm).
-	# newPixelSize = M@np.transpose(np.array([1,1,1,0]))
-	# Calculate extent (lr,bt,fb). Swapped y1 and y2 as the axis goes in the other direction for mpl extent... stupid.
-	x1 = leftTop[0]
-	y2 = leftTop[1]
-	z1 = leftTop[2]
-	x2 = leftTop[0] + newArraySize[0]*newPixelSize[0]
-	y1 = leftTop[1] + newArraySize[1]*newPixelSize[1]
-	z2 = leftTop[2] + newArraySize[2]*newPixelSize[2]
-	extent = np.array([x1,x2,y1,y2,z1,z2])
-	print('------------------------------------------')
-	print('ncs:', ncs)
-	print('newArraySize:', newArraySize)
-	print('oldPixelSize:', oldPixelSize)
-	print('newPixelSize:', newPixelSize)
-	print('centrePosition:', centrePosition)
-	print('newCentrePosition:', newCentrePosition)
-	print('leftTop:', leftTop)
-	print('extent:', extent)
-
-	# print('extent: ',extent)
-	return extent
-
-def calculate2DViewLabels(patientPosition,rcs,axis=0):
-	'''
-		patientPosition can be Head/Feet First Supine/Prone.
-		rcs is the dicomFile.ImageOrientation (the cosine mappings of the X and Y axes).
-
-		Labels are calculated as degrees from axis:
-		-90  -60  -45  -30   0   +30  +45  +60  +90
-		 |----|////|////|----|----|////|////|----|
-		"B"      "AB"       "A"       "AC"      "C"
-
-		rcs stored as 3x3 matrix where first row is X axis projected on i,j,k, then Y, then Z.
-		[ Xi Xj Xk ]   [ 1 0 0 ]
-		[ Yi Yj Yk ] = [ 0 1 0 ]
-		[ Zi Zj Zk ]   [ 0 0 1 ]
-	'''
-	# Set the labels for the patient position.
-	rcsLabels = None 
-	if patientPosition == 'HFS': rcsLabels = np.array(['R','L','P','A','I','S'])
-	elif patientPosition == 'HFP': rcsLabels = np.array(['R','L','A','P','I','S'])
-	elif patientPosition == 'FFS': rcsLabels = np.array(['L','R','P','A','S','I'])
-	elif patientPosition == 'FFP': rcsLabels = np.array(['L','R','A','P','S','I'])
-	# Specify vectors for axes.
-	wcs_x = rcs[0]
-	wcs_y = rcs[1]
-	wcs_z = rcs[2]
-
-	# Check to see if wcs_x = wcs_y (i.e they are at 45 deg)
-	if np.array_equal(rcs[0],rcs[1]):
-		# It is preferred to keep them on their same axes.
-		wcs_x = np.sign(wcs_x[0])*[1,0,0]
-		wcs_y = np.sign(wcs_y[0])*[0,1,0]
-
-	wcsLabels = {}
-	wcsLabels['title'] = '?'
-	wcsLabels['xLabel'] = '?'
-	wcsLabels['yLabel'] = '?'
-
-	# Find which axis each is maximised on.
-	wcs_axes = [wcs_x, wcs_y, wcs_z]
-	wcs_max = [np.argmax(np.absolute(wcs_x)), np.argmax(np.absolute(wcs_y)), np.argmax(np.absolute(wcs_z))]
-	wcs_max = wcs_max * np.sign([np.amax(wcs_x), np.amax(wcs_y), np.amax(wcs_z)])
-
-	for idx, val in enumerate(wcs_max):
-		# Get direction and axis.
-		wcs_axis = int(np.absolute(val))
-		# Find corresponding labels.
-		labels = rcsLabels[wcs_axis*2:wcs_axis*2+2]
-		# Order labels.
-		if np.sign(val) == -1: labels = np.flip(labels)
-		# Special case for axis 1 because we really flatten it in -1 (reverse direction).
-		if (axis == 1) & (idx == 0): labels = np.flip(labels)
-		# Assign to label.
-		if axis == 2:		
-			if idx == 0: wcsLabels['xLabel'] = ''.join(labels)
-			elif idx == 1: wcsLabels['yLabel'] = ''.join(labels)
-			elif idx == 2: wcsLabels['title'] = ''.join(labels)
-		elif axis == 1:		
-			if idx == 2: wcsLabels['xLabel'] = ''.join(labels)
-			elif idx == 1: wcsLabels['yLabel'] = ''.join(labels)
-			elif idx == 0: wcsLabels['title'] = ''.join(labels)
-		elif axis == 0:		
-			if idx == 0: wcsLabels['xLabel'] = ''.join(labels)
-			elif idx == 2: wcsLabels['yLabel'] = ''.join(labels)
-			elif idx == 1: wcsLabels['title'] = ''.join(labels)
-
-	return wcsLabels
-
-def roundInt(value):
-	sign = np.sign(value)
-	value = np.absolute(value)
-	if (value > (2**-0.5)): 
-		# value = 1
-		if sign == 1.0:
-			value = 0
-		else:
-			value = 1
-	else:
-		# value = 0
-		value = -1
-	return value

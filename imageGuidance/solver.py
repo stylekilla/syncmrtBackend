@@ -16,18 +16,16 @@ class solver:
 		self._rightPoints = np.zeros((3,3))
 		self._patientIsocenter = None
 		self._machineIsocenter = np.zeros((3,))
-		self._axesDirection = np.ones((3,))
 		self._scale = 0
 		self.solution = np.zeros((6,))
 		self.transform = np.identity(4)
 
-	def updateVariable(self,left=None,right=None,patientIsoc=None,machineIsoc=None,axesDirection=None):
+	def input(self,left=None,right=None,patientIsoc=None,machineIsoc=None):
 		# Update vars.
 		if left is not None: self._leftPoints = np.array(left)
 		if right is not None: self._rightPoints = np.array(right)
 		if patientIsoc is not None: self._patientIsocenter = np.array(patientIsoc)
 		if machineIsoc is not None: self._machineIsocenter = np.array(machineIsoc)
-		if axesDirection is not None: self._axesDirection = np.array(axesDirection)
 
 	def centroid(self):
 		# Run the centroid calcaulation routine.
@@ -38,10 +36,6 @@ class solver:
 		'''Points should come in as xyz cols and n-points rows: np.array((n,xyz))'''
 		n = np.shape(self._leftPoints)[0]
 
-		# Change left (dicom) points to match axis directions for the synchrotron.
-		for i in range(n):
-			self._leftPoints[i,:] *= self._axesDirection
-
 		# Find the centroids of the LEFT and RIGHT WCS.
 		self._leftCentroid = centroid(self._leftPoints)
 		self._rightCentroid = centroid(self._rightPoints)
@@ -50,10 +44,6 @@ class solver:
 		if self._patientIsocenter is None:
 			self._patientIsocenter = self._leftCentroid
 
-		# Rotate the isocenter with the axes direction.
-		self._patientIsocenter *= self._axesDirection
-
-		print('Axes Direction:',self._axesDirection)
 		print('Left Points:',self._leftPoints)
 		print('Left Ctd:',self._leftCentroid)
 		print('Right Points:',self._rightPoints)
@@ -96,24 +86,6 @@ class solver:
 		# Translation 2: Centroid isoc to machine isocenter.
 		translation2 = self._machineIsocenter - self._rightCentroid
 
-		# # If no patient isocenter is defined, align to the centroid.
-		# if patientIsoc is None:
-		# 	patientIsoc = self._leftCentroid
-
-		# # Centroid to ptv isoc (according to the treatment plan).
-		# ct_ctd2isoc = patientIsoc - self._leftCentroid
-
-		# # Move synchrotron centroid to beam isocenter.
-		# if synchRotIsoc is not None:
-		# 	# Find where the centroid is after rotation.
-		# 	synch_rotctd = np.dot(self._rightCentroid,R)
-		# 	translation1 = synchBeamIsoc - synch_rotctd
-		# else:
-		# 	translation1 = synchBeamIsoc - self._rightCentroid
-
-		# Move patient isocenter to beam isocenter.
-		# translation2 = synchBeamIsoc + ct_ctd2isoc
-
 		# Final translation is a combination of all other translations.
 		translation = translation2 - translation1
 		self.transform[:3,3] = translation.transpose()
@@ -134,13 +106,6 @@ class solver:
 		print('Translation 2: machiso - patisoc',translation2)
 		print('Overall transpose:',translation)
 		print('Synch Patient Iso:',self._syncPatientIsocenter)
-
-		# Change left (dicom) values back to DICOM cs used by gui.
-		for i in range(n):
-			self._leftPoints[i,:] *= self._axesDirection
-		self._patientIsocenter *= self._axesDirection
-		# self._syncPatientIsocenter *= self._axesDirection
-		self._leftCentroid *= self._axesDirection
 
 		return self.solution
 
@@ -247,6 +212,7 @@ def angles(R):
 				del y[i]
 				del z[i]
 			except:
+				logging.critical('Cannot solve alignment. Unknown cause.')
 				print('\033[91m Unable to solve for the alignment. Please select the points properly.')
 				return 0, 0, 0
 

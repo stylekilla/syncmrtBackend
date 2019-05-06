@@ -108,26 +108,32 @@ class QPlotEnvironment(QtWidgets.QWidget):
 		'''Set radiograph mode to 'sum' or 'max.''' 
 		self.plot[i]._radiographMode = mode
 
-	def settings(self,setting,value):
+	def set(self,setting,value):
 		if setting == 'maxMarkers':
 			for i in range(len(self.plot)):
 				self.plot[i].markerModel.setMarkerRows(value)
 				self.plot[i].markersMaximum = value
+		elif setting == 'patIso':
+			self.plot[0].patientIsocenter = [value[1],value[0]]
+			self.plot[1].patientIsocenter = [value[2],value[0]]
+		elif setting == 'patMask':
+			# Only show the mask in the first view. There is none to show in the second view.
+			for i in range(len(self.plot)):
+				self.plot[i].mask = value
+		elif setting == 'markerCtd':
+			self.plot[0].ctd = [value[1],value[0]]
+			self.plot[1].ctd = [value[2],value[0]]
 		else:
 			pass
 
-	def updatePatientIsocenter(self,newIsoc):
-		for i in range(len(self.plot)):
-			# Update value in plot.
-			self.plot[i].patientIsocenter = newIsoc
-			# Refresh plot by toggling overlay off/on.
-			self.plot[i].toggleOverlay(2,False)
-			self.plot[i].toggleOverlay(2,True)
-
 	def toggleOverlay(self,overlay,state):
-		for i in range(len(self.plot)):
-			# Overlay = 0 (ctd), 1 (mach iso), 2 (pat iso)
-			self.plot[i].toggleOverlay(overlay,state)
+		if overlay == 3:
+			self.plot[0].toggleOverlay(3,state)
+			self.plot[1].toggleOverlay(4,state)
+		else:
+			for i in range(len(self.plot)):
+				# Overlay = 0 (ctd), 1 (mach iso), 2 (pat iso), 3 (patient mask frontal), 4 (patient mask, side)
+				self.plot[i].toggleOverlay(overlay,state)
 
 	def toggleImageSettings(self):
 		self.toggleSettings.emit()

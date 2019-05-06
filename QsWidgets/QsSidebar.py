@@ -3,6 +3,7 @@ from functools import partial
 
 class QAlignment(QtWidgets.QWidget):
 	markersChanged = QtCore.pyqtSignal(int)
+	calculateAlignment = QtCore.pyqtSignal(int)
 
 	def __init__(self):
 		super().__init__()
@@ -142,15 +143,15 @@ class QTreatment(QtWidgets.QWidget):
 
 		# Group 2: Deliver Treatment
 		# Dict for beam plan group widgets.
-		self.widget['beam'] = {}
-		group = QtWidgets.QGroupBox()
-		group.setTitle('Deliver Treatment')
-		# Empty Layout
-		self.widget['deliveryGroup'] = QtWidgets.QFormLayout()
+		self.widget['beamGroup'] = QtWidgets.QGroupBox()
+		self.widget['beamGroup'].setVisible(False)
+		self.widget['beamGroup'].setTitle('Beam Sequence')
+		# Empty Layout, start by saying no RTPLAN loaded.
+		self.widget['beamSequence'] = QtWidgets.QFormLayout()
 		self.widget['noTreatment'] = QtWidgets.QLabel('No Treatment Plan loaded.')
-		self.widget['deliveryGroup'].addRow(self.widget['noTreatment'])
-		group.setLayout(self.widget['deliveryGroup'])
-		self.layout.addWidget(group)
+		self.widget['beamSequence'].addRow(self.widget['noTreatment'])
+		self.widget['beamGroup'].setLayout(self.widget['beamSequence'])
+		self.layout.addWidget(self.widget['beamGroup'])
 		# Defaults
 		# Signals and Slots
 
@@ -161,25 +162,31 @@ class QTreatment(QtWidgets.QWidget):
 	def updateLayout(self):
 		self.setLayout(self.layout)
 
-
 	def populateTreatments(self):
 		'''Once treatment plan is loaded, add the treatments to the workflow.'''
+		# Remove the no treatment widget.
 		self.widget['noTreatment'].deleteLater()
 		del self.widget['noTreatment']
-
-		for i in range(int(self.widget['quantity'].text())):	
+		# Enable the group widget again.
+		self.widget['beamGroup'].setVisible(True)
+		self.widget['beam'] = [None]*int(self.widget['quantity'].text())
+		# sequenceLayout = QtWidgets.QFormLayout()
+		# For each beam specified in the count, add a set of buttons.
+		for i in range(int(self.widget['quantity'].text())):
 			self.widget['beam'][i] = {}
 			label = QtWidgets.QLabel(str('Beam %i'%(i+1)))
+			# sequenceGroup = QtWidgets.QGroupBox()
+
 			self.widget['beam'][i]['calculate'] = QtWidgets.QPushButton('Calculate')
 			self.widget['beam'][i]['align'] = QtWidgets.QPushButton('Align')
 			# self.widget['beam'][i]['hline'] = QHLine()
 			self.widget['beam'][i]['interlock'] = QtWidgets.QCheckBox('Interlock')
 			self.widget['beam'][i]['deliver'] = QtWidgets.QPushButton('Deliver')
 			# Layout
-			self.widget['deliveryGroup'].addRow(label)
-			self.widget['deliveryGroup'].addRow(self.widget['beam'][i]['calculate'],self.widget['beam'][i]['align'])
-			self.widget['deliveryGroup'].addRow(QHLine())
-			self.widget['deliveryGroup'].addRow(self.widget['beam'][i]['interlock'],self.widget['beam'][i]['deliver'])
+			self.widget['beamSequence'].addRow(label)
+			self.widget['beamSequence'].addRow(self.widget['beam'][i]['calculate'],self.widget['beam'][i]['align'])
+			self.widget['beamSequence'].addRow(QHLine())
+			self.widget['beamSequence'].addRow(self.widget['beam'][i]['interlock'],self.widget['beam'][i]['deliver'])
 			# Defaults
 			self.widget['beam'][i]['alignmentComplete'] = False
 			self.widget['beam'][i]['interlock'].setChecked(True)
@@ -309,7 +316,7 @@ class QSettings(QtWidgets.QWidget):
 		del self.layout
 
 class QXrayProperties(QtWidgets.QWidget):
-	toggleOverlay = QtCore.pyqtSignal(int,int)
+	toggleOverlay = QtCore.pyqtSignal(int,bool)
 
 	def __init__(self,parent=None):
 		super().__init__()
@@ -387,19 +394,19 @@ class QXrayProperties(QtWidgets.QWidget):
 			layout.addWidget(widget[i])
 
 	def emitToggleOverlay(self,button,state):
-		# Make the state a bool
-		if state == 0: state = False
-		elif state == 2: state = True
-		else: state = False
+		setState = False
+		# Identify true or false.
+		if state == 0: setState = False
+		elif state == 2: setState = True
 		# Send the signal.
-		if button == 'cbCentroid': self.toggleOverlay.emit(0,state)
-		elif button == 'cbBeamIsoc': self.toggleOverlay.emit(1,state)
-		elif button == 'cbPatIsoc': self.toggleOverlay.emit(2,state)
+		if button == 'cbCentroid': self.toggleOverlay.emit(0,setState)
+		elif button == 'cbBeamIsoc': self.toggleOverlay.emit(1,setState)
+		elif button == 'cbPatIsoc': self.toggleOverlay.emit(2,setState)
 
 class QCtProperties(QtWidgets.QWidget):
 	# Qt signals.
 	isocenterChanged = QtCore.pyqtSignal(float,float,float)
-	toggleOverlay = QtCore.pyqtSignal(int,int)
+	toggleOverlay = QtCore.pyqtSignal(int,bool)
 
 	def __init__(self):
 		# Init QObject class.
@@ -473,8 +480,8 @@ class QCtProperties(QtWidgets.QWidget):
 		self.layout.addWidget(windowGroup)
 
 		# Finish page.
-		# spacer = QtWidgets.QSpacerItem(0,0)
-		# self.layout.addSpacerItem(spacer)
+		spacer = QtWidgets.QSpacerItem(0,0)
+		self.layout.addSpacerItem(spacer)
 		self.layout.addStretch(1)
 		self.setLayout(self.layout)
 
@@ -497,14 +504,83 @@ class QCtProperties(QtWidgets.QWidget):
 		self.isocenterChanged.emit(x,y,z)
 
 	def emitToggleOverlay(self,button,state):
-		# Make the state a bool
-		if state == 0: state = False
-		elif state == 2: state = True
-		else: state = False
+		setState = False
+		# Identify true or false.
+		if state == 0: setState = False
+		elif state == 2: setState = True
 		# Send the signal.
-		if button == 'cbCentroid': self.toggleOverlay.emit(0,state)
-		elif button == 'cbBeamIsoc': self.toggleOverlay.emit(1,state)
-		elif button == 'cbPatIsoc': self.toggleOverlay.emit(2,state)
+		if button == 'cbCentroid': self.toggleOverlay.emit(0,setState)
+		elif button == 'cbBeamIsoc': self.toggleOverlay.emit(1,setState)
+		elif button == 'cbPatIsoc': self.toggleOverlay.emit(2,setState)
+
+class QRtplanProperties(QtWidgets.QWidget):
+	# Qt signals.
+	toggleOverlay = QtCore.pyqtSignal(int,bool)
+
+	def __init__(self):
+		# Init QObject class.
+		super().__init__()
+		# Continue with sub-class initialisation.
+		self.group = {}
+		self.widget = {}
+		self.layout = QtWidgets.QVBoxLayout()
+
+		# Group: Overlays.
+		overlayGroup = QtWidgets.QGroupBox()
+		overlayGroup.setTitle('Plot Overlays')
+		self.widget['cbPatIsoc'] = QtWidgets.QCheckBox('Patient Isocenter')
+		self.widget['cbMask'] = QtWidgets.QCheckBox('Isocenter Mask')
+		self.widget['cbCentroid'] = QtWidgets.QCheckBox('Centroid Position')
+		# Layout
+		overlayGroupLayout = QtWidgets.QVBoxLayout()
+		overlayGroupLayout.addWidget(self.widget['cbPatIsoc'])
+		overlayGroupLayout.addWidget(self.widget['cbMask'])
+		overlayGroupLayout.addWidget(self.widget['cbCentroid'])
+		# Defaults
+		# Signals and Slots
+		self.widget['cbPatIsoc'].stateChanged.connect(partial(self.emitToggleOverlay,'cbPatIsoc'))
+		self.widget['cbMask'].stateChanged.connect(partial(self.emitToggleOverlay,'cbMask'))
+		self.widget['cbCentroid'].stateChanged.connect(partial(self.emitToggleOverlay,'cbCentroid'))
+		# Group inclusion to page
+		overlayGroup.setLayout(overlayGroupLayout)
+		self.layout.addWidget(overlayGroup)
+
+		# Group 3: Windowing.
+		self.window = {}
+		windowGroup = QtWidgets.QGroupBox()
+		windowGroup.setTitle('CT Windowing')
+		self.window['layout'] = QtWidgets.QVBoxLayout()
+		# Set the layout of group.
+		windowGroup.setLayout(self.window['layout'])
+		# Add group to sidebar layout.
+		self.layout.addWidget(windowGroup)
+
+		# Finish page.
+		# spacer = QtWidgets.QSpacerItem(0,0)
+		# self.layout.addSpacerItem(spacer)
+		self.layout.addStretch(1)
+		self.setLayout(self.layout)
+
+	def addPlotHistogramWindow(self,widget):
+		# These are new ones each time. Remove old wdigets.
+		layout = self.window['layout'].layout()
+		for i in range(layout.count()):
+			layout.removeItem(i)
+		# New widgets.
+		for i in range(len(widget)):
+			layout.addWidget(widget[i])
+
+	def emitToggleOverlay(self,button,state):
+		setState = False
+		# Identify true or false.
+		if state == 0: setState = False
+		elif state == 2: setState = True
+		# Send the signal.
+		if button == 'cbCentroid': self.toggleOverlay.emit(0,setState)
+		elif button == 'cbBeamIsoc': self.toggleOverlay.emit(1,setState)
+		elif button == 'cbPatIsoc': self.toggleOverlay.emit(2,setState)
+		elif button == 'cbMask': self.toggleOverlay.emit(3,setState)
+		else: logging.critical('Cannot set button '+str(button)+' to state '+str(setState)+'.')
 
 class QHUSpinBox(QtWidgets.QSpinBox):
 	'''CT HU windowing spinbox'''
@@ -526,5 +602,5 @@ class QHLine(QtWidgets.QFrame):
 	'''Horizontal line.'''
 	def __init__(self):
 		super().__init__()
-		self.setFrameShape(QtWidgets.QFrame.QHLine)
+		self.setFrameShape(QtWidgets.QFrame.HLine)
 		self.setFrameShadow(QtWidgets.QFrame.Sunken)

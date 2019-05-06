@@ -33,7 +33,7 @@ class QPlot:
 		self._R = np.identity(3)
 		# Axis takes on values {1: first axis, 2: second axis, 0: null axis}.
 		self.axis = [1,2,0]
-
+		self.mask = None
 		self.overlay = {}
 		self.machineIsocenter = [0,0,0]
 		self.patientIsocenter = [0,0,0]
@@ -105,8 +105,11 @@ class QPlot:
 
 	def applyWindow(self,imin,imax):
 		# Set the color scale to match the window.
-		self.image.set_clim(vmin=imin,vmax=imax)
-		self.canvas.draw()
+		try:
+			self.image.set_clim(vmin=imin,vmax=imax)
+			self.canvas.draw()
+		except:
+			pass
 
 	def markerAdd(self,x,y):
 		'''Append marker position if it is within the maximum marker limit.'''
@@ -212,17 +215,14 @@ class QPlot:
 			- 1: Machine Isocenter overlay
 			- 2: Patient Isocenter overlay
 		'''
-		a = self.axis.index(1)
-		b = self.axis.index(2)
-
 		if overlayType == 0:
 			# Centroid overlay.
 			if self.ctd is not None:
 				if state is True:
 					# Plot overlay scatter points.
 					x,y = [self.ctd[a],self.ctd[b]]
-					self.overlay['ctd'] = self.ax.scatter(x,y,c='b',marker='+',s=50)
-					self.overlay['ctdLabel'] = self.ax.text(x+1,y-3,'ctd',color='b')
+					self.overlay['ctd'] = self.ax.scatter(self.ctd[0],self.ctd[1],c='b',marker='+',s=50)
+					self.overlay['ctdLabel'] = self.ax.text(self.ctd[0]+1,self.ctd[1]-3,'ctd',color='b')
 				else:
 					# Remove overlay scatter points.
 					try:
@@ -235,19 +235,18 @@ class QPlot:
 			# Machine isocenter overlay.
 			if state is True:
 				# Plot overlay lines.
-				self.overlay['machIsoV'] = self.ax.axvline(self.machineIsocenter[a],c='g',alpha=0.5)
-				self.overlay['machIsoH'] = self.ax.axhline(self.machineIsocenter[b],c='g',alpha=0.5)
+				self.overlay['machIsoV'] = self.ax.axvline(self.machineIsocenter[0],c='g',alpha=0.5)
+				self.overlay['machIsoH'] = self.ax.axhline(self.machineIsocenter[1],c='g',alpha=0.5)
 			else:
 				# Remove overlay lines.
 				self.overlay['machIsoH'].remove()
 				self.overlay['machIsoV'].remove()
 		elif overlayType == 2:
-			# Machine isocenter overlay.
+			# Patient isocenter overlay.
 			if state is True:
 				# Plot overlay scatter points.
-				x,y = [self.patientIsocenter[a],self.patientIsocenter[b]]
-				self.overlay['patIso'] = self.ax.scatter(x,y,c='g',marker='+',s=50)
-				self.overlay['patIsoLabel'] = self.ax.text(x+1,y-3,'ptv',color='g')
+				self.overlay['patIso'] = self.ax.scatter(self.patientIsocenter[0],self.patientIsocenter[1],c='y',marker='+',s=50)
+				self.overlay['patIsoLabel'] = self.ax.text(self.patientIsocenter[0]+1,self.patientIsocenter[1]-3,'ptv',color='y')
 			else:
 				try:
 					# Remove overlay lines.
@@ -255,15 +254,34 @@ class QPlot:
 					self.overlay['patIsoLabel'].remove()
 				except:
 					pass
+		elif overlayType == 3:
+			# Conformal Mask Overlay - Front.
+			if (self.mask == None):
+				return
+			elif (state is True):
+				# Plot overlay scatter points.
+				self.overlay['patMask'] = self.ax.plot(self.mask.x,self.mask.y,c='y')[0]
+			elif (state is False):
+				self.overlay['patMask'].remove()
+		elif overlayType == 4:
+			print(state)
+			# Conformal Mask Overlay - Side.
+			if (self.mask == None):
+				return
+			elif (state is True):
+				# Plot overlay scatter points.
+				self.overlay['patMaskTop'] = self.ax.axhline(max(self.mask.y),c='y')
+				self.overlay['patMaskBot'] = self.ax.axhline(min(self.mask.y),c='y')
+			elif (state is False):
+				self.overlay['patMaskTop'].remove()
+				self.overlay['patMaskBot'].remove()
 
 		# Update the canvas.
 		self.canvas.draw()
 
 	def setExtent(self,newExtent):
 		# Change extent and markers.
-
 		change = newExtent-self.extent
-
 
 		''' Update markers '''
 		# Get values and add changes.
