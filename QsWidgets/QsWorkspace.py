@@ -20,74 +20,91 @@ else:
     application_path = os.path.dirname(os.path.abspath(__file__))
 image_path = application_path+'synctools/QsWidgets/QtMpl/images/'
 
-class QPlotEnvironment(QtWidgets.QWidget):
+# class QPlotEnvironment(QtWidgets.QWidget):
+class QPlotEnvironment(QtWidgets.QSplitter):
 	'''
 	An advanced widget specifically designed for plotting with MatPlotLib in Qt5.
 	It has a navbar, plot and table.
 	'''
 	toggleSettings = QtCore.pyqtSignal()
+	subplotAdded = QtCore.pyqtSignal(int)
+	subplotRemoved = QtCore.pyqtSignal(int)
 
 	def __init__(self):
 		# Start as a blank layout.
-		super().__init__()
-		self.layout = QtWidgets.QHBoxLayout()
-		self.layout.setContentsMargins(0,0,0,0)
-		self.setLayout(self.layout)
+		super().__init__(QtCore.Qt.Horizontal)
+		# self.layout = QtWidgets.QHBoxLayout()
+		# self.layout.setContentsMargins(0,0,0,0)
+		# self.setLayout(self.layout)
 		# Empty lists.
 		self.navbar = []
 		self.plot = []
 		self.tableModel = []
 		self.tableView = []
 		self.histogram = []
+		# Internal vars.
+		self._maxMarkers = 0
 
-	def loadImage(self,image):
-		'''Load up to 2 images and send to plot.'''
-		amount = len(image)
-		if amount not in {1,2}:
-			# Throw error.
-			logging.critical('synctools.QsWidgets.QPlotEnvironment: Can only create a maximum of 2 subplots, attempted to create ',len(image))
-			return
-
-		# First create the blank subplots.
-		self.addSubplot(amount)
-		# Now load the images into the subplots.
-		for i in range(amount):
+	def loadImages(self,image):
+		'''Load up to 2 images and send to subplots.'''
+		if self.count() != len(image):
+			self.createSubplots(len(image))
+		for i in range(len(image)):
 			self.plot[i].imageLoad(image[i].pixelArray,image[i].extent)
 			self.tableModel[i].setLabels(image[i].view)
 			self.histogram[i].setTitle('View: '+image[i].view['title'])
 			self.histogram[i].setData(image[i].pixelArray)
+			self.histogram[i].setEnabled(True)
+
+	def createSubplots(self,amount):
+		nplots = self.count()
+		# Data length check.
+		if amount not in {1,2}:
+			logging.critical('Attempting to create {} subplots. Only 1 or 2 subplots is supported.'.format(amount))
+			return
+		# Find out how many plots are needed.
+		difference = nplots-amount
+		if difference < 0:
+			logging.info("Creating additional subplots.")
+			self.addSubplot(difference*-1)
+		elif difference > 0:
+			logging.info("Removing excess subplots.")
+			self.removeSubplot(difference)
+		else:
+			pass
 
 	def addSubplot(self,amount):
-		# Can only have a maximum of 2 subplots as per loadImage().
+		if amount not in {1,2}:
+			logging.critical('Can only create a maximum of 2 subplots, attempted to create {}.'.format(len(image)))
 		for i in range(amount):
 			subplotWidget = QtWidgets.QWidget()
 			# A table model is required for the table view.
 			self.tableModel.append(QPlotTableModel())
 			self.tableView.append(QtWidgets.QTableView())
 			# The plot needs the table model for data.
-			self.plot.append(QtMpl.QPlot(self.tableModel[i]))
+			self.plot.append(QtMpl.QPlot(self.tableModel[-1]))
 			# On model change update the plot markers.
-			self.tableModel[i].itemChanged.connect(self.plot[i].markerUpdate)
+			self.tableModel[-1].itemChanged.connect(self.plot[-1].markerUpdate)
 			# The navbar needs the plot widget and the parent widget.
-			self.navbar.append(QNavigationBar(self.plot[i].canvas))
-			self.navbar[i].toggleImageSettings.connect(self.toggleImageSettings)
-			self.navbar[i].clearAll.connect(self.plot[i].removeMarker)
+			self.navbar.append(QNavigationBar(self.plot[-1].canvas))
+			self.navbar[-1].toggleImageSettings.connect(self.toggleImageSettings)
+			self.navbar[-1].clearAll.connect(self.plot[-1].removeMarker)
 			# Configure table view.
-			self.tableView[i].setAlternatingRowColors(True)
-			self.tableView[i].setModel(self.tableModel[i])
-			self.tableView[i].setColumnWidth(0,200)
-			self.tableView[i].verticalHeader().setDefaultSectionSize(20)
-			self.tableView[i].verticalHeader().hide()
-			self.tableView[i].horizontalHeader().setStretchLastSection(True)
+			self.tableView[-1].setAlternatingRowColors(True)
+			self.tableView[-1].setModel(self.tableModel[-1])
+			self.tableView[-1].setColumnWidth(0,200)
+			self.tableView[-1].verticalHeader().setDefaultSectionSize(20)
+			self.tableView[-1].verticalHeader().hide()
+			self.tableView[-1].horizontalHeader().setStretchLastSection(True)
 			# Create layout for subplot widget.
 			subplotLayout = QtWidgets.QVBoxLayout()
 			subplotLayout.setContentsMargins(0,0,0,0)
 			# Add widgets to layout.
-			subplotLayout.addWidget(self.navbar[i])
+			subplotLayout.addWidget(self.navbar[-1])
 			# QSplitter for resizing between plot and table.
 			splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
-			splitter.addWidget(self.plot[i].canvas)
-			splitter.addWidget(self.tableView[i])
+			splitter.addWidget(self.plot[-1].canvas)
+			splitter.addWidget(self.tableView[-1])
 			# Set stretch factors.
 			splitter.setSizes([200,100])
 			# Add splitter to layout.
@@ -95,11 +112,36 @@ class QPlotEnvironment(QtWidgets.QWidget):
 			# Add layout to widget.
 			subplotWidget.setLayout(subplotLayout)
 			# Add widget to plotenvironment.
-			self.layout.addWidget(subplotWidget)
+			# self.layout.addWidget(subplotWidget)
+			self.addWidget(subplotWidget)
 			# Create a histogram widget for the plot.
 			self.histogram.append(QtMpl.QHistogramWindow())
+			self.histogram[-1].setEnabled(False)
 			# When histogram changed then update plot.
-			self.histogram[i].windowUpdated.connect(partial(self.plot[i].applyWindow))
+			self.histogram[-1].windowUpdated.connect(partial(self.plot[-1].applyWindow))
+			# Send a signal to say a subplot was added.
+			self.set('maxMarkers',self._maxMarkers)
+			# self.subplotAdded.emit(self.count())
+		# Set max markers.
+
+	def removeSubplot(self,amount):
+		# Take the layout item, get the widget of the item and remove it.
+		# item = self.layout.takeAt(self.layout.count()-1)
+		# item.widget().setParent(None)
+		# Remove the widgets from the lists.
+		for i in range(amount):
+			# Remove the widget.
+			count = self.count()
+			self.widget(self.count()-1).setParent(None)
+			self.subplotRemoved.emit(count)
+			# Delete the widgets from the list.
+			del(self.navbar[-1])
+			del(self.plot[-1])
+			del(self.tableModel[-1])
+			del(self.tableView[-1])
+			# Remove the histogram.
+			self.histogram[-1].setParent(None)
+			del(self.histogram[-1])
 
 	def getPlotHistogram(self):
 		return self.histogram
@@ -119,6 +161,7 @@ class QPlotEnvironment(QtWidgets.QWidget):
 
 	def set(self,setting,value):
 		if setting == 'maxMarkers':
+			self._maxMarkers = value
 			for i in range(len(self.plot)):
 				self.plot[i].markerModel.setMarkerRows(value)
 				self.plot[i].markersMaximum = value

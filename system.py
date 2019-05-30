@@ -1,4 +1,6 @@
 from synctools import hardware, imageGuidance
+import logging
+import numpy as np
 
 '''
 class system:
@@ -7,22 +9,23 @@ class system:
 	It should also hold information about... other stuff.
 '''
 class system:
-	def __init__(self,stageList):
+	def __init__(self,patientSupports,detectors):
 		self.solver = imageGuidance.solver()
-		self.detector = hardware.detector()
-		self.stage = hardware.stage(stageList)
+		# self.source = hardware.source()
+		self.patientSupport = hardware.patientSupport(patientSupports)
+		self.detector = hardware.detector(detectors)
+		self._patient = None
 
-		# Make a list of the stages.
-		self.stageList = set()
-		for motor in self.stage.motorList:
-			self.stageList.add(motor['Stage'])
+	def loadPatient(self,patient):
+		# Assumes patient has an already loaded x-ray dataset.
+		self._patient = patient
+		logging.info("System has been linked with the patient data.")
 
 	def setStage(self,name):
-		if name in self.stageList: 
-			self.stage.load(name)
+		self.patientSupport.load(name)
 
 	def setDetector(self,name):
-		pass
+		self.detector.load(name)
 
 	def calculateAlignment(self):
 		# Update variables.
@@ -30,36 +33,56 @@ class system:
 		# Solve for alignment solution.
 		# self.solver.solve()
 		# Decompose.
-		self.stage.calculateMotion(self.solver.transform,self.solver.solution)
+		self.patientSupport.calculateMotion(self.solver.transform,self.solver.solution)
 		# Apply solution.
-		# self.stage.shiftPosition(stageSolution)
+		# self.patientSupport.shiftPosition(stageSolution)
 
 	def applyAlignment(self):
-		# Tell the stage to apply the calculated/prepared motion.
-		self.stage.applyMotion(None)
+		# Tell the patientSupport to apply the calculated/prepared motion.
+		self.patientSupport.applyMotion(None)
 
 	def movePatient(self,amount):
-		self.stage.shiftPosition(amount)
+		self.patientSupport.shiftPosition(amount)
 
-	def acquireXraySet(self):
-		''' Routine for taking orthogonal x-rays via step-and-shoot. '''
-		# Take first x-ray.
-		self.acquireXray('xray0')
-		# Rotate 90 degrees.
-		self.stage.shiftPosition(90,axis=6)
-		# Take second x-ray.
-		self.acquireXray('xray90')
-		# Rotate back to original position.
-		self.stage.shiftPosition(-90,axis=6)
+	def acquireXray(self,theta,trans,comment=''):
+		# Theta and trans are relative values.
+		# How many xrays to acquire?
+		n = len(theta)
+		# Setup vars.
+		tx = ty = rx = ry = 0
+		# Get delta z.
+		dz = np.absolute(trans[1]-trans[0])
+		# Get the current patient position.
+		preImagingPosition = self.patientSupport.position()
+		# Signals and slots: Connections.
+		self.patientSupport.finishedMove.connect()
+		self.detector.imageAcquired.connect()
+		# Take n images.
+		for i in range(n):
+			# Move to the imaging position.
+			self.patientSupport.shiftPosition(tx,ty,trans[i],rx,ry,theta[i])
+			# Now image.
+			self._acquireXray(dz)
+			# Do something with the image, comment, angle etc. Put it into HDF5 file.
+			# Assume imaging sends back to pre-imaging pos. Repeat.
+			# Calculate a relative change for the next imaging angle.
+			try: 
+				theta[i+1] = -(theta[i]-theta[i+1])
+			except:
+				pass
+		# All x-rays are now acquired.
+		# Signals and slots: Disconnect.
+		self.patientSupport.finishedMove.disconnect()
+		self.detector.imageAcquired.disconnect()
 
-	def acquireXray(self,mode='scan',name='xray'):
+	def _acquireXray(self,deltaZ,mode='scan'):
 		# Intital detector setup.
 		kwargs = {':CAM:ImageMode':0,			# ImageMode = Single
-			':CAM:ArrayCounter':0,						# ImageCounter = 0
-			':TIFF:AutoSave':1,							# AutoSave = True
-			':TIFF:FileName':'scan',						# FileName = 'scan1'
-			':TIFF:AutoIncrement':1,						# AutoIncrement = True
-			':TIFF:FileNumber':0						# NextFileNumber = 0
+			':CAM:ArrayCounter':0,				# ImageCounter = 0
+			':TIFF:AutoSave':1,					# AutoSave = True
+			':TIFF:FileName':'scan',			# FileName = 'scan1'
+			':TIFF:AutoIncrement':1,			# AutoIncrement = True
+			':TIFF:FileNumber':0				# NextFileNumber = 0
 			}
 		# epics.caput(dtr_pv+':TIFF:FileTemplate','%s%s_%02d.tif')		# Filename Format
 		self.detector.setVariable(**kwargs)

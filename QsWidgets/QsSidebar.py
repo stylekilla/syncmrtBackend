@@ -121,6 +121,179 @@ class QAlignment(QtWidgets.QWidget):
 			del key
 		del self.layout
 
+class QImaging(QtWidgets.QWidget):
+	# Acquire image sends: (theta,zTranslation)
+	acquire = QtCore.pyqtSignal(list,list,str)
+	numberOfImagesChanged = QtCore.pyqtSignal(int)
+	# Storage.
+	widget = {}
+	group = {}
+
+	def __init__(self):
+		super().__init__()
+		# Vars.
+		self.theta = [0,90]
+		self.translation = [-25,25]
+		self.thetaRange = [-90,90]
+		self.translationRange = [-100,100]
+		# Layout.
+		self.layout = QtWidgets.QVBoxLayout()
+
+		'''
+		GROUP: Available Images
+		'''
+		# Imaging settings.
+		self.group['availableImages'] = QtWidgets.QGroupBox("Imaging Sequence")
+		imagingSequence_layout = QtWidgets.QFormLayout()
+		# imagingSequence_layout.setLabelAlignment(QtCore.Qt.AlignLeft)
+		# Num images.
+		lblImages = QtWidgets.QLabel("Select Image:")
+		self.widget['imageList'] = QtWidgets.QComboBox()
+		self.widget['imageList'].addItem("<new>")
+		# self.widget['imageList'].valueChanged.connect()
+		imagingSequence_layout.addRow(lblImages,self.widget['imageList'])
+		# Acquire button.
+		# self.widget['load'] = QtWidgets.QPushButton("load")
+		# self.widget['load'].setEnabled(False)
+		# self.widget['load'].clicked.connect(self.loadImages)
+		# imagingSequence_layout.addRow(self.widget['load'])
+		# Set the group layout.
+		self.group['availableImages'].setLayout(imagingSequence_layout)
+
+
+		'''
+		GROUP: Imaging Angles
+		'''
+		# Imaging settings.
+		self.group['imagingSequence'] = QtWidgets.QGroupBox("Imaging Sequence")
+		imagingSequence_layout = QtWidgets.QFormLayout()
+		# imagingSequence_layout.setLabelAlignment(QtCore.Qt.AlignLeft)
+		# Num images.
+		lblImages = QtWidgets.QLabel("Number of Images")
+		self.widget['numImages'] = QtWidgets.QSpinBox()
+		self.widget['numImages'].setMaximumSize(55,20)
+		self.widget['numImages'].setRange(1,2)
+		self.widget['numImages'].setValue(2)
+		self.widget['numImages'].valueChanged.connect(self.updateNumImages)
+		imagingSequence_layout.addRow(lblImages,self.widget['numImages'])
+		imagingSequence_layout.addRow(QHLine())
+		# Translation Range.
+		self.widget['translation_range'] = QtWidgets.QLabel("Region Of Interest:")
+		imagingSequence_layout.addRow(self.widget['translation_range'])
+		# translation 1
+		self.widget['translation1_label'] = QtWidgets.QLabel("Z<sub>upper</sub> mm")
+		self.widget['translation1'] = QtWidgets.QDoubleSpinBox()
+		self.widget['translation1'].setMinimumSize(65,20)
+		self.widget['translation1'].setDecimals(1)
+		self.widget['translation1'].setMinimum(self.translationRange[0])
+		self.widget['translation1'].setMaximum(self.translationRange[1])
+		self.widget['translation1'].setValue(self.translation[1])
+		imagingSequence_layout.addRow(self.widget['translation1_label'],self.widget['translation1'])
+		# translation 2
+		self.widget['translation2_label'] = QtWidgets.QLabel("Z<sub>lower</sub> mm")
+		self.widget['translation2'] = QtWidgets.QDoubleSpinBox()
+		self.widget['translation2'].setMinimumSize(65,20)
+		self.widget['translation2'].setDecimals(1)
+		self.widget['translation2'].setMinimum(self.translationRange[0])
+		self.widget['translation2'].setMaximum(self.translationRange[1])
+		self.widget['translation2'].setValue(self.translation[0])
+		imagingSequence_layout.addRow(self.widget['translation2_label'],self.widget['translation2'])
+		# Range.
+		# imagingSequence_layout.addRow(QtWidgets.QLabel("Image Angles"))
+		self.widget['theta_range'] = QtWidgets.QLabel("Angles Range ({}, {})\xB0:".format(self.thetaRange[0],self.thetaRange[1]))
+		imagingSequence_layout.addRow(self.widget['theta_range'])
+		# Theta 1
+		self.widget['theta1_label'] = QtWidgets.QLabel("\u03B8<sub>1</sub>\u00B0")
+		self.widget['theta1'] = QtWidgets.QDoubleSpinBox()
+		self.widget['theta1'].setMinimumSize(65,20)
+		self.widget['theta1'].setDecimals(1)
+		self.widget['theta1'].setMinimum(self.thetaRange[0])
+		self.widget['theta1'].setMaximum(self.thetaRange[1])
+		self.widget['theta1'].setValue(self.theta[0])
+		imagingSequence_layout.addRow(self.widget['theta1_label'],self.widget['theta1'])
+		# Theta 2
+		self.widget['theta2_label'] = QtWidgets.QLabel("\u03B8<sub>2</sub>\u00B0")
+		self.widget['theta2'] = QtWidgets.QDoubleSpinBox()
+		self.widget['theta2'].setMinimumSize(65,20)
+		self.widget['theta2'].setDecimals(1)
+		self.widget['theta2'].setMinimum(self.thetaRange[0])
+		self.widget['theta2'].setMaximum(self.thetaRange[1])
+		self.widget['theta2'].setValue(self.theta[1])
+		imagingSequence_layout.addRow(self.widget['theta2_label'],self.widget['theta2'])
+		# Comments.
+		self.widget['comment'] = QtWidgets.QTextEdit()
+		self.widget['comment'].setAcceptRichText(False)
+		self.widget['comment'].setMaximumHeight(20)
+		imagingSequence_layout.addRow(QtWidgets.QLabel("Comment:"))
+		imagingSequence_layout.addRow(self.widget['comment'])
+		imagingSequence_layout.addRow(QHLine())
+		# Acquire button.
+		self.widget['acquire'] = QtWidgets.QPushButton("Acquire")
+		self.widget['acquire'].setEnabled(False)
+		self.widget['acquire'].clicked.connect(self.acquireImages)
+		imagingSequence_layout.addRow(self.widget['acquire'])
+		# Set the group layout.
+		self.group['imagingSequence'].setLayout(imagingSequence_layout)
+
+		# Add the widgets to the layout.
+		self.layout.addWidget(self.group['availableImages'])
+		self.layout.addWidget(self.group['imagingSequence'])
+		self.layout.addStretch(1)
+		# Add the layout to the QImaging widget.
+		self.setLayout(self.layout)
+
+	def updateSeparationRange(self,newRange):
+		# Get new range.
+		self.thetaRange = newRange
+		a, b = self.thetaRange
+		# Update text label.
+		self.widget['theta_range'].setText("Range: ({}, {})\xB0".format(a,b))
+		# Update double spin boxes.
+		# Theta 1
+		self.widget['theta1'].setMinimum(self.thetaRange[0])
+		self.widget['theta1'].setMaximum(self.thetaRange[1])
+		# Theta 2
+		self.widget['theta2'].setMinimum(self.thetaRange[0])
+		self.widget['theta2'].setMaximum(self.thetaRange[1])
+
+	def updateNumImages(self):
+		# Get current value.
+		i = int(self.widget['numImages'].value())
+		layout = self.group['imagingSequence'].layout()
+		if i == 1:
+			# If only 1 image, remove theta 2.
+			layout.takeRow(self.widget['theta2'])
+			self.widget['theta2_label'].setVisible(False)
+			self.widget['theta2'].setVisible(False)
+		else:
+			# If 2 images, add theta 2.
+			row, col = layout.getWidgetPosition(self.widget['theta1'])
+			layout.insertRow(row+1,self.widget['theta2_label'],self.widget['theta2'])
+			self.widget['theta2_label'].setVisible(True)
+			self.widget['theta2'].setVisible(True)
+		self.numberOfImagesChanged.emit(i)
+
+	def acquireImages(self):
+		# Gather theta values.
+		i = int(self.widget['numImages'].value())
+		if i == 1:
+			theta = [self.widget['theta1'].value()]
+		else:
+			theta = [self.widget['theta1'].value(),self.widget['theta2'].value()]
+		# zTranslation is [lower,upper]
+		zTranslation = [self.widget['translation2'].value(),self.widget['translation1'].value()]
+		# Comment.
+		comment = self.widget['comment'].toPlainText()
+		# Emit signal.
+		self.acquire.emit(theta, zTranslation, comment)
+
+	def enableAcquisition(self):
+		self.widget['acquire'].setEnabled(True)
+
+	def disableAcquisition(self):
+		self.widget['acquire'].setEnabled(False)
+
+
 class QTreatment(QtWidgets.QWidget):
 	def __init__(self):
 		super().__init__()
@@ -296,15 +469,15 @@ class QSettings(QtWidgets.QWidget):
 	def stageChange(self):
 		self.stageChanged.emit(self.hardware['stage'].currentText())
 
-	def loadDetectors(self,importList):
-		'''Expects a dict of csv values.'''
-		self.hardware['detectorList'] = set()
-		for detector in importList:
-			self.hardware['detectorList'].add(detector['Name'])
+	def loadDetectors(self,stageList):
+		# stageList should be a list of strings of the stages available to choose from.
+		self.hardware['detectorList'] = stageList
 
+		# For each item in the list, add it to the drop down list.
 		for item in self.hardware['detectorList']:
 			self.hardware['detector'].addItem(item)
 
+		# Sort the model alphanumerically.
 		self.hardware['detector'].model().sort(0)
 
 	def detectorChange(self):
@@ -323,30 +496,6 @@ class QXrayProperties(QtWidgets.QWidget):
 		# self.parent = parent
 		self.widget = {}
 		self.layout = QtWidgets.QVBoxLayout()
-
-		# # Group 1: Editable Isocenter
-		# editIsocenter = QtWidgets.QGroupBox()
-		# editIsocenter.setTitle('Edit Treatment Isocenter')
-		# label1 = QtWidgets.QLabel('Isocenter (mm)')
-		# label2 = QtWidgets.QLabel('x: ')
-		# self.widget['alignIsocX'] = QtWidgets.QLineEdit()
-		# label3 = QtWidgets.QLabel('y: ')
-		# self.widget['alignIsocY'] = QtWidgets.QLineEdit()
-		# # Layout
-		# editIsocenterLayout = QtWidgets.QFormLayout()
-		# editIsocenterLayout.addRow(label1)
-		# editIsocenterLayout.addRow(label2,self.widget['alignIsocX'])
-		# editIsocenterLayout.addRow(label3,self.widget['alignIsocY'])
-		# # Defaults
-		# validator = QtGui.QDoubleValidator()
-		# validator.setBottom(0)
-		# validator.setDecimals(4)
-		# self.widget['alignIsocX'].setValidator(validator)
-		# self.widget['alignIsocY'].setValidator(validator)
-		# # Signals and Slots
-		# # Group inclusion to page
-		# editIsocenter.setLayout(editIsocenterLayout)
-		# self.layout.addWidget(editIsocenter)
 
 		# Group 2: Overlays.
 		overlayGroup = QtWidgets.QGroupBox()
@@ -368,11 +517,36 @@ class QXrayProperties(QtWidgets.QWidget):
 		overlayGroup.setLayout(overlayGroupLayout)
 		self.layout.addWidget(overlayGroup)
 
+		# Group 1: Editable Isocenter
+		editIsocenter = QtWidgets.QGroupBox()
+		editIsocenter.setTitle('Edit Treatment Isocenter')
+		label1 = QtWidgets.QLabel('Isocenter (mm)')
+		label2 = QtWidgets.QLabel('x: ')
+		self.widget['alignIsocX'] = QtWidgets.QLineEdit()
+		label3 = QtWidgets.QLabel('y: ')
+		self.widget['alignIsocY'] = QtWidgets.QLineEdit()
+		# Layout
+		editIsocenterLayout = QtWidgets.QFormLayout()
+		editIsocenterLayout.addRow(label1)
+		editIsocenterLayout.addRow(label2,self.widget['alignIsocX'])
+		editIsocenterLayout.addRow(label3,self.widget['alignIsocY'])
+		# Defaults
+		validator = QtGui.QDoubleValidator()
+		validator.setBottom(0)
+		validator.setDecimals(4)
+		self.widget['alignIsocX'].setValidator(validator)
+		self.widget['alignIsocY'].setValidator(validator)
+		# Signals and Slots
+		# Group inclusion to page
+		editIsocenter.setLayout(editIsocenterLayout)
+		self.layout.addWidget(editIsocenter)
+
 		# Group 3: Windowing.
 		self.window = {}
 		windowGroup = QtWidgets.QGroupBox()
 		windowGroup.setTitle('X-ray Windowing')
 		self.window['layout'] = QtWidgets.QVBoxLayout()
+		self.window['layout'].setContentsMargins(0,0,0,0)
 		# Set the layout of group.
 		windowGroup.setLayout(self.window['layout'])
 		# Add group to sidebar layout.
@@ -391,6 +565,7 @@ class QXrayProperties(QtWidgets.QWidget):
 			layout.itemAt(i).widget().setParent(None)
 		# New widgets.
 		for i in range(len(widget)):
+			widget[i].setMaximumHeight(200)
 			layout.addWidget(widget[i])
 
 	def emitToggleOverlay(self,button,state):

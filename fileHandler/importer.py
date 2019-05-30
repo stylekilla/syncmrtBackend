@@ -2,10 +2,10 @@ import os
 import pydicom as dicom
 import numpy as np
 from synctools.fileHandler.image import image2d
+from synctools.fileHandler import hdf5
 from natsort import natsorted
 from synctools.tools.opencl import gpu as gpuInterface
 from synctools.math import wcs2wcs
-import h5py
 import logging
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
@@ -24,17 +24,17 @@ Think of this class as the interface to QPlot. As such it should
 
 class sync_dx:
 	def __init__(self,dataset):
-		# Read in hdf5 image arrays.
-		file = h5py.File(dataset[0],'r')
+		# Read in hdf5 dataset.
+		self.file = hdf5.load(dataset[0])
 		# Load the images in.
-		for i in range(file.attrs['NumberOfImages']):
+		for i in range(self.file.attrs['NumberOfImages']):
 			if i == 0: self.image = [image2d()]
 			else: self.image.append(image2d())
-			self.image[i].pixelArray = file[str(i)][:]
+			self.image[i].pixelArray = self.file[str(i)][:]
 			# Extract the extent information, should be available in image.
-			self.image[i].extent = file[str(i)].attrs['extent']
+			self.image[i].extent = self.file[str(i)].attrs['extent']
 			# Patient isocenter (typically the beam isocenter).
-			self.image[i].patientIsocenter = file[str(i)].attrs['isocenter']
+			self.image[i].patientIsocenter = self.file[str(i)].attrs['isocenter']
 			# Import image view.
 			# self.image[i].view = file[str(i)].attrs['view']
 			# self.image[i].axis = file[str(i)].attrs['axis']
@@ -44,6 +44,29 @@ class sync_dx:
 					'yLabel':'SI',
 				}
 			self.image[i].orientation = [1,2,0]
+
+# class sync_dx:
+# 	def __init__(self,dataset):
+# 		# Read in hdf5 image arrays.
+# 		self.file = h5py.File(dataset[0],'r')
+# 		# Load the images in.
+# 		for i in range(self.file.attrs['NumberOfImages']):
+# 			if i == 0: self.image = [image2d()]
+# 			else: self.image.append(image2d())
+# 			self.image[i].pixelArray = self.file[str(i)][:]
+# 			# Extract the extent information, should be available in image.
+# 			self.image[i].extent = self.file[str(i)].attrs['extent']
+# 			# Patient isocenter (typically the beam isocenter).
+# 			self.image[i].patientIsocenter = self.file[str(i)].attrs['isocenter']
+# 			# Import image view.
+# 			# self.image[i].view = file[str(i)].attrs['view']
+# 			# self.image[i].axis = file[str(i)].attrs['axis']
+# 			self.image[i].view = {
+# 					'title':'AP',
+# 					'xLabel':'LR',
+# 					'yLabel':'SI',
+# 				}
+# 			self.image[i].orientation = [1,2,0]
 
 def checkDicomModality(dataset,modality):
 	# Start with empty list of files.

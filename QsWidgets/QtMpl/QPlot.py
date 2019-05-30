@@ -344,6 +344,7 @@ class QHistogramWindow(QtWidgets.QGroupBox):
 		options.setLayout(optionsLayout)
 		# Layout.
 		layout = QtWidgets.QVBoxLayout()
+		layout.setContentsMargins(0,0,0,0)
 		layout.addWidget(self.histogram.canvas)
 		layout.addWidget(self.range[0])
 		layout.addWidget(self.range[1])
@@ -374,6 +375,12 @@ class QHistogramWindow(QtWidgets.QGroupBox):
 			self.range[i].setMaximum(vmax)
 		self.range[0].setValue(vmin)
 		self.range[1].setValue(vmax)
+
+	def setEnabled(self,state):
+		for i in range(len(self.range)):
+			self.range[i].setEnabled(state)
+		for i in range(len(self.button)):
+			self.button[i].setEnabled(state)
 
 class Histogram:
 	def __init__(self):

@@ -1,21 +1,36 @@
 from synctools import math
 from synctools.epics import controls
+from PyQt5 import QtCore
 import numpy as np
 
-class motor:
-	def __init__(self,axis,mtype,order,name,
-		pv=None,
-		direction=1,
-		mrange=np.array([-np.inf,np.inf]),
-		frame=0,
-		size=np.array([0,0,0]),
-		workDistance=np.array([0,0,0]),
-		stageLocation=0
-		):
+"""
+Motor should run on it's own QThread.
+Motor will emit finished signal after move is completed.
+Should only use motor.read() and motor.write() methods.
+"""
+
+class motor(QtCore.QThread):
+	finished = QtCore.pyqtSignal()
+
+	def __init__(self,name,axis,order,
+				pv=None,
+				direction=1,
+				mrange=np.array([-np.inf,np.inf]),
+				frame=1,
+				size=np.array([0,0,0]),
+				workDistance=np.array([0,0,0]),
+				stageLocation=0
+			):
+		super().__init__()
+		# Expecting axis to be between 0 and 5.
 		# Axis can be 0,1,2 to represent x,y,z.
-		self._axis = axis
 		# Type is 0 (translation) or 1 (rotation).
-		self._type = mtype
+		if axis < 3: 
+			self._axis = axis
+			self._type = 0
+		elif axis > 2: 
+			self._axis = axis - 3
+			self._type = 1
 		# Motor order.
 		self._order = order
 		# Motor name.
@@ -37,7 +52,7 @@ class motor:
 		self._range = mrange
 		# Interfaces (Qt and Epics).
 		self._ui = None
-		self._control = controls.motor(self._pv)
+		self._contoller = controls.motor(self._pv)
 
 	def setUi(self,ui):
 		# Connect user interface.
@@ -45,22 +60,26 @@ class motor:
 
 	def setPosition(self,position):
 		position *= self._direction
-		self._control.write(position,mode='absolute')
+		self._contoller.write(position,mode='absolute')
+		# Once finished, emit signal.
+		self.finished.emit()
 
 	def shiftPosition(self,position):
 		position *= self._direction
-		self._control.write(position,mode='relative')
+		self._contoller.write(position,mode='relative')
+		# Once finished, emit signal.
+		self.finished.emit()
 
 	def readPosition(self):
-		return self._control.read()
+		return self._contoller.read()
 
 	def transform(self,value):
 		# If we are a translation motor, return a translation transfrom.
 		if self._type == 0:
 			return math.transform.translation(self._axis,value)
 		if self._type == 1:
-			value += self._control.read()
-			return math.transform.rotation(self._axis,value,self._workPoint), math.transform.rotation(self._axis,-self._control.read(),self._workPoint)
+			value += self._contoller.read()
+			return math.transform.rotation(self._axis,value,self._workPoint), math.transform.rotation(self._axis,-self._contoller.read(),self._workPoint)
 
 	def calculateWorkPoint(self,pstage,dstage,offset):
 		if self._frame == 0:

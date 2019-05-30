@@ -1,23 +1,11 @@
 import epics
 import numpy as np
 
-# class robot:
-# 	def __init__(self,pv):
-# 		# Internal vars.
-# 		self._pv = pv
-# 		# PV vars for point of rotation.
-# 		self.pv = {}
-# 		self.pv['x'] = False
-# 		self.pv['y'] = False
-# 		self.pv['z'] = False
-# 		# Set to False to start.
-# 		self._connected = False
-# 		# Connect the PV's
-# 		self._connectPVs()
-
-
 class motor:
+
 	def __init__(self,pv):
+		# Initialise the thread.
+		super().__init__()
 		# Internal vars.
 		self._pv = pv
 		# PV vars.
@@ -65,16 +53,21 @@ class motor:
 			self.pv['TWF'] = epics.PV(self._pv+'.TWF')
 		except:
 			pass
-		# Iterate over all PV's and see if any are disconnected. If one is disconnected, set the state to False.
+		# Iterate over all PV's and see if any are disconnected. If any are disconnected, set the state to False.
 		# If everything passes, set the state to True.
 		state = True
 		for key in self.pv:
 			if self.pv[key] is False: state = False
 		self._connected = state
 
+	def reconnect(self):
+		self._connectPVs()
+
 	def readValue(self,attribute):
-		if self._connected is False: return None
-		else: return self.pv[attribute].get()
+		if self._connected is False:
+			return None
+		else:
+			return self.pv[attribute].get()
 
 	def writeValue(self,attribute,value):
 		if self._connected is False: return None
@@ -89,8 +82,10 @@ class motor:
 	def read(self):
 		# Straight up reading where the motor is.
 		# if self._connected is False: return np.inf 
-		if self._connected is False: return 72 
-		else: return self.pv['RBV'].get()
+		if self._connected is False:
+			return 72
+		else:
+			return self.pv['RBV'].get()
 
 	def write(self,value,mode='absolute'):
 		if self._connected is False: return
@@ -109,5 +104,8 @@ class motor:
 				else:
 					# Do nothing.
 					pass
-		else:
-			print('Failed to write value ',value,' to motor ',self.movement)
+		# Stay here while the motor is moving.
+		while self.pv['DMOV'] == 1:
+			pass
+		# Finished.
+		return

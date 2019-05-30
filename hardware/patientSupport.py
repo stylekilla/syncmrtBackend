@@ -1,13 +1,19 @@
 from synctools.hardware.motor import motor
-# from synctools.widgets import QEMotor
+from PyQt5 import QtCore
 import numpy as np
 
-class stage:
-	def __init__(self,motorList,ui=None):
+class patientSupport(QtCore.QObject):
+	# startedMove = QtCore.pyqtSignal()
+	# moving = QtCore.pyqtSignal()
+	finishedMove = QtCore.pyqtSignal()
+	# error = QtCore.pyqtSignal()
+
+	def __init__(self,database,ui=None):
+		super().__init__()
 		# Information
-		self._name = None
+		self.currentDevice = None
+		self.currentMotors = []
 		self._dof = (0,[0,0,0,0,0,0])
-		self.motors = []
 		# A preloadable motion.
 		self._motion = None
 		# Stage size information.
@@ -16,101 +22,102 @@ class stage:
 		self._offset = np.array([0,0,0])
 		# UI elements.
 		self._ui = ui
+		# Motor counter for finished arguments.
+		self._counter = 0
+		# Counter for calculate motion loop.
+		self._i = 0
 
-		self.i = 0
-
-
-		# Get stagelist and motors.
+		# Get list of motors.
 		import csv, os
 		# Open CSV file
-		f = open(motorList)
+		f = open(database)
 		r = csv.DictReader(f)
-		# Save as ordered dict.
-		self.motorList = []
+		# Devices is the total list of all devices in the database.
+		self.motors = []
+		self.deviceList = set()
 		for row in r:
-			self.motorList.append(row)
-		# Remove the description row.
-		del self.motorList[0]
+			self.motors.append(row)
+			self.deviceList.add(row['PatientSupport'])
 
-	def load(self,stage):
-		# Remove all motors.
-		for i in range(len(self.motors)):
-			del self.motors[-1]
-		# Iterate over new motors.
-		for description in self.motorList:
-			# Does the motor match the stage?
-			if description['Stage'] == stage:
-				# Decide kwargs based on whether the stage uses a global or local coordinate system.
-				if (int(description['Frame']) == 0) | (int(description['StageLocation']) == 0):
-					kwargs = {
-						'pv':description['PV'],
-						'direction':int(description['Direction']),
-						'frame':int(description['Frame']),
-						'size':np.array([int(description['SizeX']),int(description['SizeY']),int(description['SizeZ'])]),
-						'workDistance':np.array([int(description['WorkDistanceX']),int(description['WorkDistanceY']),int(description['WorkDistanceZ'])]),
-						'stageLocation':int(description['StageLocation'])
-					}
-				else:
-					kwargs = {
-						'pv':description['PV'],
-						'direction':int(description['Direction']),
-						'frame':int(description['Frame']),
-					}	
-				# Define the new motor.
-				newMotor = motor(int(description['Axis']),
-							int(description['Type']),
-							int(description['Order']),
-							description['Name'],
-							**(kwargs))
-				# Set a ui for the motor if we are doing that.
-				if self._ui is not None:
-					newMotor.setUi(self._ui)
-				# Append the motor to the list.
-				self.motors.append(newMotor)
-		# Set the order of the list from 0-i.
-		self.motors = sorted(self.motors, key=lambda k: k._order) 
-		# Update the stage details.
-		self._name = stage
-		# Calibrate with no calibration offset. This can be recalculated later.
-		self.calibrate(np.array([0,0,0]))
-		# Update GUI.
-		if self._ui is not None:
-			self._ui.update()
+	def load(self,name):
+		if name in self.deviceList: 
+			# Remove all motors.
+			for i in range(len(self.currentMotors)):
+				del self.currentMotors[-1]
+			# Iterate over new motors.
+			for support in self.motors:
+				# Does the motor match the name?
+				if support['PatientSupport'] == name:
+					# Define the new motor.
+					newMotor = motor(
+									support['Description'],
+									int(support['Axis']),
+									int(support['Order']),
+									pv = support['PV Root']
+								)
+					# Set a ui for the motor if we are doing that.
+					if self._ui is not None:
+						newMotor.setUi(self._ui)
+					# Append the motor to the list.
+					self.currentMotors.append(newMotor)
+			# Set the order of the list from 0-i.
+			self.currentMotors = sorted(self.currentMotors, key=lambda k: k._order) 
+			# Update the name details.
+			self.currentDevice = name
+			# Calibrate with no calibration offset. This can be recalculated later.
+			self.calibrate(np.array([0,0,0]))
+			# Update GUI.
+			if self._ui is not None:
+				self._ui.update()
 
 	def calibrate(self,calibration):
 		# Stage size in mm including calibration offset (i.e. a pin or object used to calibrate the stage).
 		self._offset = calibration
 		self._size = calibration
-		for motor in self.motors:
+		for motor in self.currentMotors:
 			if motor._stage == 0:
 				self._size = np.add(self._size,motor._size)
 
 	def shiftPosition(self,position):
 		# This is a relative position change.
 		# Iterate through available motors.
-		for motor in self.motors:
+		for motor in self.currentMotors:
 			# Get position to move to for that motor.
 			value = position[(motor._axis + (3*motor._type))]
 			# Tell motor to shift position by amount, value.
 			motor.shiftPosition(value)
 			# Set position variable to 0 (if motor was successful).
 			position[(motor._axis + (3*motor._type))] = 0
+			# Connect to finished method.
+			motor.finished.connect(self._finished)
 
 	def setPosition(self,position):
 		# This is a direct position change.
 		# Iterate through available motors.
-		for motor in self.motors:
+		for motor in self.currentMotors:
 			# Get position to move to for that motor.
 			value = position[(motor._axis + (3*motor._type))]
 			# Tell motor to shift position by amount, value.
 			motor.setPosition(value)
 			# Set position variable to 0 (if motor was successful).
 			position[(motor._axis + (3*motor._type))] = 0
+			# Connect to finished method.
+			motor.finished.connect(self._finished)
+
+	def _finished(self):
+		if self._counter == len(self.currentMotors):
+			# Reset the counter.
+			self._counter = 0
+			# Send signal.
+			self.finishedMove.emit()
+		else:
+			# Increment counter by 1.
+			self._counter += 1
 
 	def position(self,idx=None):
 		# return the current position of the stage in Global XYZ.
 		pos = np.array([0,0,0])
-		for motor in self.motors:
+		for motor in self.currentMotors:
 			if (motor._stage == 1)&(motor._type == 0):
 				# Read motor position and the axis it works on.
 				mpos = motor.readPosition()
@@ -127,10 +134,10 @@ class stage:
 
 	def calculateMotion(self,G,variables):
 		# We take in the 4x4 transformation matrix G, and a list of 6 parameters (3x translations, 3x rotations).
-		self.i += 1
-		if self.i > 10: return
+		self._i += 1
+		if self._i > 10: return
 		# Create a transform for this stage, S.
-		print('Stage Name: ',self._name)
+		print('Stage Name: ',self.currentDevice)
 		print('Variables:',variables)
 		S = np.identity(4)
 		Si = np.identity(4)
@@ -141,7 +148,7 @@ class stage:
 		# Make a copy so original stays intact.
 		calcVars = np.array(variables)
 		# Iterate over each motor in order.
-		for motor in self.motors:
+		for motor in self.currentMotors:
 			print('Motor Name: ',motor._name)
 			# Get the x y z translation or rotation value.
 			value = calcVars[(motor._axis + (3*motor._type))]
@@ -234,7 +241,7 @@ class stage:
 			variables = self._motion
 			print('inside apply motion, vars are now motion:',variables)
 		# Iterate over each motor in order.
-		for motor in self.motors:
+		for motor in self.currentMotors:
 			# Understand the motors function.
 			index = motor._axis + (3*motor._type)
 			# Get the x y z translation or rotation value.
@@ -244,7 +251,8 @@ class stage:
 			print('Moving ',motor._name,value)
 			# Set the taken variable to 0. This stops any future motor from taking this value.
 			variables[index] = 0
-
+			# Connect to finished method.
+			motor.finished.connect(self._finished)
 		return
 
 		'''
@@ -263,3 +271,5 @@ class stage:
 		workPos = currPos + workDist (this is the point we will rotate around)
 		Transform needs the workPos.
 		'''
+
+
