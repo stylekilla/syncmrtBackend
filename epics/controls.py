@@ -1,8 +1,9 @@
 import epics
 import numpy as np
+import logging
+import time
 
 class motor:
-
 	def __init__(self,pv):
 		# Initialise the thread.
 		super().__init__()
@@ -59,6 +60,7 @@ class motor:
 		for key in self.pv:
 			if self.pv[key] is False: state = False
 		self._connected = state
+		logging.info("Current connection status: {}".format(self._connected))
 
 	def reconnect(self):
 		self._connectPVs()
@@ -75,7 +77,7 @@ class motor:
 			if attribute == 'TWV':
 				self.pv[attribute].put(value)
 			else:
-				while self.pv['DMOV'] == 1:
+				while self.pv['DMOV'] == 0:
 					pass
 				self.pv[attribute].put(value)
 
@@ -88,6 +90,7 @@ class motor:
 			return self.pv['RBV'].get()
 
 	def write(self,value,mode='absolute'):
+		# logging.info("Writing {} to {} with mode {}.".format(value,self._pv,mode))
 		if self._connected is False: return
 		# Straight up telling the motor where to go.
 		elif mode=='absolute':
@@ -104,8 +107,51 @@ class motor:
 				else:
 					# Do nothing.
 					pass
+		# Give epics 100ms to get the command to the motor.
+		time.sleep(0.1)
 		# Stay here while the motor is moving.
-		while self.pv['DMOV'] == 1:
+		while self.pv['DMOV'].get() == 0:
 			pass
 		# Finished.
 		return
+
+class detector:
+	def __init__(self,pv):
+		# Initialise the thread.
+		super().__init__()
+		# Internal vars.
+		self._pv = pv
+		self._pv = "SR08ID01DET02"
+		# PV vars.
+		self.pv = {}
+		self.pv['IMAGE:ArrayData'] = None
+		self.pv['IMAGE:ArraySize0_RBV'] = None
+		self.pv['IMAGE:ArraySize0_RBV'] = None
+		# Set to False to start.
+		self._connected = False
+		# Connect the PV's
+		self._connectPVs()
+
+	def _connectPVs(self):
+		# Record PV root information and connect to motors.
+		try:
+			# Read Back Value
+			self.pv['IMAGE:ArrayData'] = epics.PV(self._pv+':IMAGE:ArrayData')
+			self.pv['IMAGE:ArraySize0_RBV'] = epics.PV(self._pv+':IMAGE:ArraySize0_RBV')
+			self.pv['IMAGE:ArraySize1_RBV'] = epics.PV(self._pv+':IMAGE:ArraySize1_RBV')
+			self._connected = True
+		except:
+			self._connected = False
+		logging.info("Detector connection status: {}".format(self._connected))
+
+	def reconnect(self):
+		self._connectPVs()
+
+	def readImage(self):
+		if self._connected is False:
+			return None
+		else:
+			image = self.pv['IMAGE:ArrayData'].get()
+			x = self.pv['IMAGE:ArraySize1_RBV'].get()
+			y = self.pv['IMAGE:ArraySize0_RBV'].get()
+			return image.reshape(x,y)

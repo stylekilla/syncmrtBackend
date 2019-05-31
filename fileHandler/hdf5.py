@@ -36,7 +36,7 @@ def new(fp):
 
 # Load a HDF5 file.
 def load(fp):
-	print(fp)
+	logging.info("Loading {}".format(fp))
 	return file(fp,'w')
 
 class file(h5.File):

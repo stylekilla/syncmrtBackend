@@ -2,6 +2,7 @@ from synctools import math
 from synctools.epics import controls
 from PyQt5 import QtCore
 import numpy as np
+import logging
 
 """
 Motor should run on it's own QThread.
@@ -9,7 +10,7 @@ Motor will emit finished signal after move is completed.
 Should only use motor.read() and motor.write() methods.
 """
 
-class motor(QtCore.QThread):
+class motor(QtCore.QObject):
 	finished = QtCore.pyqtSignal()
 
 	def __init__(self,name,axis,order,
@@ -51,44 +52,53 @@ class motor(QtCore.QThread):
 		# Upper and lower limits of motor movement.
 		self._range = mrange
 		# Interfaces (Qt and Epics).
+		self._workerThread = None
 		self._ui = None
-		self._contoller = controls.motor(self._pv)
+		self._controller = controls.motor(self._pv)
+		logging.info("Loading motor {} on aixs {} with PV {}".format(name,axis,pv))
 
 	def setUi(self,ui):
 		# Connect user interface.
 		self._ui = motor.ui(ui)
 
+	# def _finished(self):
+	# 	# Delete the worker thread.
+	# 	self._workerThread = None
+	# 	self.finished.emit()
+
 	def setPosition(self,position):
 		position *= self._direction
-		self._contoller.write(position,mode='absolute')
+		self._controller.write(position,mode='absolute')
 		# Once finished, emit signal.
 		self.finished.emit()
+		# _workerThread = workerThread(self._controller,position,'absolute')
+		# _workerThread.start()
+		# _workerThread.finished.connect(self._finished)
 
 	def shiftPosition(self,position):
 		position *= self._direction
-		self._contoller.write(position,mode='relative')
+		self._controller.write(position,mode='relative')
 		# Once finished, emit signal.
 		self.finished.emit()
+		# self._workerThread = workerThread(self._controller,position,'relative')
+		# self._workerThread.start()
+		# self._workerThread.finished.connect(self._finished)
 
 	def readPosition(self):
-		return self._contoller.read()
+		return self._controller.read()
 
 	def transform(self,value):
 		# If we are a translation motor, return a translation transfrom.
 		if self._type == 0:
 			return math.transform.translation(self._axis,value)
 		if self._type == 1:
-			value += self._contoller.read()
-			return math.transform.rotation(self._axis,value,self._workPoint), math.transform.rotation(self._axis,-self._contoller.read(),self._workPoint)
+			value += self._controller.read()
+			return math.transform.rotation(self._axis,value,self._workPoint), math.transform.rotation(self._axis,-self._controller.read(),self._workPoint)
 
 	def calculateWorkPoint(self,pstage,dstage,offset):
 		if self._frame == 0:
 			# Find hardware specific position in stage.
 			pmotor = pstage - dstage + offset
-			print('pmotor:',pmotor)
-			print('pstage:',pstage)
-			print('dstage:',dstage)
-			print('offset:',offset)
 			# Find work point related to hardware.
 			self._workPoint = pstage - dstage + pmotor + self._size + self._workDistance
 
@@ -97,3 +107,22 @@ class motor(QtCore.QThread):
 		if self._frame == 1:
 			# Can only be set if work distances are zero and it is a rotation.
 			self._workPoint = workpoint
+
+	def reconnectControls(self):
+		self._controller.reconnect()
+
+
+# class workerThread(QtCore.QThread):
+# 	finished = QtCore.pyqtSignal()
+
+# 	def __init__(self,controller,position,mode):
+# 		super().__init__()
+# 		self.controller = controller
+# 		self.position = position
+# 		self.mode = mode
+# 	def run(self):
+# 		# This is the thread running section.
+# 		logging.info("Started worker thread.")
+# 		self.controller.write(self.position,mode=self.mode)
+# 		logging.info("Finished worker thread.")
+# 		self.finished.emit()

@@ -389,6 +389,7 @@ class QSettings(QtWidgets.QWidget):
 	modeChanged = QtCore.pyqtSignal('QString')
 	stageChanged = QtCore.pyqtSignal('QString')
 	detectorChanged = QtCore.pyqtSignal('QString')
+	refreshConnections = QtCore.pyqtSignal()
 
 	def __init__(self):
 		super().__init__()
@@ -419,12 +420,14 @@ class QSettings(QtWidgets.QWidget):
 		self.hardware['stage'] = QtWidgets.QComboBox()
 		stageLabel = QtWidgets.QLabel('Detector')
 		self.hardware['detector'] = QtWidgets.QComboBox()
+		self.hardware['refresh'] = QtWidgets.QPushButton("Refresh Connection")
 		# Layout
 		hardwareGroupLayout = QtWidgets.QVBoxLayout()
 		hardwareGroupLayout.addWidget(detectorLabel)
 		hardwareGroupLayout.addWidget(self.hardware['stage'])
 		hardwareGroupLayout.addWidget(stageLabel)
 		hardwareGroupLayout.addWidget(self.hardware['detector'])
+		hardwareGroupLayout.addWidget(self.hardware['refresh'])
 		hardwareGroup.setLayout(hardwareGroupLayout)
 
 		# Defaults
@@ -436,6 +439,7 @@ class QSettings(QtWidgets.QWidget):
 		self.controls['rbComplex'].clicked.connect(self.controlsMode)
 		self.hardware['stage'].currentIndexChanged.connect(self.stageChange)
 		self.hardware['detector'].currentIndexChanged.connect(self.detectorChange)
+		self.hardware['refresh'].clicked.connect(self._refreshConnections)
 		# Add Sections
 		self.layout.addWidget(controlsGroup)
 		self.layout.addWidget(hardwareGroup)
@@ -468,6 +472,9 @@ class QSettings(QtWidgets.QWidget):
 
 	def stageChange(self):
 		self.stageChanged.emit(self.hardware['stage'].currentText())
+
+	def _refreshConnections(self):
+		self.refreshConnections.emit()
 
 	def loadDetectors(self,stageList):
 		# stageList should be a list of strings of the stages available to choose from.

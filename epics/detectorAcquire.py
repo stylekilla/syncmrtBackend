@@ -11,3 +11,4 @@
 # SR08ID01DET04:TIFF:FileNumber		# File number (reset to 0)
 # SR08ID01DET04:TIFF:FilePath			# File path (Z:\mrt\xray\cache\)
 
+# SR08ID01DET02:IMAGE:ArrayData

@@ -1,12 +1,15 @@
 from synctools.hardware.motor import motor
 from PyQt5 import QtCore
 import numpy as np
+import logging
 
 class patientSupport(QtCore.QObject):
 	# startedMove = QtCore.pyqtSignal()
 	# moving = QtCore.pyqtSignal()
 	finishedMove = QtCore.pyqtSignal()
 	# error = QtCore.pyqtSignal()
+
+	# This needs to be re-written to accept 6DoF movements and split it up into individual movements.
 
 	def __init__(self,database,ui=None):
 		super().__init__()
@@ -40,6 +43,7 @@ class patientSupport(QtCore.QObject):
 			self.deviceList.add(row['PatientSupport'])
 
 	def load(self,name):
+		logging.info("Loading {}".format(name))
 		if name in self.deviceList: 
 			# Remove all motors.
 			for i in range(len(self.currentMotors)):
@@ -69,6 +73,10 @@ class patientSupport(QtCore.QObject):
 			# Update GUI.
 			if self._ui is not None:
 				self._ui.update()
+
+	def reconnect(self):
+		for motor in self.currentMotors:
+			motor.reconnectControls()
 
 	def calibrate(self,calibration):
 		# Stage size in mm including calibration offset (i.e. a pin or object used to calibrate the stage).
@@ -116,15 +124,14 @@ class patientSupport(QtCore.QObject):
 
 	def position(self,idx=None):
 		# return the current position of the stage in Global XYZ.
-		pos = np.array([0,0,0])
+		pos = np.array([0,0,0,0,0,0])
 		for motor in self.currentMotors:
-			if (motor._stage == 1)&(motor._type == 0):
-				# Read motor position and the axis it works on.
-				mpos = motor.readPosition()
-				axis = motor._axis
-				# Add value to the overall position.
-				if mpos == np.inf: mpos = 0
-				pos[axis] += mpos
+			# Read motor position and the axis it works on.
+			mpos = motor.readPosition()
+			axis = motor._axis
+			# Add value to the overall position.
+			if mpos == np.inf: mpos = 0
+			pos[axis] += mpos
 
 		# Return the position.
 		if idx is not None:
