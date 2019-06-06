@@ -43,9 +43,24 @@ class file(h5.File):
 	def __init__(self,fp,mode,*args,**kwargs):
 		super().__init__(fp,mode,*args,**kwargs)
 
-	def getImages(self,index=-1):
-		pass
+	def getImageSet(self,index=-1):
+		if index == -1:
+			index = len(self['Image'])
+		return self['Image'][str(index).zfill(2)]
 
+	def addImageSet(self,_set):
+		logging.info("Writing image set to HDF5 file.")
+		_setName = str(len(self['Image']+1)).zfill(2)
+		_nims = len(_set)
+		# Create the group set.
+		newSet = self['Image'].create_group(_setName)
+		# Add the images to the set one by one.
+		for i in range(_nims):
+			image = newSet.create_dataset(str(i+1),data=_set[i][0])
+			# Add the image attributes (metadata).
+			for key, val in _set[i][1].items():
+				image.attrs[key] = val
+		return _setName, _nims
 
 # class base:
 # 	file = None

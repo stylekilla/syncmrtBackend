@@ -1,6 +1,7 @@
 from synctools.fileHandler import importer
 from synctools.fileHandler import hdf5
 from synctools.tools.opencl import gpu
+import logging
 
 class patient:
 	def __init__(self,name='Default'):

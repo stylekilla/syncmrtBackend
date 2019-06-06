@@ -1,7 +1,7 @@
 import os
 import pydicom as dicom
 import numpy as np
-from synctools.fileHandler.image import image2d
+from synctools.fileHandler.image import Image2d
 from synctools.fileHandler import hdf5
 from natsort import natsorted
 from synctools.tools.opencl import gpu as gpuInterface
@@ -26,47 +26,28 @@ class sync_dx:
 	def __init__(self,dataset):
 		# Read in hdf5 dataset.
 		self.file = hdf5.load(dataset[0])
-		# Load the images in.
-		for i in range(self.file.attrs['NumberOfImages']):
-			if i == 0: self.image = [image2d()]
-			else: self.image.append(image2d())
-			self.image[i].pixelArray = self.file[str(i)][:]
-			# Extract the extent information, should be available in image.
-			self.image[i].extent = self.file[str(i)].attrs['extent']
-			# Patient isocenter (typically the beam isocenter).
-			self.image[i].patientIsocenter = self.file[str(i)].attrs['isocenter']
-			# Import image view.
-			# self.image[i].view = file[str(i)].attrs['view']
-			# self.image[i].axis = file[str(i)].attrs['axis']
-			self.image[i].view = {
-					'title':'AP',
-					'xLabel':'LR',
-					'yLabel':'SI',
-				}
-			self.image[i].orientation = [1,2,0]
 
-# class sync_dx:
-# 	def __init__(self,dataset):
-# 		# Read in hdf5 image arrays.
-# 		self.file = h5py.File(dataset[0],'r')
-# 		# Load the images in.
-# 		for i in range(self.file.attrs['NumberOfImages']):
-# 			if i == 0: self.image = [image2d()]
-# 			else: self.image.append(image2d())
-# 			self.image[i].pixelArray = self.file[str(i)][:]
-# 			# Extract the extent information, should be available in image.
-# 			self.image[i].extent = self.file[str(i)].attrs['extent']
-# 			# Patient isocenter (typically the beam isocenter).
-# 			self.image[i].patientIsocenter = self.file[str(i)].attrs['isocenter']
-# 			# Import image view.
-# 			# self.image[i].view = file[str(i)].attrs['view']
-# 			# self.image[i].axis = file[str(i)].attrs['axis']
-# 			self.image[i].view = {
-# 					'title':'AP',
-# 					'xLabel':'LR',
-# 					'yLabel':'SI',
-# 				}
-# 			self.image[i].orientation = [1,2,0]
+	def getImageList(self):
+		return list(self.file['Images'].keys())
+
+	def getImageSet(self,idx):
+		logging.info("Reading image set {} from HDF5.".format(idx))
+		_set = self.file.getImageSet(idx)
+		image = []
+		for i in range(len(_set)):
+			# Get the image and its attributes.
+			image = Image2d()
+			image.pixelArray = _set[str(i+1)][()]
+			image.extent = _set[str(i+1)].attrs['Extent']
+			image.patientIsocenter = _set[str(i+1)].attrs['Image Isocenter']
+			image.view['title'] = _set[str(i+1)].attrs['Image Angle']
+			image.M = _set[str(i+1)].attrs['M']
+			image.Mi = _set[str(i+1)].attrs['Mi']
+			# Append the image.
+			image.append(image)
+
+		return image
+
 
 def checkDicomModality(dataset,modality):
 	# Start with empty list of files.

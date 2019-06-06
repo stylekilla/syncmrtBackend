@@ -1,23 +1,24 @@
-from synctools.hardware.detector import motor
+from synctools.hardware.detector import detector
 from synctools.fileHandler import hdf5
 from PyQt5 import QtCore
 import numpy as np
 import logging
 
 class Imager(QtCore.QObject):
-	imageAcquired = QtCore.pyqtSignal()
-	imagesWritten = QtCore.pyqtSignal()
+	imageAcquired = QtCore.pyqtSignal(int)
+	newImageSet = QtCore.pyqtSignal(str,int)
 
 	# This needs to be re-written to accept 6DoF movements and split it up into individual movements.
 
 	def __init__(self,database,ui=None):
 		super().__init__()
 		# Information
-		self.currentDevice = None
+		self.currentDetector = None
 		# File.
 		self.file = None
-		self._buffer = []
-
+		# Image buffer for set.
+		self.buffer = []
+		self.metadata = []
 		# Get list of motors.
 		import csv, os
 		# Open CSV file
@@ -33,32 +34,43 @@ class Imager(QtCore.QObject):
 	def load(self,name):
 		logging.info("Loading the {} detector.".format(name))
 		if name in self.deviceList:
-			self._controller = controls.detector(self.detectors[name])
+			self.currentDetector = detector(name,self.detectors[name])
 
 	def reconnect(self):
-		self.currentDevice.reconnect()
+		self.currentDetector.reconnect()
 
-	def setImagingParameters(self,params)
-			# Acquire an image and add it to the buffer.
-		settings = {
-			'acquisitionTime': 0.500
-		}
+	def setImagingParameters(self,params):
+		# As they appear on PV's.
+		self.detector.setParameters(params)
 
-	def acquire(self,metadata):
+	def acquire(self,index,metadata):
 		if self.file is None:
-			logging.warniing("Cannot acquire x-rays when there is no HDF5 file.")
+			logging.warning("Cannot acquire x-rays when there is no HDF5 file.")
 			return None
+		# Get the image and update the metadata.
+		_data = self.detector.acquire()
+		metadata.update(_data[1])
+		# Add the transformation matrix into the images frame of reference.
+		# Imagers FOR is a RH-CS where +x propagates down the beamline.
+		M = np.identity(3)
+		t = np.deg2rad(float(metadata['Image Angle']))
+		rz = np.array([[np.cos(t),-np.sin(t),0],[np.sin(t),np.cos(t),0],[0,0,1]])
+		M = rz@M
+		metadata.update({
+				'M':M,
+				'Mi':np.linalg.inv(M),
+			})
+		# Append the image and metada to to the buffer.
+		self.buffer.append((_data[0],metadata))
+		# Emit a signal saying we have acquired an image.
+		self.imageAcquired.emit(index)
 
-		self.buffer = self.detector.acquire()
-
-	def commitBuffer(self):
-		?
-
-	def setDataset(self,fp):
-		self.file = hdf5.load(fp)
+	def setPatientDataset(self,_file):
+		self.file = _file
 
 	def addImagesToDataset(self):
-		metadata = {
-			'stuff': 3
-		}
-		self.file.addImages(self.buffer,metadata)
+		if file != None:
+			_name, _nims = self.file.addImageSet(self.buffer)
+			self.newImageSet.emit(_name, _nims)
+		else:
+			logging.critical("Cannot save images to dataset, no HDF5 file loaded.")

@@ -4,7 +4,7 @@ import numpy as np
 import logging
 
 class patientSupport(QtCore.QObject):
-	# startedMove = QtCore.pyqtSignal()
+	# startedMove = QtC
 	# moving = QtCore.pyqtSignal()
 	finishedMove = QtCore.pyqtSignal()
 	# error = QtCore.pyqtSignal()
@@ -43,8 +43,8 @@ class patientSupport(QtCore.QObject):
 			self.deviceList.add(row['PatientSupport'])
 
 	def load(self,name):
-		logging.info("Loading {}".format(name))
-		if name in self.deviceList: 
+		logging.info("Loading patient support: {}.".format(name))
+		if name in self.deviceList:
 			# Remove all motors.
 			for i in range(len(self.currentMotors)):
 				del self.currentMotors[-1]
@@ -62,6 +62,8 @@ class patientSupport(QtCore.QObject):
 					# Set a ui for the motor if we are doing that.
 					if self._ui is not None:
 						newMotor.setUi(self._ui)
+					# Connect to finished method.
+					newMotor.finished.connect(self._finished)
 					# Append the motor to the list.
 					self.currentMotors.append(newMotor)
 			# Set the order of the list from 0-i.
@@ -96,8 +98,6 @@ class patientSupport(QtCore.QObject):
 			motor.shiftPosition(value)
 			# Set position variable to 0 (if motor was successful).
 			position[(motor._axis + (3*motor._type))] = 0
-			# Connect to finished method.
-			motor.finished.connect(self._finished)
 
 	def setPosition(self,position):
 		# This is a direct position change.
@@ -109,8 +109,6 @@ class patientSupport(QtCore.QObject):
 			motor.setPosition(value)
 			# Set position variable to 0 (if motor was successful).
 			position[(motor._axis + (3*motor._type))] = 0
-			# Connect to finished method.
-			motor.finished.connect(self._finished)
 
 	def _finished(self):
 		if self._counter == len(self.currentMotors):
@@ -121,6 +119,7 @@ class patientSupport(QtCore.QObject):
 		else:
 			# Increment counter by 1.
 			self._counter += 1
+			logging.info("Motor {} of {} finished movement.".format(self._counter,len(self.currentMotors)))
 
 	def position(self,idx=None):
 		# return the current position of the stage in Global XYZ.

@@ -125,6 +125,7 @@ class QImaging(QtWidgets.QWidget):
 	# Acquire image sends: (theta,zTranslation)
 	acquire = QtCore.pyqtSignal(list,list,str)
 	numberOfImagesChanged = QtCore.pyqtSignal(int)
+	imageSetChanged = QtCore.pyqtSignal(str)
 	# Storage.
 	widget = {}
 	group = {}
@@ -242,6 +243,9 @@ class QImaging(QtWidgets.QWidget):
 		# Add the layout to the QImaging widget.
 		self.setLayout(self.layout)
 
+		# Signals.
+		self.widget['imageList'].currentTextChanged.connect(self.imageSetChanged)
+
 	def updateSeparationRange(self,newRange):
 		# Get new range.
 		self.thetaRange = newRange
@@ -293,6 +297,8 @@ class QImaging(QtWidgets.QWidget):
 	def disableAcquisition(self):
 		self.widget['acquire'].setEnabled(False)
 
+	def addImageSet(self,_item):
+		self.widget['imageList'].addItem(_list)
 
 class QTreatment(QtWidgets.QWidget):
 	def __init__(self):
@@ -397,21 +403,21 @@ class QSettings(QtWidgets.QWidget):
 		self.hardware = {}
 		self.layout = QtWidgets.QVBoxLayout()
 
-		# Group 1: Controls Level
-		controlsGroup = QtWidgets.QGroupBox()
-		controlsGroup.setTitle('Control Complexity')
-		self.controls['rbSimple'] = QtWidgets.QRadioButton('Simple')
-		self.controls['rbNormal'] = QtWidgets.QRadioButton('Normal')
-		self.controls['rbComplex'] = QtWidgets.QRadioButton('Complex')
-		self.controls['cbReadOnly'] = QtWidgets.QCheckBox('Read Only')
-		self.controls['complexity'] = 'simple'
-		# Layout
-		controlsGroupLayout = QtWidgets.QVBoxLayout()
-		controlsGroupLayout.addWidget(self.controls['rbSimple'])
-		controlsGroupLayout.addWidget(self.controls['rbNormal'])
-		controlsGroupLayout.addWidget(self.controls['rbComplex'])
-		controlsGroupLayout.addWidget(self.controls['cbReadOnly'])
-		controlsGroup.setLayout(controlsGroupLayout)
+		# # Group 1: Controls Level
+		# controlsGroup = QtWidgets.QGroupBox()
+		# controlsGroup.setTitle('Control Complexity')
+		# self.controls['rbSimple'] = QtWidgets.QRadioButton('Simple')
+		# self.controls['rbNormal'] = QtWidgets.QRadioButton('Normal')
+		# self.controls['rbComplex'] = QtWidgets.QRadioButton('Complex')
+		# self.controls['cbReadOnly'] = QtWidgets.QCheckBox('Read Only')
+		# self.controls['complexity'] = 'simple'
+		# # Layout
+		# controlsGroupLayout = QtWidgets.QVBoxLayout()
+		# controlsGroupLayout.addWidget(self.controls['rbSimple'])
+		# controlsGroupLayout.addWidget(self.controls['rbNormal'])
+		# controlsGroupLayout.addWidget(self.controls['rbComplex'])
+		# controlsGroupLayout.addWidget(self.controls['cbReadOnly'])
+		# controlsGroup.setLayout(controlsGroupLayout)
 
 		# Group 2: Hardware
 		hardwareGroup = QtWidgets.QGroupBox()
@@ -420,44 +426,45 @@ class QSettings(QtWidgets.QWidget):
 		self.hardware['stage'] = QtWidgets.QComboBox()
 		stageLabel = QtWidgets.QLabel('Detector')
 		self.hardware['detector'] = QtWidgets.QComboBox()
-		self.hardware['refresh'] = QtWidgets.QPushButton("Refresh Connection")
+		self.hardware['refresh'] = QtWidgets.QPushButton("Refresh Connections")
 		# Layout
 		hardwareGroupLayout = QtWidgets.QVBoxLayout()
 		hardwareGroupLayout.addWidget(detectorLabel)
 		hardwareGroupLayout.addWidget(self.hardware['stage'])
 		hardwareGroupLayout.addWidget(stageLabel)
 		hardwareGroupLayout.addWidget(self.hardware['detector'])
+		hardwareGroupLayout.addWidget(QHLine())
 		hardwareGroupLayout.addWidget(self.hardware['refresh'])
 		hardwareGroup.setLayout(hardwareGroupLayout)
 
 		# Defaults
-		self.controls['rbSimple'].setChecked(True)
-		self.controls['cbReadOnly'].setChecked(True)
+		# self.controls['rbSimple'].setChecked(True)
+		# self.controls['cbReadOnly'].setChecked(True)
 		# Signals and Slots
-		self.controls['rbSimple'].clicked.connect(self.controlsMode)
-		self.controls['rbNormal'].clicked.connect(self.controlsMode)
-		self.controls['rbComplex'].clicked.connect(self.controlsMode)
+		# self.controls['rbSimple'].clicked.connect(self.controlsMode)
+		# self.controls['rbNormal'].clicked.connect(self.controlsMode)
+		# self.controls['rbComplex'].clicked.connect(self.controlsMode)
 		self.hardware['stage'].currentIndexChanged.connect(self.stageChange)
 		self.hardware['detector'].currentIndexChanged.connect(self.detectorChange)
 		self.hardware['refresh'].clicked.connect(self._refreshConnections)
 		# Add Sections
-		self.layout.addWidget(controlsGroup)
+		# self.layout.addWidget(controlsGroup)
 		self.layout.addWidget(hardwareGroup)
 		# Finish page.
 		self.layout.addStretch(1)
 		self.setLayout(self.layout)
 
-	def controlsMode(self):
-		''' Set complexity of controls. '''
-		if self.controls['rbSimple'].isChecked():
-			self.controls['complexity'] = 'simple'
-		elif self.controls['rbNormal'].isChecked():
-			self.controls['complexity'] = 'normal'
-		elif self.controls['rbComplex'].isChecked():
-			self.controls['complexity'] = 'complex'
+	# def controlsMode(self):
+	# 	''' Set complexity of controls. '''
+	# 	if self.controls['rbSimple'].isChecked():
+	# 		self.controls['complexity'] = 'simple'
+	# 	elif self.controls['rbNormal'].isChecked():
+	# 		self.controls['complexity'] = 'normal'
+	# 	elif self.controls['rbComplex'].isChecked():
+	# 		self.controls['complexity'] = 'complex'
 
-		# Emit signal to say state has changed.
-		self.modeChanged.emit(self.controls['complexity'])
+	# 	# Emit signal to say state has changed.
+	# 	self.modeChanged.emit(self.controls['complexity'])
 
 	def loadStages(self,stageList):
 		# stageList should be a list of strings of the stages available to choose from.

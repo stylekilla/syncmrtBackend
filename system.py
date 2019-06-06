@@ -12,6 +12,7 @@ class system:
 '''
 class system(QtCore.QObject):
 	imagesAcquired = QtCore.pyqtSignal(int)
+	newImageSet = QtCore.pyqtSignal(str)
 
 	def __init__(self,patientSupports,detectors):
 		super().__init__()
@@ -19,15 +20,21 @@ class system(QtCore.QObject):
 		# self.source = hardware.source()
 		self.patientSupport = hardware.patientSupport(patientSupports)
 		self.imager = hardware.Imager(detectors)
-		self.detector = hardware.detector(detectors)
-		self._patient = None
+		self.patient = None
 		# Counter
 		self._routine = None
+		# When a new image set is acquired, tell the GUI.
+		self.imager.newImageSet.connect(self.newImageSet)
 
 	def loadPatient(self,patient):
 		# Assumes patient has an already loaded x-ray dataset.
-		self._patient = patient
+		self.patient = patient
 		logging.info("System has been linked with the patient data.")
+
+	def setLocalXrayFile(self,file):
+		self.patient.load(file,'DX')
+		# Link the patient datafile to the imager.
+		self.imager.file = self.patient.dx.file
 
 	def setStage(self,name):
 		self.patientSupport.load(name)
@@ -82,7 +89,7 @@ class system(QtCore.QObject):
 		# Setup vars.
 		tx = ty = rx = ry = 0
 		# Move to first position.
-		self.patientSupport.shiftPosition([tx,ty,self._routine.tz[self._routine.counter],rx,ry,self._routine.theta[self._routine.counter]])
+		self.patientSupport.shiftPosition([tx,ty,self._routine.tz[0],rx,ry,self._routine.theta[0]])
 		self.patientSupport.finishedMove.connect(partial(self._continueScan,'imaging'))
 		self.imager.imageAcquired.connect(partial(self._continueScan,'moving'))
 
@@ -91,7 +98,14 @@ class system(QtCore.QObject):
 		if mode == 'imaging':
 			# Finished a move, acquire an x-ray.
 			self._routine.counter += 1
-			self.imager.acquire()
+			tx,ty,tz,rx,ry,rz = self.patientSupport.position()
+			metadata = {
+				'Image Angle': self._routine.theta[self._routine.counter],
+				'Patient Support Position': (tx,ty,tz),
+				'Patient Support Angle': (rx,ry,rz),
+				'Image Index': self._routine.counter,
+			}
+			self.imager.acquire(self._routine.counter,metadata)
 		elif mode == 'moving':
 			if self._routine.counter < self._routine.counterLimit:
 				# Defaults for now.
@@ -105,6 +119,8 @@ class system(QtCore.QObject):
 		# Disconnect signals.
 		self.patientSupport.finishedMove.disconnect()
 		self.imager.imageAcquired.disconnect()
+		# Finalise image set.
+		self.imager.addImagesToDataset()
 		# Put patient back where they were.
 		self.patientSupport.finishedMove.connect(self._finishedScan)
 		self.patientSupport.setPosition(self._routine.preImagingPosition)
@@ -164,8 +180,9 @@ class system(QtCore.QObject):
 		# With name, name.
 
 class ImagingRoutine:
-	self.theta = []
-	self.tz = [0,0]
-	self.dz = 0
-	self.preImagingPosition = None
-	self.counter = 0
+	theta = []
+	tz = [0,0]
+	dz = 0
+	preImagingPosition = None
+	counter = 0
+	counterLimit = 0
