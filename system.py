@@ -4,12 +4,11 @@ import numpy as np
 from functools import partial
 from PyQt5 import QtCore
 
-'''
-class system:
-	__init__ .
-	The system holds information about the detector and stage.
-	It should also hold information about... other stuff.
-'''
+"""
+system.py
+---------
+This module creates a treatment 'system' that is made up of imaging devices, positioning aparatus, beam delivery controls etc.
+"""
 class system(QtCore.QObject):
 	imagesAcquired = QtCore.pyqtSignal(int)
 	newImageSet = QtCore.pyqtSignal(str)

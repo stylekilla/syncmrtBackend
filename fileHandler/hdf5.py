@@ -25,13 +25,12 @@ _xrayImageAttributes = [
 		"Mi",
 	]
 
-# Create a new HDF5 file.
 def new(fp):
-	f = file(fp,'w')
-	# Set the file up.
-	f.create_group('Patient')
+	f = file(fp,'w') #: Create a new HDF5 file.
+	#: Set the file up.
+	f.create_group('Patient') 
 	f.create_group('Image')
-	# Return the file.
+	#: Return the file.
 	return f
 
 # Load a HDF5 file.
@@ -40,17 +39,20 @@ def load(fp):
 	return file(fp,'w')
 
 class file(h5.File):
+	""" A reclass of the H5Py module. Added specific functionality for reading and writing image sets. """
 	def __init__(self,fp,mode,*args,**kwargs):
+		print(fp,mode,*args,**kwargs)
 		super().__init__(fp,mode,*args,**kwargs)
 
 	def getImageSet(self,index=-1):
+		logging.info("Getting image set {}.".format(index))
 		if index == -1:
 			index = len(self['Image'])
 		return self['Image'][str(index).zfill(2)]
 
 	def addImageSet(self,_set):
 		logging.info("Writing image set to HDF5 file.")
-		_setName = str(len(self['Image']+1)).zfill(2)
+		_setName = str(len(self['Image'])+1).zfill(2)
 		_nims = len(_set)
 		# Create the group set.
 		newSet = self['Image'].create_group(_setName)

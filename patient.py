@@ -13,6 +13,7 @@ class patient:
 	def load(self,dataset,modality):
 		if modality == 'DX': 
 			# Close the open one first.
+			print(self.dx)
 			if self.dx != None: self.dx.close() 
 			# Now open the dataset.
 			self.dx = importer.sync_dx(dataset)

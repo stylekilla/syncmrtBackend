@@ -54,11 +54,11 @@ class patientSupport(QtCore.QObject):
 				if support['PatientSupport'] == name:
 					# Define the new motor.
 					newMotor = motor(
-									support['Description'],
-									int(support['Axis']),
-									int(support['Order']),
-									pv = support['PV Root']
-								)
+							support['Description'],
+							int(support['Axis']),
+							int(support['Order']),
+							pv = support['PV Root']
+						)
 					# Set a ui for the motor if we are doing that.
 					if self._ui is not None:
 						newMotor.setUi(self._ui)
