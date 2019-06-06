@@ -1,5 +1,6 @@
 from PyQt5 import QtWidgets, QtGui, QtCore
 from functools import partial
+import logging
 
 class QAlignment(QtWidgets.QWidget):
 	markersChanged = QtCore.pyqtSignal(int)
@@ -126,6 +127,7 @@ class QImaging(QtWidgets.QWidget):
 	acquire = QtCore.pyqtSignal(list,list,str)
 	numberOfImagesChanged = QtCore.pyqtSignal(int)
 	imageSetChanged = QtCore.pyqtSignal(str)
+	imageModeChanged = QtCore.pyqtSignal(str)
 	# Storage.
 	widget = {}
 	group = {}
@@ -150,7 +152,8 @@ class QImaging(QtWidgets.QWidget):
 		# Num images.
 		lblImages = QtWidgets.QLabel("Select Image:")
 		self.widget['imageList'] = QtWidgets.QComboBox()
-		self.widget['imageList'].addItem("<new>")
+		self.widget['imageList'].setMinimumSize(65,20)
+		# self.widget['imageList'].addItem("<new>")
 		# self.widget['imageList'].valueChanged.connect()
 		imagingSequence_layout.addRow(lblImages,self.widget['imageList'])
 		# Acquire button.
@@ -172,7 +175,8 @@ class QImaging(QtWidgets.QWidget):
 		# Num images.
 		lblImages = QtWidgets.QLabel("Number of Images")
 		self.widget['numImages'] = QtWidgets.QSpinBox()
-		self.widget['numImages'].setMaximumSize(55,20)
+		self.widget['numImages'].setMinimumSize(55,20)
+		# self.widget['numImages'].setMaximumSize(55,20)
 		self.widget['numImages'].setRange(1,2)
 		self.widget['numImages'].setValue(2)
 		self.widget['numImages'].valueChanged.connect(self.updateNumImages)
@@ -184,7 +188,7 @@ class QImaging(QtWidgets.QWidget):
 		# translation 1
 		self.widget['translation1_label'] = QtWidgets.QLabel("Z<sub>upper</sub> mm")
 		self.widget['translation1'] = QtWidgets.QDoubleSpinBox()
-		self.widget['translation1'].setMinimumSize(65,20)
+		self.widget['translation1'].setMinimumSize(55,20)
 		self.widget['translation1'].setDecimals(1)
 		self.widget['translation1'].setMinimum(self.translationRange[0])
 		self.widget['translation1'].setMaximum(self.translationRange[1])
@@ -193,7 +197,7 @@ class QImaging(QtWidgets.QWidget):
 		# translation 2
 		self.widget['translation2_label'] = QtWidgets.QLabel("Z<sub>lower</sub> mm")
 		self.widget['translation2'] = QtWidgets.QDoubleSpinBox()
-		self.widget['translation2'].setMinimumSize(65,20)
+		self.widget['translation2'].setMinimumSize(55,20)
 		self.widget['translation2'].setDecimals(1)
 		self.widget['translation2'].setMinimum(self.translationRange[0])
 		self.widget['translation2'].setMaximum(self.translationRange[1])
@@ -206,7 +210,7 @@ class QImaging(QtWidgets.QWidget):
 		# Theta 1
 		self.widget['theta1_label'] = QtWidgets.QLabel("\u03B8<sub>1</sub>\u00B0")
 		self.widget['theta1'] = QtWidgets.QDoubleSpinBox()
-		self.widget['theta1'].setMinimumSize(65,20)
+		self.widget['theta1'].setMinimumSize(55,20)
 		self.widget['theta1'].setDecimals(1)
 		self.widget['theta1'].setMinimum(self.thetaRange[0])
 		self.widget['theta1'].setMaximum(self.thetaRange[1])
@@ -215,7 +219,7 @@ class QImaging(QtWidgets.QWidget):
 		# Theta 2
 		self.widget['theta2_label'] = QtWidgets.QLabel("\u03B8<sub>2</sub>\u00B0")
 		self.widget['theta2'] = QtWidgets.QDoubleSpinBox()
-		self.widget['theta2'].setMinimumSize(65,20)
+		self.widget['theta2'].setMinimumSize(55,20)
 		self.widget['theta2'].setDecimals(1)
 		self.widget['theta2'].setMinimum(self.thetaRange[0])
 		self.widget['theta2'].setMaximum(self.thetaRange[1])
@@ -229,9 +233,15 @@ class QImaging(QtWidgets.QWidget):
 		imagingSequence_layout.addRow(self.widget['comment'])
 		imagingSequence_layout.addRow(QHLine())
 		# Acquire button.
-		self.widget['acquire'] = QtWidgets.QPushButton("Acquire")
+		self.widget['step'] = QtWidgets.QRadioButton("Step")
+		self.widget['step'].setChecked(True)
+		self.widget['scan'] = QtWidgets.QRadioButton("Scan")
+		self.widget['step'].toggled.connect(partial(self._imageModeChanged,'step'))
+		self.widget['scan'].toggled.connect(partial(self._imageModeChanged,'scan'))
+		self.widget['acquire'] = QtWidgets.QPushButton("Acquire X-rays")
 		self.widget['acquire'].setEnabled(False)
 		self.widget['acquire'].clicked.connect(self.acquireImages)
+		imagingSequence_layout.addRow(self.widget['step'],self.widget['scan'])
 		imagingSequence_layout.addRow(self.widget['acquire'])
 		# Set the group layout.
 		self.group['imagingSequence'].setLayout(imagingSequence_layout)
@@ -245,6 +255,10 @@ class QImaging(QtWidgets.QWidget):
 
 		# Signals.
 		self.widget['imageList'].currentTextChanged.connect(self.imageSetChanged)
+
+	def _imageModeChanged(self,mode,state):
+		if state is True:
+			self.imageModeChanged.emit(mode)
 
 	def updateSeparationRange(self,newRange):
 		# Get new range.
@@ -297,8 +311,10 @@ class QImaging(QtWidgets.QWidget):
 	def disableAcquisition(self):
 		self.widget['acquire'].setEnabled(False)
 
-	def addImageSet(self,_item):
-		self.widget['imageList'].addItem(_list)
+	def addImageSet(self,_list):
+		for _set in _list:
+			logging.info("Adding {} to image set combo box.".format(_set))
+			self.widget['imageList'].addItem(_set)
 
 class QTreatment(QtWidgets.QWidget):
 	def __init__(self):

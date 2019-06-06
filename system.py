@@ -22,6 +22,7 @@ class system(QtCore.QObject):
 		self.patient = None
 		# Counter
 		self._routine = None
+		self._imagingMode = 'step'
 		# When a new image set is acquired, tell the GUI.
 		self.imager.newImageSet.connect(self.newImageSet)
 
@@ -40,6 +41,10 @@ class system(QtCore.QObject):
 
 	def setDetector(self,name):
 		self.imager.load(name)
+
+	def setImagingMode(self,mode):
+		logging.info("Imaging mode changed to {}.".format(mode))
+		self._imagingMode = mode
 
 	def calculateAlignment(self):
 		# Update variables.
@@ -92,9 +97,9 @@ class system(QtCore.QObject):
 		self.patientSupport.finishedMove.connect(partial(self._continueScan,'imaging'))
 		self.imager.imageAcquired.connect(partial(self._continueScan,'moving'))
 
-	def _continueScan(self,mode):
+	def _continueScan(self,operation):
 		# So far this will acquire 1 image per angle. It will not do step and shoot or scanning yet.
-		if mode == 'imaging':
+		if operation == 'imaging':
 			# Finished a move, acquire an x-ray.
 			self._routine.counter += 1
 			tx,ty,tz,rx,ry,rz = self.patientSupport.position()
@@ -105,7 +110,7 @@ class system(QtCore.QObject):
 				'Image Index': self._routine.counter,
 			}
 			self.imager.acquire(self._routine.counter,metadata)
-		elif mode == 'moving':
+		elif operation == 'moving':
 			if self._routine.counter < self._routine.counterLimit:
 				# Defaults for now.
 				tx = ty = rx = ry = 0
@@ -113,6 +118,17 @@ class system(QtCore.QObject):
 				self.patientSupport.shiftPosition([tx,ty,self._routine.tz[self._routine.counter],rx,ry,self._routine.theta[self._routine.counter]])
 			else:
 				self._endScan()
+
+	def _step(self):
+		# Take over the _continueScan operation.
+		self.patientSupport.finishedMove.disconnect()
+		self.patientSupport.finishedMove.connect(self._step)
+		# Move the patient up one step.
+		self.patientSupport.shiftPosition([0,0,_dstep,0,0,0])
+		# Acquire part of an image.
+		self.
+
+	def _scan(self):
 
 	def _endScan(self):
 		# Disconnect signals.

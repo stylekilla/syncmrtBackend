@@ -36,12 +36,11 @@ def new(fp):
 # Load a HDF5 file.
 def load(fp):
 	logging.info("Loading {}".format(fp))
-	return file(fp,'w')
+	return file(fp,'a')
 
 class file(h5.File):
 	""" A reclass of the H5Py module. Added specific functionality for reading and writing image sets. """
 	def __init__(self,fp,mode,*args,**kwargs):
-		print(fp,mode,*args,**kwargs)
 		super().__init__(fp,mode,*args,**kwargs)
 
 	def getImageSet(self,index=-1):

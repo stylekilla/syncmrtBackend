@@ -28,25 +28,25 @@ class sync_dx:
 		self.file = hdf5.load(dataset[0])
 
 	def getImageList(self):
-		return list(self.file['Images'].keys())
+		return list(self.file['Image'].keys())
 
 	def getImageSet(self,idx):
 		logging.info("Reading image set {} from HDF5.".format(idx))
 		_set = self.file.getImageSet(idx)
-		image = []
+		imageSet = []
 		for i in range(len(_set)):
 			# Get the image and its attributes.
 			image = Image2d()
 			image.pixelArray = _set[str(i+1)][()]
 			image.extent = _set[str(i+1)].attrs['Extent']
 			image.patientIsocenter = _set[str(i+1)].attrs['Image Isocenter']
-			image.view['title'] = _set[str(i+1)].attrs['Image Angle']
+			image.view['title'] = str(_set[str(i+1)].attrs['Image Angle'])+"\u00B0"
 			image.M = _set[str(i+1)].attrs['M']
 			image.Mi = _set[str(i+1)].attrs['Mi']
 			# Append the image.
-			image.append(image)
+			imageSet.append(image)
 
-		return image
+		return imageSet
 
 
 def checkDicomModality(dataset,modality):

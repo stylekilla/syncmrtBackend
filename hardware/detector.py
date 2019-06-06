@@ -53,4 +53,5 @@ class detector(QtCore.QObject):
 			'Date': time.strftime("%d/%m/%Y"),
 			'dateTime': time,
 		}
+		# Take a dark field?
 		return (self._controller.readImage(), metadata)

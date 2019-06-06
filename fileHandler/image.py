@@ -15,7 +15,8 @@ class Image2d:
 			'yLabel':'None',
 		}
 		# Transform for getting into and out of the image frame of reference.
-		self.M
+		self.M = None
+		self.Mi = None
 
 	def forIn(self,points):
 		pass
