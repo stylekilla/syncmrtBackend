@@ -311,10 +311,13 @@ class QImaging(QtWidgets.QWidget):
 	def disableAcquisition(self):
 		self.widget['acquire'].setEnabled(False)
 
-	def addImageSet(self,_list):
-		for _set in _list:
-			logging.info("Adding {} to image set combo box.".format(_set))
-			self.widget['imageList'].addItem(_set)
+	def addImageSet(self,_setName):
+		logging.debug("Adding {} to image set list.".format(_setName))
+		if type(_setName) is list:
+			for _set in _setName:
+				self.widget['imageList'].addItem(_set)
+		else:
+			self.widget['imageList'].addItem(_setName)
 
 class QTreatment(QtWidgets.QWidget):
 	def __init__(self):

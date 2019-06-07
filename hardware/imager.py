@@ -10,15 +10,19 @@ class Imager(QtCore.QObject):
 
 	# This needs to be re-written to accept 6DoF movements and split it up into individual movements.
 
-	def __init__(self,database,ui=None):
+	def __init__(self,database,config,ui=None):
 		super().__init__()
 		# Information
-		self.currentDetector = None
+		self.detector = None
 		# File.
 		self.file = None
+		self.config = config
 		# Image buffer for set.
 		self.buffer = []
 		self.metadata = []
+		# System properties.
+		self.sid = self.config.sid
+		self.sad = self.config.sad
 		# Get list of motors.
 		import csv, os
 		# Open CSV file
@@ -34,10 +38,12 @@ class Imager(QtCore.QObject):
 	def load(self,name):
 		logging.info("Loading the {} detector.".format(name))
 		if name in self.deviceList:
-			self.currentDetector = detector(name,self.detectors[name])
+			self.detector = detector(name,self.detectors[name])
+			self.detector.imageIsocenter = self.config.isocenter
+			self.detector.pixelSize = self.config.pixelSize
 
 	def reconnect(self):
-		self.currentDetector.reconnect()
+		self.detector.reconnect()
 
 	def setImagingParameters(self,params):
 		# As they appear on PV's.
@@ -50,6 +56,12 @@ class Imager(QtCore.QObject):
 		# Get the image and update the metadata.
 		_data = self.detector.acquire()
 		metadata.update(_data[1])
+		# Calculate the extent.
+		l = self.detector.imageIsocenter[0]*self.detector.pixelSize[0]
+		r = l - _data[0].shape[0]*self.detector.pixelSize[0]
+		t = self.detector.imageIsocenter[1]*self.detector.pixelSize[1]
+		b = t - _data[0].shape[1]*self.detector.pixelSize[1]
+		extent = (l,r,b,t)
 		# Add the transformation matrix into the images frame of reference.
 		# Imagers FOR is a RH-CS where +x propagates down the beamline.
 		M = np.identity(3)
@@ -57,6 +69,7 @@ class Imager(QtCore.QObject):
 		rz = np.array([[np.cos(t),-np.sin(t),0],[np.sin(t),np.cos(t),0],[0,0,1]])
 		M = rz@M
 		metadata.update({
+				'Extent': extent,
 				'M':M,
 				'Mi':np.linalg.inv(M),
 			})
@@ -69,8 +82,10 @@ class Imager(QtCore.QObject):
 		self.file = _file
 
 	def addImagesToDataset(self):
-		if file != None:
+		if self.file != None:
 			_name, _nims = self.file.addImageSet(self.buffer)
+			logging.debug("Adding {} images to set {}.".format(_nims,_name))
 			self.newImageSet.emit(_name, _nims)
 		else:
 			logging.critical("Cannot save images to dataset, no HDF5 file loaded.")
+		self.buffer = []

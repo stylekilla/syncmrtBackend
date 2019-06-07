@@ -19,9 +19,8 @@ class detector(QtCore.QObject):
 		self.name = name
 		self.pv = pv
 		self.pixelSize = [1,1]
-		# self.imageSize = [0,0]
+		# Isocenter as a pixel location in the image.
 		self.imageIsocenter = [0,0]
-		# self.imagePixelSize = [1,1]
 		self._imageBuffer = []
 		# Controllers.
 		self._controller = controls.detector(pv)
@@ -45,13 +44,13 @@ class detector(QtCore.QObject):
 
 	def acquire(self):
 		time = dt.now()
+		# HDF5 does not support python datetime objects.
 		metadata = {
 			'Detector': self.name,
 			'Pixel Size': self.pixelSize,
 			'Image Isocenter': self.imageIsocenter,
 			'Time': time.strftime("%H:%M:%S"),
 			'Date': time.strftime("%d/%m/%Y"),
-			'dateTime': time,
 		}
 		# Take a dark field?
 		return (self._controller.readImage(), metadata)

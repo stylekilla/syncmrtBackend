@@ -44,13 +44,13 @@ class file(h5.File):
 		super().__init__(fp,mode,*args,**kwargs)
 
 	def getImageSet(self,index=-1):
-		logging.info("Getting image set {}.".format(index))
+		logging.debug("Getting image set {}.".format(index))
 		if index == -1:
 			index = len(self['Image'])
 		return self['Image'][str(index).zfill(2)]
 
 	def addImageSet(self,_set):
-		logging.info("Writing image set to HDF5 file.")
+		logging.debug("Writing image set to HDF5 file.")
 		_setName = str(len(self['Image'])+1).zfill(2)
 		_nims = len(_set)
 		# Create the group set.
@@ -60,6 +60,7 @@ class file(h5.File):
 			image = newSet.create_dataset(str(i+1),data=_set[i][0])
 			# Add the image attributes (metadata).
 			for key, val in _set[i][1].items():
+				logging.debug("Image {}: {} = {}".format(i,key,val))
 				image.attrs[key] = val
 		return _setName, _nims
 

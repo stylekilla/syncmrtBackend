@@ -13,12 +13,12 @@ class system(QtCore.QObject):
 	imagesAcquired = QtCore.pyqtSignal(int)
 	newImageSet = QtCore.pyqtSignal(str)
 
-	def __init__(self,patientSupports,detectors):
+	def __init__(self,patientSupports,detectors,config):
 		super().__init__()
 		self.solver = imageGuidance.solver()
 		# self.source = hardware.source()
 		self.patientSupport = hardware.patientSupport(patientSupports)
-		self.imager = hardware.Imager(detectors)
+		self.imager = hardware.Imager(detectors,config.imager)
 		self.patient = None
 		# Counter
 		self._routine = None
@@ -32,6 +32,7 @@ class system(QtCore.QObject):
 		logging.info("System has been linked with the patient data.")
 
 	def setLocalXrayFile(self,file):
+		logging.debug("Setting local x-ray file to {}".format(file))
 		self.patient.load(file,'DX')
 		# Link the patient datafile to the imager.
 		self.imager.file = self.patient.dx.file
@@ -43,7 +44,7 @@ class system(QtCore.QObject):
 		self.imager.load(name)
 
 	def setImagingMode(self,mode):
-		logging.info("Imaging mode changed to {}.".format(mode))
+		logging.debug("Imaging mode changed to {}.".format(mode))
 		self._imagingMode = mode
 
 	def calculateAlignment(self):
@@ -64,6 +65,9 @@ class system(QtCore.QObject):
 		self.patientSupport.shiftPosition(amount)
 
 	def acquireXray(self,theta,trans,comment=''):
+		if self.imager.file is None:
+			logging.critical("Cannot save images to dataset, no HDF5 file loaded.")
+			return
 		# Start a new routine.
 		self._routine = ImagingRoutine()
 		# Theta and trans are relative values.
@@ -73,6 +77,7 @@ class system(QtCore.QObject):
 		logging.info('Acquiring {} images at {}.'.format(len(theta),theta))
 		# Get delta z.
 		self._routine.tz = trans
+		self._routine.theta = theta
 		self._routine.dz = np.absolute(trans[1]-trans[0])
 		logging.info("Calculated delta z as {}".format(self._routine.dz))
 		# Get the current patient position.
@@ -90,21 +95,23 @@ class system(QtCore.QObject):
 		# 		pass
 
 	def _startScan(self):
+		logging.info("Starting scan.")
 		# Setup vars.
 		tx = ty = rx = ry = 0
 		# Move to first position.
-		self.patientSupport.shiftPosition([tx,ty,self._routine.tz[0],rx,ry,self._routine.theta[0]])
 		self.patientSupport.finishedMove.connect(partial(self._continueScan,'imaging'))
 		self.imager.imageAcquired.connect(partial(self._continueScan,'moving'))
+		self.patientSupport.shiftPosition([tx,ty,self._routine.tz[0],rx,ry,self._routine.theta[0]])
 
 	def _continueScan(self,operation):
+		logging.info("In continue scan method conducting: {}.".format(operation))
 		# So far this will acquire 1 image per angle. It will not do step and shoot or scanning yet.
 		if operation == 'imaging':
 			# Finished a move, acquire an x-ray.
 			self._routine.counter += 1
 			tx,ty,tz,rx,ry,rz = self.patientSupport.position()
 			metadata = {
-				'Image Angle': self._routine.theta[self._routine.counter],
+				'Image Angle': self._routine.theta[self._routine.counter-1],
 				'Patient Support Position': (tx,ty,tz),
 				'Patient Support Angle': (rx,ry,rz),
 				'Image Index': self._routine.counter,
@@ -126,9 +133,10 @@ class system(QtCore.QObject):
 		# Move the patient up one step.
 		self.patientSupport.shiftPosition([0,0,_dstep,0,0,0])
 		# Acquire part of an image.
-		self.
+		# self.
 
 	def _scan(self):
+		pass
 
 	def _endScan(self):
 		# Disconnect signals.

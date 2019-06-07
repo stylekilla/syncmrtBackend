@@ -31,7 +31,7 @@ class sync_dx:
 		return list(self.file['Image'].keys())
 
 	def getImageSet(self,idx):
-		logging.info("Reading image set {} from HDF5.".format(idx))
+		logging.debug("Reading image set {} from HDF5.".format(idx))
 		_set = self.file.getImageSet(idx)
 		imageSet = []
 		for i in range(len(_set)):

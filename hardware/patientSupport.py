@@ -111,25 +111,27 @@ class patientSupport(QtCore.QObject):
 			position[(motor._axis + (3*motor._type))] = 0
 
 	def _finished(self):
+		# Increment the counter.
+		self._counter += 1
+		logging.debug("Motor {} of {} finished movement.".format(self._counter,len(self.currentMotors)))
+		# If counter finished, emit finished signal.
 		if self._counter == len(self.currentMotors):
 			# Reset the counter.
 			self._counter = 0
 			# Send signal.
+			logging.debug("Emitting finished move.")
 			self.finishedMove.emit()
-		else:
-			# Increment counter by 1.
-			self._counter += 1
-			logging.info("Motor {} of {} finished movement.".format(self._counter,len(self.currentMotors)))
 
 	def position(self,idx=None):
 		# return the current position of the stage in Global XYZ.
-		pos = np.array([0,0,0,0,0,0])
+		pos = np.array([0,0,0,0,0,0],dtype=float)
 		for motor in self.currentMotors:
 			# Read motor position and the axis it works on.
 			mpos = motor.readPosition()
 			axis = motor._axis
 			# Add value to the overall position.
-			if mpos == np.inf: mpos = 0
+			if mpos == np.inf: 
+				mpos = 0
 			pos[axis] += mpos
 
 		# Return the position.

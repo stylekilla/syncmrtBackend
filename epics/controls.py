@@ -121,7 +121,6 @@ class detector:
 		super().__init__()
 		# Internal vars.
 		self._pv = pv
-		self._pv = "SR08ID01DET02"
 		# PV vars.
 		self.pv = {}
 		self.pv['IMAGE:ArrayData'] = None
