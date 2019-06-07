@@ -82,7 +82,7 @@ class system(QtCore.QObject):
 		logging.info("Calculated delta z as {}".format(self._routine.dz))
 		# Get the current patient position.
 		self._routine.preImagingPosition = self.patientSupport.position()
-		logging.info("Current position at: {}".format(self._routine.preImagingPosition))
+		logging.info("Pre-imaging position at: {}".format(self._routine.preImagingPosition))
 		# Signals and slots: Connections.
 		# self.patientSupport.finishedMove.connect(partial(self._acquireXray,dz))
 		# self.detector.imageAcquired.connect()
@@ -122,7 +122,8 @@ class system(QtCore.QObject):
 				# Defaults for now.
 				tx = ty = rx = ry = 0
 				# Finished a move, acquire an x-ray.
-				self.patientSupport.shiftPosition([tx,ty,self._routine.tz[self._routine.counter],rx,ry,self._routine.theta[self._routine.counter]])
+				_pos = np.array(self._routine.preImagingPosition) + np.array([tx,ty,self._routine.tz[0],rx,ry,self._routine.theta[self._routine.counter]])
+				self.patientSupport.shiftPosition(_pos)
 			else:
 				self._endScan()
 

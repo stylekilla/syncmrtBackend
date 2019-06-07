@@ -226,8 +226,8 @@ class QImaging(QtWidgets.QWidget):
 		self.widget['theta2'].setValue(self.theta[1])
 		imagingSequence_layout.addRow(self.widget['theta2_label'],self.widget['theta2'])
 		# Comments.
-		self.widget['comment'] = QtWidgets.QTextEdit()
-		self.widget['comment'].setAcceptRichText(False)
+		self.widget['comment'] = QtWidgets.QLineEdit()
+		# self.widget['comment'].setAcceptRichText(False)
 		self.widget['comment'].setMaximumHeight(20)
 		imagingSequence_layout.addRow(QtWidgets.QLabel("Comment:"))
 		imagingSequence_layout.addRow(self.widget['comment'])
@@ -301,7 +301,7 @@ class QImaging(QtWidgets.QWidget):
 		# zTranslation is [lower,upper]
 		zTranslation = [self.widget['translation2'].value(),self.widget['translation1'].value()]
 		# Comment.
-		comment = self.widget['comment'].toPlainText()
+		comment = self.widget['comment'].text()
 		# Emit signal.
 		self.acquire.emit(theta, zTranslation, comment)
 
@@ -318,6 +318,8 @@ class QImaging(QtWidgets.QWidget):
 				self.widget['imageList'].addItem(_set)
 		else:
 			self.widget['imageList'].addItem(_setName)
+		# Set to the latest image set.
+		self.widget['imageList'].setCurrentIndex(self.widget['imageList'].count()-1)
 
 class QTreatment(QtWidgets.QWidget):
 	def __init__(self):
