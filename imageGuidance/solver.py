@@ -10,6 +10,105 @@ ASSUMPTIONS:
 	5. Both CT and Synchrotron orthogonal images are the same CW or CCW direction of the image.
 '''
 
+class solver2d:
+	def __init__(self):
+		self._leftPoints = np.zeros((3,3))
+		self._rightPoints = np.zeros((3,3))
+		self._patientIsocenter = None
+		self._machineIsocenter = np.zeros((3,))
+		self._scale = 0
+		self.solution = np.zeros((6,))
+		self.transform = np.identity(4)
+
+	def input(self,left=None,right=None,patientIsoc=None,machineIsoc=None):
+		# Update vars.
+		if left is not None: self._leftPoints = np.array(left)
+		if right is not None: self._rightPoints = np.array(right)
+		if patientIsoc is not None: self._patientIsocenter = np.array(patientIsoc)
+		if machineIsoc is not None: self._machineIsocenter = np.array(machineIsoc)
+
+	def centroid(self):
+		# Run the centroid calcaulation routine.
+		self._leftCentroid = centroid(self._leftPoints)
+		self._rightCentroid = centroid(self._rightPoints)
+
+	def solve(self):
+		'''Points should come in as xyz cols and n-points rows: np.array((n,xyz))'''
+		n = np.shape(self._leftPoints)[0]
+
+		# Find the centroids of the LEFT and RIGHT WCS.
+		self._leftCentroid = centroid(self._leftPoints)
+		self._rightCentroid = centroid(self._rightPoints)
+
+		# If no patient isocenter is set, align to the centroid.
+		if self._patientIsocenter is None:
+			self._patientIsocenter = self._leftCentroid
+
+		print('Left Points:',self._leftPoints)
+		print('Left Ctd:',self._leftCentroid)
+		print('Right Points:',self._rightPoints)
+		print('Right Ctd:',self._rightCentroid)
+		print('Patient Isoc:',self._patientIsocenter)
+		print('Machine Isoc:',self._machineIsocenter)
+
+		# Find the LEFT and RIGHT points in terms of their centroids (notation: LEFT Prime, RIGHT Prime)
+		_leftPrime = np.zeros([n,3])
+		_rightPrime = np.zeros([n,3])
+
+		for i in range(n):
+			_leftPrime[i,:] = np.subtract(self._leftPoints[i,:],self._leftCentroid)
+			_rightPrime[i,:] = np.subtract(self._rightPoints[i,:],self._rightCentroid)
+
+		# Find the quaternion matrix, N.
+		N = quaternion(_leftPrime,_rightPrime)
+
+		# Solve eigenvals and vec that maximises rotation.
+		val, vec = eigen(N)
+
+		# Extract transformation quarternion from evec.
+		q = np.zeros((4,))
+		q[0] = vec[0][0]
+		q[1] = vec[1][0]
+		q[2] = vec[2][0]
+		q[3] = vec[3][0]
+
+		# Compute rotation matrix, R.
+		R = rotationMatrix(q)
+		R = np.reshape(R,(3,3))
+		self.transform[:3,:3] = R
+
+		# Extract individual angles in degrees.
+		rotation = angles(R)
+
+		# Translation 1: Centroid to patient isocenter.
+		translation1 = -(self._leftCentroid - self._patientIsocenter)
+
+		# Translation 2: Centroid isoc to machine isocenter.
+		translation2 = self._machineIsocenter - self._rightCentroid
+
+		# Final translation is a combination of all other translations.
+		translation = translation2 - translation1
+		self.transform[:3,3] = translation.transpose()
+
+		# Extract scale.
+		# if synchRotIsoc is not None:
+		# 	self._rightPoints = np.zeros([n,3])
+		# 	for i in range(n):
+		# 		self._rightPoints[i,:] = np.subtract(self._rightPoints[i,:],self._rightCentroid)
+
+		self.scale = scale(self._leftPoints,self._rightPoints,R)
+		self.solution = np.hstack((translation,rotation))
+
+		# Calculate the patient isoc in the synchrotron frame of reference for plotting.
+		self._syncPatientIsocenter = self._rightCentroid + translation1
+
+		print('Translation 1: patisoc - leftctd',translation1)
+		print('Translation 2: machiso - patisoc',translation2)
+		print('Overall transpose:',translation)
+		print('Synch Patient Iso:',self._syncPatientIsocenter)
+
+		return self.solution
+
 class solver:
 	def __init__(self):
 		self._leftPoints = np.zeros((3,3))

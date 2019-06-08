@@ -219,6 +219,10 @@ class QPlot:
 
 		self.canvas.draw()
 
+	def markers(self):
+		# Return the points in this plot.
+		return zip(self.pointsX,self.pointsY)
+
 	def toggleOverlay(self,overlayType,state=False):
 		'''
 		Single overlay function with various types.

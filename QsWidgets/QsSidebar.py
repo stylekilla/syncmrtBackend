@@ -323,6 +323,9 @@ class QImaging(QtWidgets.QWidget):
 		self.widget['imageList'].setCurrentIndex(self.widget['imageList'].count()-1)
 
 class QTreatment(QtWidgets.QWidget):
+	calculate = QtCore.pyqtSignal(int)
+	align = QtCore.pyqtSignal(int)
+
 	def __init__(self):
 		super().__init__()
 		self.widget = {}
@@ -349,8 +352,8 @@ class QTreatment(QtWidgets.QWidget):
 		self.widget['beamGroup'].setTitle('Beam Sequence')
 		# Empty Layout, start by saying no RTPLAN loaded.
 		self.widget['beamSequence'] = QtWidgets.QFormLayout()
-		self.widget['noTreatment'] = QtWidgets.QLabel('No Treatment Plan loaded.')
-		self.widget['beamSequence'].addRow(self.widget['noTreatment'])
+		_noTreatmentLabel = QtWidgets.QLabel('No Treatment Plan loaded.')
+		self.widget['beamSequence'].addRow(_noTreatmentLabel)
 		self.widget['beamGroup'].setLayout(self.widget['beamSequence'])
 		self.layout.addWidget(self.widget['beamGroup'])
 		# Defaults
@@ -363,24 +366,26 @@ class QTreatment(QtWidgets.QWidget):
 	def updateLayout(self):
 		self.setLayout(self.layout)
 
-	def populateTreatments(self):
+	def populateTreatments(self,_angles):
 		'''Once treatment plan is loaded, add the treatments to the workflow.'''
-		# Remove the no treatment widget.
-		self.widget['noTreatment'].deleteLater()
-		del self.widget['noTreatment']
+		# Remove everything in the beam sequence group.
+		for i in range(self.widget['beamSequence'].count()):
+			item = self.widget['beamSequence'].takeAt(0)
+			widget = item.widget()
+			widget.setParent(None)
+			del(widget)
+
+		self.widget['quantity'].setText(str(len(_angles)))
 		# Enable the group widget again.
 		self.widget['beamGroup'].setVisible(True)
+		# Create a list the size of the amount of beams.
 		self.widget['beam'] = [None]*int(self.widget['quantity'].text())
-		# sequenceLayout = QtWidgets.QFormLayout()
 		# For each beam specified in the count, add a set of buttons.
 		for i in range(int(self.widget['quantity'].text())):
 			self.widget['beam'][i] = {}
-			label = QtWidgets.QLabel(str('Beam %i'%(i+1)))
-			# sequenceGroup = QtWidgets.QGroupBox()
-
+			label = QtWidgets.QLabel(str("Beam {}".format(_angles[i])))
 			self.widget['beam'][i]['calculate'] = QtWidgets.QPushButton('Calculate')
 			self.widget['beam'][i]['align'] = QtWidgets.QPushButton('Align')
-			# self.widget['beam'][i]['hline'] = QHLine()
 			self.widget['beam'][i]['interlock'] = QtWidgets.QCheckBox('Interlock')
 			self.widget['beam'][i]['deliver'] = QtWidgets.QPushButton('Deliver')
 			# Layout
@@ -394,7 +399,17 @@ class QTreatment(QtWidgets.QWidget):
 			self.widget['beam'][i]['interlock'].setEnabled(False)
 			self.widget['beam'][i]['deliver'].setEnabled(False)
 			# Signals and Slots
+			self.widget['beam'][i]['calculate'].clicked.connect(partial(self._emitCalculate,i))
+			self.widget['beam'][i]['align'].clicked.connect(partial(self._emitAlign,i))
 			self.widget['beam'][i]['interlock'].stateChanged.connect(partial(self.treatmentInterlock,i))
+		
+		self.updateLayout()
+
+	def _emitCalculate(self,_id):
+		self.calculate.emit(_id)
+
+	def _emitAlign(self,_id):
+		self.align.emit(_id)
 
 	def treatmentInterlock(self,index):
 		'''Treatment interlock stops treatment from occuring. Requires alignment to be done first.'''

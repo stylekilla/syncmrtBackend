@@ -15,7 +15,7 @@ class system(QtCore.QObject):
 
 	def __init__(self,patientSupports,detectors,config):
 		super().__init__()
-		self.solver = imageGuidance.solver()
+		self.solver = imageGuidance.solver2d()
 		# self.source = hardware.source()
 		self.patientSupport = hardware.patientSupport(patientSupports)
 		self.imager = hardware.Imager(detectors,config.imager)
