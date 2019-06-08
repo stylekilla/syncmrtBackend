@@ -123,9 +123,6 @@ class detector:
 		self._pv = pv
 		# PV vars.
 		self.pv = {}
-		self.pv['IMAGE:ArrayData'] = None
-		self.pv['IMAGE:ArraySize0_RBV'] = None
-		self.pv['IMAGE:ArraySize0_RBV'] = None
 		# Set to False to start.
 		self._connected = False
 		# Connect the PV's
@@ -135,6 +132,9 @@ class detector:
 		# Record PV root information and connect to motors.
 		try:
 			# Read Back Value
+			self.pv['Acquire'] = epics.PV(self._pv+':CAM:Acquire')
+			self.pv['AcquireTime'] = epics.PV(self._pv+':CAM:AcquireTime')
+			self.pv['CAM:ArrayCounter'] = epics.PV(self._pv+':CAM:ArrayCounter')
 			self.pv['IMAGE:ArrayData'] = epics.PV(self._pv+':IMAGE:ArrayData')
 			self.pv['IMAGE:ArraySize0_RBV'] = epics.PV(self._pv+':IMAGE:ArraySize0_RBV')
 			self.pv['IMAGE:ArraySize1_RBV'] = epics.PV(self._pv+':IMAGE:ArraySize1_RBV')
@@ -150,6 +150,10 @@ class detector:
 		if self._connected is False:
 			return None
 		else:
+			self.pv['CAM:ArrayCounter'].put(0)
+			self.pv['Acquire'].put(1)
+			import time
+			time.sleep(2)
 			image = self.pv['IMAGE:ArrayData'].get()
 			x = self.pv['IMAGE:ArraySize1_RBV'].get()
 			y = self.pv['IMAGE:ArraySize0_RBV'].get()

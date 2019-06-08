@@ -1,13 +1,16 @@
 import matplotlib as mpl
 mpl.use('Qt5Agg')
+from matplotlib.collections import PatchCollection
+from matplotlib.patches import Rectangle
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt5 import QtGui, QtCore, QtWidgets
 from synctools.imageGuidance import optimiseFiducials
 from functools import partial
+import logging
 
-__all__ = ['QPlot','QHistogramWindow']
+__all__ = ['QPlot','QHistogramWindow','QEditableIsocenter']
 
 class QPlot:
 	'''
@@ -35,8 +38,8 @@ class QPlot:
 		self.axis = [1,2,0]
 		self.mask = None
 		self.overlay = {}
-		self.machineIsocenter = [0,0,0]
-		self.patientIsocenter = [0,0,0]
+		self.machineIsocenter = [0,0]
+		self.patientIsocenter = [0,0]
 		self.ctd = None
 
 		self.fig = plt.figure()
@@ -66,6 +69,14 @@ class QPlot:
 		self.canvas.draw()
 
 		self.canvas._pickerActive = False
+
+	def updatePatientIsocenter(self,_x,_y):
+		logging.debug("Updating patient isocenter to ({},{}).".format(_x,_y))
+		# toggleOverlay
+		self.patientIsocenter = [_x,_y]
+		if 'patIso' in self.overlay:
+			self.toggleOverlay(2,False) 
+			self.toggleOverlay(2,True) 
 
 	def loadCoordinate(self,name,vector):
 		# Pull in DICOM information in XYZ mm and turn it into the current view of the dataset.
@@ -264,7 +275,6 @@ class QPlot:
 			elif (state is False):
 				self.overlay['patMask'].remove()
 		elif overlayType == 4:
-			print(state)
 			# Conformal Mask Overlay - Side.
 			if (self.mask == None):
 				return
@@ -275,7 +285,16 @@ class QPlot:
 			elif (state is False):
 				self.overlay['patMaskTop'].remove()
 				self.overlay['patMaskBot'].remove()
-
+		elif overlayType == 5:
+			# Conformal Mask Overlay - Side.
+			if (state is True):
+				# Plot overlay scatter points.
+				_maskSize = 10
+				_beam = Rectangle((-_maskSize/2,-_maskSize/2), _maskSize, _maskSize)
+				pc = PatchCollection([_beam],color='r',alpha=0.2)
+				self.overlay['patMask'] = self.ax.add_collection(pc)
+			elif (state is False):
+				self.overlay['patMask'].remove()
 		# Update the canvas.
 		self.canvas.draw()
 
@@ -315,7 +334,7 @@ class QPlot:
 		if (event.button == 1) & (self.canvas._pickerActive):
 			self.markerAdd(event.xdata,event.ydata)
 
-CENTER_HEADING = """
+CSS_CENTER_HEADING = """
 QGroupBox::title {
 	subcontrol-origin: margin;
 	subcontrol-position: top;
@@ -337,21 +356,21 @@ class QHistogramWindow(QtWidgets.QGroupBox):
 		self.button = []
 		self.button.append(QtWidgets.QRadioButton('Sum'))
 		self.button.append(QtWidgets.QRadioButton('Max'))
-		options = QtWidgets.QWidget()
-		optionsLayout = QtWidgets.QHBoxLayout()
-		optionsLayout.addWidget(self.button[0])
-		optionsLayout.addWidget(self.button[1])
-		options.setLayout(optionsLayout)
+		# options = QtWidgets.QWidget()
+		# optionsLayout = QtWidgets.QHBoxLayout()
+		# optionsLayout.addWidget(self.button[0])
+		# optionsLayout.addWidget(self.button[1])
+		# options.setLayout(optionsLayout)
 		# Layout.
 		layout = QtWidgets.QVBoxLayout()
 		layout.setContentsMargins(0,0,0,0)
 		layout.addWidget(self.histogram.canvas)
 		layout.addWidget(self.range[0])
 		layout.addWidget(self.range[1])
-		layout.addWidget(options)
+		# layout.addWidget(options)
 		# Set layout.
 		self.setLayout(layout)
-		self.setStyleSheet(CENTER_HEADING)
+		self.setStyleSheet(CSS_CENTER_HEADING)
 
 		# When sliders change update histogram.
 		for i in range(len(self.range)):
@@ -418,129 +437,41 @@ class Histogram:
 		# Redraw.
 		self.canvas.draw()
 
-class QsWindow:
-	def __init__(self,parent,plot,advanced=False):
-		# Must pass a parent plot to it (MPL2DFigure).
-		self.parent = parent
-		self.plot = plot
-		self.advanced = advanced
-		# Set the size.
-		# sizePolicy = QtWidgets.QSizePolicy.Minimum
-		# self.parent.setSizePolicy(QtWidgets.QSizePolicy.Minimum,QtWidgets.QSizePolicy.Minimum)
-		# self.parent.setContentsMargins(0,0,0,0)
-		self.parent.setMaximumSize(500,170)
-		# Get image details from parent.
-		self.dataMin = 0
-		self.dataMax = 0
-		# Create a layout.
-		layout = QtWidgets.QFormLayout()
-		# Create widgets.
-		self.histogram = histogram(plot)
-		self.widget = {}
-		# Min Slider.
-		self.widget['sl_min'] = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-		self.widget['sl_min'].setTracking(False)
-		self.widget['sl_min'].setEnabled(False)
-		# Max Slider.
-		self.widget['sl_max'] = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-		self.widget['sl_max'].setTracking(False)
-		self.widget['sl_max'].setEnabled(False)
+
+class QEditableIsocenter(QtWidgets.QGroupBox):
+	isocenterUpdated = QtCore.pyqtSignal(float,float)
+
+	def __init__(self,_x,_y):
+		super().__init__()
 		# Labels.
-		lb_min = QtWidgets.QLabel('Min')
-		lb_max = QtWidgets.QLabel('Max')
-		# Connect buttons.
-		self.widget['sl_min'].valueChanged.connect(self.updateWindow)
-		self.widget['sl_max'].valueChanged.connect(self.updateWindow)
-		# Assign layout.
-		layout.addRow(self.histogram.canvas)
-		layout.addRow(lb_min,self.widget['sl_min'])
-		layout.addRow(lb_max,self.widget['sl_max'])
-		# Check for advanced options.
-		if self.advanced == True:
-			# Add radio buttons for 3d arrays where flattening option can be chosen.
-			self.widget['rb_sum'] = QtWidgets.QRadioButton('Sum')
-			self.widget['rb_max'] = QtWidgets.QRadioButton('Max')
-			self.widget['rb_sum'].toggled.connect(self.updateFlatteningMode)
-			self.widget['rb_max'].toggled.connect(self.updateFlatteningMode)
-			# Defaults.
-			self.widget['rb_sum'].setChecked(True)
-			self.widget['rb_max'].setChecked(False)
-			# Add to layout.
-			layout.addRow(self.widget['rb_sum'],self.widget['rb_max'])
+		_xlbl = QtWidgets.QLabel('x (mm): ')
+		_ylbl = QtWidgets.QLabel('y (mm): ')
+		# Create line edits.
+		self.x = QtWidgets.QLineEdit(str(_x))
+		self.y = QtWidgets.QLineEdit(str(_y))
+		# Flattening method buttons.
+		validator = QtGui.QDoubleValidator()
+		validator.setBottom(-150)
+		validator.setTop(150)
+		validator.setDecimals(2)
+		# Set validators.
+		self.x.setValidator(validator)
+		self.y.setValidator(validator)
+		# Layout.
+		layout = QtWidgets.QFormLayout()
+		layout.setContentsMargins(0,0,0,0)
+		layout.addRow(QtWidgets.QLabel("Treatment Isocenter"))
+		layout.addRow(_xlbl,self.x)
+		layout.addRow(_ylbl,self.y)
 		# Set layout.
-		self.parent.setLayout(layout)
+		self.setLayout(layout)
+		# self.setStyleSheet(CSS_CENTER_HEADING)
+		# Signals and slots.
+		self.x.editingFinished.connect(self.updateIsocenter)
+		self.y.editingFinished.connect(self.updateIsocenter)
 
-	def refreshControls(self):
-		# Get image details from parent.
-		self.dataMin = np.min(self.plot.data3d)
-		self.dataMax = np.max(self.plot.data3d)
-		# Slider Min Controls
-		self.widget['sl_min'].setMinimum(self.dataMin)
-		self.widget['sl_min'].setMaximum(self.dataMax-1)
-		self.widget['sl_min'].setValue(self.dataMin)
-		# Slider Max Controls
-		self.widget['sl_max'].setMinimum(self.dataMin+1)
-		self.widget['sl_max'].setMaximum(self.dataMax)
-		self.widget['sl_max'].setValue(self.dataMax)
-		# Enable Sliders
-		self.widget['sl_min'].setEnabled(True)
-		self.widget['sl_max'].setEnabled(True)
-		# Refresh histogram.
-		self.histogram.refresh()
-
-	def updateFlatteningMode(self):
-		if self.widget['rb_sum'].isChecked() == True:
-			mode = 'sum'
-		elif self.widget['rb_max'].isChecked() == True:
-			mode = 'max'
-		self.plot._radiographMode = mode
-
-	def updateWindow(self):
-		if self.plot.image == None:
-			# If there is no image yet loaded, do nothing.
-			return
-
-		# Get minimum and maximum values from sliders.
-		minimum = self.widget['sl_min'].value()
-		maximum = self.widget['sl_max'].value()
-		# Calculate scale.
-		scale = (self.dataMax-self.dataMin) / (maximum-minimum)
-		# Find shifted maximum.
-		# shift = minimum - self.dataMin
-		# maximum_shifted = maximum - np.absolute(minimum)
-		shift = -minimum
-		maximum_shifted = maximum + shift
-		# Copy array data.
-		self.plot.data = np.array(self.plot.data3d)
-		# Shift array.
-		self.plot.data += shift
-		# Set every negative value to zero.
-		# self.plot.data[self.plot.data < self.dataMin] = self.dataMin
-		self.plot.data[self.plot.data < 0] = 0
-		# Set everything above the maximum value to max.
-		self.plot.data[self.plot.data > maximum_shifted] = maximum_shifted
-		# Scale data.
-		self.plot.data *= scale
-		# Shift back to original position.
-		self.plot.data += self.dataMin
-		# Check for advanced options.
-		if self.advanced == True:
-			# Check plot number.
-			if self.plot.imageIndex == 0:
-				direction = 2
-			elif self.plot.imageIndex == 1:
-				direction = 1
-			# Check flattening mode.
-			if self.plot._radiographMode == 'max':
-				self.plot.data = np.amax(self.plot.data,axis=direction)
-			elif self.plot._radiographMode == 'sum':
-				self.plot.data = np.sum(self.plot.data,axis=direction)
-			else:
-				pass
-		# Set data.
-		self.plot.image.set_data(self.plot.data)
-		# Redraw canvas.
-		self.plot.canvas.draw()
-		# Update histogram overlay.
-		self.histogram.update(minimum,maximum)
-		# Restrict the value of each slider?? So that one can't go past the other.
+	def updateIsocenter(self):
+		logging.info("Updating isocenter from {}".format(self))
+		_x = float(self.x.text())
+		_y = float(self.y.text())
+		self.isocenterUpdated.emit(_x,_y)

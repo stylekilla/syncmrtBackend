@@ -42,6 +42,7 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 		self.tableModel = []
 		self.tableView = []
 		self.histogram = []
+		self.isocenter = []
 		# Internal vars.
 		self._maxMarkers = 0
 
@@ -119,6 +120,9 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 			self.histogram[-1].setEnabled(False)
 			# When histogram changed then update plot.
 			self.histogram[-1].windowUpdated.connect(partial(self.plot[-1].applyWindow))
+			# Add editable isocenter widget.
+			self.isocenter.append(QtMpl.QEditableIsocenter(0,0))
+			self.isocenter[-1].isocenterUpdated.connect(self.plot[-1].updatePatientIsocenter)
 			# Send a signal to say a subplot was added.
 			self.set('maxMarkers',self._maxMarkers)
 			# self.subplotAdded.emit(self.count())
@@ -139,12 +143,18 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 			del(self.plot[-1])
 			del(self.tableModel[-1])
 			del(self.tableView[-1])
+			# Remove the isocenter.
+			self.isocenter[-1].setParent(None)
+			del(self.isocenter[-1])
 			# Remove the histogram.
 			self.histogram[-1].setParent(None)
 			del(self.histogram[-1])
 
 	def getPlotHistogram(self):
 		return self.histogram
+
+	def getPlotIsocenter(self):
+		return self.isocenter
 
 	def reset(self):
 		for i in reversed(range(self.layout.count())): 

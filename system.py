@@ -78,6 +78,7 @@ class system(QtCore.QObject):
 		# Get delta z.
 		self._routine.tz = trans
 		self._routine.theta = theta
+		self._routine.theta_relative = np.hstack([np.array([theta[0]]),np.diff(theta)])
 		self._routine.dz = np.absolute(trans[1]-trans[0])
 		logging.info("Calculated delta z as {}".format(self._routine.dz))
 		# Get the current patient position.
@@ -101,7 +102,8 @@ class system(QtCore.QObject):
 		# Move to first position.
 		self.patientSupport.finishedMove.connect(partial(self._continueScan,'imaging'))
 		self.imager.imageAcquired.connect(partial(self._continueScan,'moving'))
-		self.patientSupport.shiftPosition([tx,ty,self._routine.tz[0],rx,ry,self._routine.theta[0]])
+		logging.info("Adding 32.7deg offset.")
+		self.patientSupport.shiftPosition([tx,ty,self._routine.tz[0],rx,ry,self._routine.theta_relative[0]+32.7])
 
 	def _continueScan(self,operation):
 		logging.info("In continue scan method conducting: {}.".format(operation))
@@ -122,8 +124,7 @@ class system(QtCore.QObject):
 				# Defaults for now.
 				tx = ty = rx = ry = 0
 				# Finished a move, acquire an x-ray.
-				_pos = np.array(self._routine.preImagingPosition) + np.array([tx,ty,self._routine.tz[0],rx,ry,self._routine.theta[self._routine.counter]])
-				self.patientSupport.shiftPosition(_pos)
+				self.patientSupport.shiftPosition([tx,ty,self._routine.tz[0],rx,ry,self._routine.theta_relative[self._routine.counter]])
 			else:
 				self._endScan()
 
@@ -147,9 +148,11 @@ class system(QtCore.QObject):
 		self.imager.addImagesToDataset()
 		# Put patient back where they were.
 		self.patientSupport.finishedMove.connect(self._finishedScan)
+		logging.debug("Setting patient position to initial pre-imaging position.")
 		self.patientSupport.setPosition(self._routine.preImagingPosition)
 
 	def _finishedScan(self):
+		logging.debug("Finished scan.")
 		# Disconnect signals.
 		self.patientSupport.finishedMove.disconnect()
 		# Send a signal saying how many images were acquired.
@@ -205,6 +208,7 @@ class system(QtCore.QObject):
 
 class ImagingRoutine:
 	theta = []
+	theta_relative = []
 	tz = [0,0]
 	dz = 0
 	preImagingPosition = None

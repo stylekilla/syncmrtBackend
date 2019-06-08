@@ -135,7 +135,7 @@ class QImaging(QtWidgets.QWidget):
 	def __init__(self):
 		super().__init__()
 		# Vars.
-		self.theta = [0,90]
+		self.theta = [-30,30]
 		self.translation = [-25,25]
 		self.thetaRange = [-90,90]
 		self.translationRange = [-100,100]
@@ -173,36 +173,36 @@ class QImaging(QtWidgets.QWidget):
 		imagingSequence_layout = QtWidgets.QFormLayout()
 		# imagingSequence_layout.setLabelAlignment(QtCore.Qt.AlignLeft)
 		# Num images.
-		lblImages = QtWidgets.QLabel("Number of Images")
+		lblImages = QtWidgets.QLabel("No. of Images")
 		self.widget['numImages'] = QtWidgets.QSpinBox()
 		self.widget['numImages'].setMinimumSize(55,20)
-		# self.widget['numImages'].setMaximumSize(55,20)
+		self.widget['numImages'].setMaximumSize(80,20)
 		self.widget['numImages'].setRange(1,2)
 		self.widget['numImages'].setValue(2)
 		self.widget['numImages'].valueChanged.connect(self.updateNumImages)
 		imagingSequence_layout.addRow(lblImages,self.widget['numImages'])
 		imagingSequence_layout.addRow(QHLine())
 		# Translation Range.
-		self.widget['translation_range'] = QtWidgets.QLabel("Region Of Interest:")
-		imagingSequence_layout.addRow(self.widget['translation_range'])
+		# self.widget['translation_range'] = QtWidgets.QLabel("Region Of Interest:")
+		# imagingSequence_layout.addRow(self.widget['translation_range'])
 		# translation 1
-		self.widget['translation1_label'] = QtWidgets.QLabel("Z<sub>upper</sub> mm")
-		self.widget['translation1'] = QtWidgets.QDoubleSpinBox()
-		self.widget['translation1'].setMinimumSize(55,20)
-		self.widget['translation1'].setDecimals(1)
-		self.widget['translation1'].setMinimum(self.translationRange[0])
-		self.widget['translation1'].setMaximum(self.translationRange[1])
-		self.widget['translation1'].setValue(self.translation[1])
-		imagingSequence_layout.addRow(self.widget['translation1_label'],self.widget['translation1'])
+		# self.widget['translation1_label'] = QtWidgets.QLabel("Z<sub>upper</sub> mm")
+		# self.widget['translation1'] = QtWidgets.QDoubleSpinBox()
+		# self.widget['translation1'].setMinimumSize(55,20)
+		# self.widget['translation1'].setDecimals(1)
+		# self.widget['translation1'].setMinimum(self.translationRange[0])
+		# self.widget['translation1'].setMaximum(self.translationRange[1])
+		# self.widget['translation1'].setValue(self.translation[1])
+		# imagingSequence_layout.addRow(self.widget['translation1_label'],self.widget['translation1'])
 		# translation 2
-		self.widget['translation2_label'] = QtWidgets.QLabel("Z<sub>lower</sub> mm")
-		self.widget['translation2'] = QtWidgets.QDoubleSpinBox()
-		self.widget['translation2'].setMinimumSize(55,20)
-		self.widget['translation2'].setDecimals(1)
-		self.widget['translation2'].setMinimum(self.translationRange[0])
-		self.widget['translation2'].setMaximum(self.translationRange[1])
-		self.widget['translation2'].setValue(self.translation[0])
-		imagingSequence_layout.addRow(self.widget['translation2_label'],self.widget['translation2'])
+		# self.widget['translation2_label'] = QtWidgets.QLabel("Z<sub>lower</sub> mm")
+		# self.widget['translation2'] = QtWidgets.QDoubleSpinBox()
+		# self.widget['translation2'].setMinimumSize(55,20)
+		# self.widget['translation2'].setDecimals(1)
+		# self.widget['translation2'].setMinimum(self.translationRange[0])
+		# self.widget['translation2'].setMaximum(self.translationRange[1])
+		# self.widget['translation2'].setValue(self.translation[0])
+		# imagingSequence_layout.addRow(self.widget['translation2_label'],self.widget['translation2'])
 		# Range.
 		# imagingSequence_layout.addRow(QtWidgets.QLabel("Image Angles"))
 		self.widget['theta_range'] = QtWidgets.QLabel("Angles Range ({}, {})\xB0:".format(self.thetaRange[0],self.thetaRange[1]))
@@ -233,15 +233,15 @@ class QImaging(QtWidgets.QWidget):
 		imagingSequence_layout.addRow(self.widget['comment'])
 		imagingSequence_layout.addRow(QHLine())
 		# Acquire button.
-		self.widget['step'] = QtWidgets.QRadioButton("Step")
-		self.widget['step'].setChecked(True)
-		self.widget['scan'] = QtWidgets.QRadioButton("Scan")
-		self.widget['step'].toggled.connect(partial(self._imageModeChanged,'step'))
-		self.widget['scan'].toggled.connect(partial(self._imageModeChanged,'scan'))
+		# self.widget['step'] = QtWidgets.QRadioButton("Step")
+		# self.widget['step'].setChecked(True)
+		# self.widget['scan'] = QtWidgets.QRadioButton("Scan")
+		# self.widget['step'].toggled.connect(partial(self._imageModeChanged,'step'))
+		# self.widget['scan'].toggled.connect(partial(self._imageModeChanged,'scan'))
 		self.widget['acquire'] = QtWidgets.QPushButton("Acquire X-rays")
 		self.widget['acquire'].setEnabled(False)
 		self.widget['acquire'].clicked.connect(self.acquireImages)
-		imagingSequence_layout.addRow(self.widget['step'],self.widget['scan'])
+		# imagingSequence_layout.addRow(self.widget['step'],self.widget['scan'])
 		imagingSequence_layout.addRow(self.widget['acquire'])
 		# Set the group layout.
 		self.group['imagingSequence'].setLayout(imagingSequence_layout)
@@ -299,7 +299,8 @@ class QImaging(QtWidgets.QWidget):
 		else:
 			theta = [self.widget['theta1'].value(),self.widget['theta2'].value()]
 		# zTranslation is [lower,upper]
-		zTranslation = [self.widget['translation2'].value(),self.widget['translation1'].value()]
+		# zTranslation = [self.widget['translation2'].value(),self.widget['translation1'].value()]
+		zTranslation = [0,0]
 		# Comment.
 		comment = self.widget['comment'].text()
 		# Emit signal.
@@ -536,45 +537,34 @@ class QXrayProperties(QtWidgets.QWidget):
 		overlayGroup = QtWidgets.QGroupBox()
 		overlayGroup.setTitle('Plot Overlays')
 		self.widget['cbBeamIsoc'] = QtWidgets.QCheckBox('Beam Isocenter')
+		self.widget['cbBeamOverlay'] = QtWidgets.QCheckBox('Beam Overlay')
 		self.widget['cbPatIsoc'] = QtWidgets.QCheckBox('Patient Isocenter')
 		self.widget['cbCentroid'] = QtWidgets.QCheckBox('Centroid Position')
 		# Layout
 		overlayGroupLayout = QtWidgets.QVBoxLayout()
 		overlayGroupLayout.addWidget(self.widget['cbBeamIsoc'])
+		overlayGroupLayout.addWidget(self.widget['cbBeamOverlay'])
 		overlayGroupLayout.addWidget(self.widget['cbPatIsoc'])
-		overlayGroupLayout.addWidget(self.widget['cbCentroid'])
 		# Defaults
 		# Signals and Slots
 		self.widget['cbBeamIsoc'].stateChanged.connect(partial(self.emitToggleOverlay,'cbBeamIsoc'))
 		self.widget['cbPatIsoc'].stateChanged.connect(partial(self.emitToggleOverlay,'cbPatIsoc'))
 		self.widget['cbCentroid'].stateChanged.connect(partial(self.emitToggleOverlay,'cbCentroid'))
+		self.widget['cbBeamOverlay'].stateChanged.connect(partial(self.emitToggleOverlay,'cbBeamOverlay'))
 		# Group inclusion to page
 		overlayGroup.setLayout(overlayGroupLayout)
 		self.layout.addWidget(overlayGroup)
 
-		# Group 1: Editable Isocenter
-		editIsocenter = QtWidgets.QGroupBox()
-		editIsocenter.setTitle('Edit Treatment Isocenter')
-		label1 = QtWidgets.QLabel('Isocenter (mm)')
-		label2 = QtWidgets.QLabel('x: ')
-		self.widget['alignIsocX'] = QtWidgets.QLineEdit()
-		label3 = QtWidgets.QLabel('y: ')
-		self.widget['alignIsocY'] = QtWidgets.QLineEdit()
-		# Layout
-		editIsocenterLayout = QtWidgets.QFormLayout()
-		editIsocenterLayout.addRow(label1)
-		editIsocenterLayout.addRow(label2,self.widget['alignIsocX'])
-		editIsocenterLayout.addRow(label3,self.widget['alignIsocY'])
-		# Defaults
-		validator = QtGui.QDoubleValidator()
-		validator.setBottom(0)
-		validator.setDecimals(4)
-		self.widget['alignIsocX'].setValidator(validator)
-		self.widget['alignIsocY'].setValidator(validator)
-		# Signals and Slots
-		# Group inclusion to page
-		editIsocenter.setLayout(editIsocenterLayout)
-		self.layout.addWidget(editIsocenter)
+		# Group 2: Editable Isocenter.
+		self.isocenter = {}
+		isocenterGroup = QtWidgets.QGroupBox()
+		isocenterGroup.setTitle('Set Patient Isocenter')
+		self.isocenter['layout'] = QtWidgets.QVBoxLayout()
+		self.isocenter['layout'].setContentsMargins(0,0,0,0)
+		# Set the layout of group.
+		isocenterGroup.setLayout(self.isocenter['layout'])
+		# Add group to sidebar layout.
+		self.layout.addWidget(isocenterGroup)
 
 		# Group 3: Windowing.
 		self.window = {}
@@ -592,6 +582,16 @@ class QXrayProperties(QtWidgets.QWidget):
 		# self.layout.addSpacerItem(spacer)
 		self.layout.addStretch(1)
 		self.setLayout(self.layout)
+
+	def addEditableIsocenter(self,widget):
+		# These are new ones each time. Remove old wdigets.
+		layout = self.isocenter['layout'].layout()
+		for i in reversed(range(layout.count())): 
+			layout.itemAt(i).widget().setParent(None)
+		# New widgets.
+		for i in range(len(widget)):
+			widget[i].setMaximumHeight(200)
+			layout.addWidget(widget[i])		
 
 	def addPlotHistogramWindow(self,widget):
 		# These are new ones each time. Remove old wdigets.
@@ -612,6 +612,7 @@ class QXrayProperties(QtWidgets.QWidget):
 		if button == 'cbCentroid': self.toggleOverlay.emit(0,setState)
 		elif button == 'cbBeamIsoc': self.toggleOverlay.emit(1,setState)
 		elif button == 'cbPatIsoc': self.toggleOverlay.emit(2,setState)
+		elif button == 'cbBeamOverlay': self.toggleOverlay.emit(5,setState)
 
 class QCtProperties(QtWidgets.QWidget):
 	# Qt signals.

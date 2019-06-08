@@ -53,6 +53,8 @@ class Imager(QtCore.QObject):
 		if self.file is None:
 			logging.warning("Cannot acquire x-rays when there is no HDF5 file.")
 			return None
+		# Wait for user input to acquire image.
+		input("Press enter to start acquisition.")
 		# Get the image and update the metadata.
 		_data = self.detector.acquire()
 		metadata.update(_data[1])

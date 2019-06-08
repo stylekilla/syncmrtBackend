@@ -29,13 +29,6 @@ class detector(QtCore.QObject):
 		if self._controller is not None:
 			self._controller.reconnect()
 
-	# def setup(self):
-	# 	self._acquire = PV(self._pv+':CAM:Acquire')
-	# 	# Region of interest.
-	# 	self._roix = PV(':CAM:SizeX_RBV')
-	# 	self._roiy = PV(':CAM:SizeY_RBV')
-	# 	self.roi = [self._roix,self._roiy]
-
 	def setParameters(self,**kwargs):
 		# Kwargs should be in the form of a dict: {'key'=value}.
 		for key, value in kwargs:
