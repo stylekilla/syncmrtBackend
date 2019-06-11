@@ -8,6 +8,8 @@ class Image2d:
 		self.extent = None
 		# Patient isocenter within image, assumes single isoc.
 		self.patientIsocenter = None
+		# Patient position at the time of the image.
+		self.patientPosition = None
 		# Image view.
 		self.view = {
 			'title':'None',

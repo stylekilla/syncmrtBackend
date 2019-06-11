@@ -71,7 +71,6 @@ class QPlot:
 		self.canvas._pickerActive = False
 
 	def updatePatientIsocenter(self,_x,_y):
-		logging.debug("Updating patient isocenter to ({},{}).".format(_x,_y))
 		# toggleOverlay
 		self.patientIsocenter = [_x,_y]
 		if 'patIso' in self.overlay:

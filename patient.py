@@ -13,8 +13,7 @@ class patient:
 	def load(self,dataset,modality):
 		if modality == 'DX': 
 			# Close the open one first.
-			print(self.dx)
-			if self.dx != None: self.dx.close() 
+			if self.dx != None: self.dx.file.close() 
 			# Now open the dataset.
 			self.dx = importer.sync_dx(dataset)
 		elif modality == 'CT': 
@@ -39,4 +38,6 @@ class patient:
 
 	def new(self,fp,modality):
 		if modality == 'DX':
+			if self.dx != None:
+				self.dx.file.close()
 			self.dx = hdf5.new(fp)

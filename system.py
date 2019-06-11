@@ -15,7 +15,8 @@ class system(QtCore.QObject):
 
 	def __init__(self,patientSupports,detectors,config):
 		super().__init__()
-		self.solver = imageGuidance.solver2d()
+		# self.solver = imageGuidance.solver2d()
+		self.solver = {}
 		# self.source = hardware.source()
 		self.patientSupport = hardware.patientSupport(patientSupports)
 		self.imager = hardware.Imager(detectors,config.imager)
@@ -112,6 +113,7 @@ class system(QtCore.QObject):
 			# Finished a move, acquire an x-ray.
 			self._routine.counter += 1
 			tx,ty,tz,rx,ry,rz = self.patientSupport.position()
+			logging.critical("Image position found at ({},{},{};{},{},{})".format(tx,ty,tz,rx,ry,rz))
 			metadata = {
 				'Image Angle': self._routine.theta[self._routine.counter-1],
 				'Patient Support Position': (tx,ty,tz),

@@ -30,6 +30,7 @@ def new(fp):
 	#: Set the file up.
 	f.create_group('Patient') 
 	f.create_group('Image')
+	print(f)
 	#: Return the file.
 	return f
 
@@ -47,10 +48,13 @@ class file(h5.File):
 		logging.debug("Getting image set {}.".format(index))
 		if index == -1:
 			index = len(self['Image'])
-		return self['Image'][str(index).zfill(2)]
+		try:
+			return self['Image'][str(index).zfill(2)]
+		except:
+			return []
 
 	def addImageSet(self,_set):
-		logging.debug("Writing image set to HDF5 file.")
+		logging.debug("Writing image set to HDF5 file {}".format(self))
 		_setName = str(len(self['Image'])+1).zfill(2)
 		_nims = len(_set)
 		# Create the group set.

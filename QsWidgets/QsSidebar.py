@@ -312,6 +312,10 @@ class QImaging(QtWidgets.QWidget):
 	def disableAcquisition(self):
 		self.widget['acquire'].setEnabled(False)
 
+	def resetImageSetList(self):
+		logging.info("Image set list cleared.")
+		self.widget['imageList'].clear()
+
 	def addImageSet(self,_setName):
 		logging.debug("Adding {} to image set list.".format(_setName))
 		if type(_setName) is list:
@@ -325,6 +329,7 @@ class QImaging(QtWidgets.QWidget):
 class QTreatment(QtWidgets.QWidget):
 	calculate = QtCore.pyqtSignal(int)
 	align = QtCore.pyqtSignal(int)
+	deliver = QtCore.pyqtSignal()
 
 	def __init__(self):
 		super().__init__()
@@ -402,6 +407,7 @@ class QTreatment(QtWidgets.QWidget):
 			self.widget['beam'][i]['calculate'].clicked.connect(partial(self._emitCalculate,i))
 			self.widget['beam'][i]['align'].clicked.connect(partial(self._emitAlign,i))
 			self.widget['beam'][i]['interlock'].stateChanged.connect(partial(self.treatmentInterlock,i))
+			self.widget['beam'][i]['deliver'].clicked.connect(partial(self._disableTreatmentDelivery,i))
 		
 		self.updateLayout()
 
@@ -422,6 +428,10 @@ class QTreatment(QtWidgets.QWidget):
 			self.widget['beam'][index]['deliver'].setEnabled(False)
 		else:
 			self.widget['beam'][index]['deliver'].setEnabled(True)
+
+	def _disableTreatmentDelivery(self, i):
+		self.widget['beam'][i]['interlock'].setEnabled(False)
+		self.widget['beam'][i]['deliver'].setEnabled(False)
 
 	def delete(self):
 		for key, val in self.widget:
