@@ -27,7 +27,6 @@ _xrayImageAttributes = [
 
 def new(fp):
 	f = file(fp,'w') #: Create a new HDF5 file.
-	logging.critical("{}".format(type(f)))
 	#: Set the file up.
 	f.create_group('Patient') 
 	f.create_group('Image')
@@ -68,6 +67,8 @@ class file(h5.File):
 			for key, val in _set[i][1].items():
 				logging.debug("Image {}: {} = {}".format(i,key,val))
 				image.attrs[key] = val
+		# Write changes to disk.
+		self.flush()
 		return _setName, _nims
 
 # class base:

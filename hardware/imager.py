@@ -1,6 +1,6 @@
 from synctools.hardware.detector import detector
 from synctools.fileHandler import hdf5
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtWidgets
 import numpy as np
 import logging
 
@@ -54,15 +54,15 @@ class Imager(QtCore.QObject):
 			logging.warning("Cannot acquire x-rays when there is no HDF5 file.")
 			return None
 		# Wait for user input to acquire image.
-		input("Press enter to start acquisition.")
+		QtWidgets.QMessageBox.warning(None,"Image Acquisition","Press OK to start image acquisition.")
 		# Get the image and update the metadata.
 		_data = self.detector.acquire()
 		metadata.update(_data[1])
 		# Calculate the extent.
 		l = self.detector.imageIsocenter[0]*self.detector.pixelSize[0]
-		r = l - _data[0].shape[0]*self.detector.pixelSize[0]
+		r = l - _data[0].shape[1]*self.detector.pixelSize[0]
 		t = self.detector.imageIsocenter[1]*self.detector.pixelSize[1]
-		b = t - _data[0].shape[1]*self.detector.pixelSize[1]
+		b = t - _data[0].shape[0]*self.detector.pixelSize[1]
 		extent = (l,r,b,t)
 		# Add the transformation matrix into the images frame of reference.
 		# Imagers FOR is a RH-CS where +x propagates down the beamline.

@@ -329,7 +329,7 @@ class QImaging(QtWidgets.QWidget):
 class QTreatment(QtWidgets.QWidget):
 	calculate = QtCore.pyqtSignal(int)
 	align = QtCore.pyqtSignal(int)
-	deliver = QtCore.pyqtSignal()
+	deliver = QtCore.pyqtSignal(int)
 
 	def __init__(self):
 		super().__init__()
@@ -430,6 +430,13 @@ class QTreatment(QtWidgets.QWidget):
 			self.widget['beam'][index]['deliver'].setEnabled(True)
 
 	def _disableTreatmentDelivery(self, i):
+		self.widget['beam'][i]['interlock'].setEnabled(False)
+		self.widget['beam'][i]['deliver'].setEnabled(False)
+		self.deliver.emit(i)
+
+	def resetTreatmentDelivery(self, i):
+		self.widget['beam'][i]['alignmentComplete'] = False
+		self.widget['beam'][i]['interlock'].setChecked(True)
 		self.widget['beam'][i]['interlock'].setEnabled(False)
 		self.widget['beam'][i]['deliver'].setEnabled(False)
 

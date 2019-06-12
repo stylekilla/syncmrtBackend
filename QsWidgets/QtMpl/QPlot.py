@@ -292,7 +292,7 @@ class QPlot:
 			# Conformal Mask Overlay - Side.
 			if (state is True):
 				# Plot overlay scatter points.
-				_maskSize = 10
+				_maskSize = 5
 				_beam = Rectangle((-_maskSize/2,-_maskSize/2), _maskSize, _maskSize)
 				pc = PatchCollection([_beam],color='r',alpha=0.2)
 				self.overlay['patMask'] = self.ax.add_collection(pc)

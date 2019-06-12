@@ -23,9 +23,12 @@ Think of this class as the interface to QPlot. As such it should
 '''
 
 class sync_dx:
-	def __init__(self,dataset):
+	def __init__(self,dataset,new=False):
 		# Read in hdf5 dataset.
-		self.file = hdf5.load(dataset)
+		if new:
+			self.file = hdf5.new(dataset)
+		else:
+			self.file = hdf5.load(dataset)
 
 	def getImageList(self):
 		return list(self.file['Image'].keys())

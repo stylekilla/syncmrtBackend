@@ -45,5 +45,5 @@ class patient(QtCore.QObject):
 		if modality == 'DX':
 			if self.dx != None:
 				self.dx.file.close()
-			self.dx.file = hdf5.new(fp)
+			self.dx = importer.sync_dx(fp,new=True)
 			self.newDXfile.emit(fp)

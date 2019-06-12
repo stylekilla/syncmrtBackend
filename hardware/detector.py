@@ -46,5 +46,4 @@ class detector(QtCore.QObject):
 			'Date': time.strftime("%d/%m/%Y"),
 		}
 		# Take a dark field?
-		# return (self._controller.readImage(), metadata)
-		return (np.random.rand(1216,616), metadata)
+		return (self._controller.readImage(), metadata)
