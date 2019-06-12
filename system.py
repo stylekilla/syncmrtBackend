@@ -30,11 +30,12 @@ class system(QtCore.QObject):
 	def loadPatient(self,patient):
 		# Assumes patient has an already loaded x-ray dataset.
 		self.patient = patient
+		self.patient.newDXfile.connect(self.setLocalXrayFile)
 		logging.info("System has been linked with the patient data.")
 
 	def setLocalXrayFile(self,file):
 		logging.debug("Setting local x-ray file to {}".format(file))
-		self.patient.load(file,'DX')
+		# self.patient.load(file,'DX')
 		# Link the patient datafile to the imager.
 		self.imager.file = self.patient.dx.file
 
@@ -113,7 +114,6 @@ class system(QtCore.QObject):
 			# Finished a move, acquire an x-ray.
 			self._routine.counter += 1
 			tx,ty,tz,rx,ry,rz = self.patientSupport.position()
-			logging.critical("Image position found at ({},{},{};{},{},{})".format(tx,ty,tz,rx,ry,rz))
 			metadata = {
 				'Image Angle': self._routine.theta[self._routine.counter-1],
 				'Patient Support Position': (tx,ty,tz),

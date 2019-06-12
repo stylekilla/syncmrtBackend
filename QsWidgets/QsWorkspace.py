@@ -60,7 +60,10 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 	def createSubplots(self,amount):
 		nplots = self.count()
 		# Data length check.
-		if amount not in {1,2}:
+		if amount == 0:
+			self.reset()
+			return
+		elif amount not in {1,2}:
 			logging.critical('Attempting to create {} subplots. Only 1 or 2 subplots is supported.'.format(amount))
 			return
 		# Find out how many plots are needed.
@@ -157,8 +160,8 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 		return self.isocenter
 
 	def reset(self):
-		for i in reversed(range(self.layout.count())): 
-			self.layout.itemAt(i).widget().setParent(None)
+		for i in reversed(range(self.count())): 
+			self.widget(i).setParent(None)
 		self.navbar = []
 		self.plot = []
 		self.tableModel = []

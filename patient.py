@@ -1,10 +1,14 @@
 from synctools.fileHandler import importer
 from synctools.fileHandler import hdf5
 from synctools.tools.opencl import gpu
+from PyQt5 import QtCore
 import logging
 
-class patient:
+class patient(QtCore.QObject):
+	newDXfile = QtCore.pyqtSignal(str)
+
 	def __init__(self,name='Default'):
+		super().__init__()
 		self.name = name
 		self.dx = None
 		# Program internals.
@@ -13,9 +17,11 @@ class patient:
 	def load(self,dataset,modality):
 		if modality == 'DX': 
 			# Close the open one first.
-			if self.dx != None: self.dx.file.close() 
+			if self.dx != None: 
+				self.dx.file.close()
 			# Now open the dataset.
 			self.dx = importer.sync_dx(dataset)
+			self.newDXfile.emit(dataset)
 		elif modality == 'CT': 
 			# Create a GPU context for the ct array.
 			self._gpuContext = gpu()
@@ -34,10 +40,10 @@ class patient:
 			else: 
 				logging.critical('No CT Dataset loaded. Cannot import treatment plan.')
 		else: logging.critical('No importer for file type: ',modality)
-		# self.rtstructure = importer.dicom_rtstructure(dataset)
 
 	def new(self,fp,modality):
 		if modality == 'DX':
 			if self.dx != None:
 				self.dx.file.close()
-			self.dx = hdf5.new(fp)
+			self.dx.file = hdf5.new(fp)
+			self.newDXfile.emit(fp)
