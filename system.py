@@ -127,14 +127,31 @@ class system(QtCore.QObject):
 			else:
 				self._endScan()
 
-	def _step(self):
-		# Take over the _continueScan operation.
-		self.patientSupport.finishedMove.disconnect()
-		self.patientSupport.finishedMove.connect(self._step)
-		# Move the patient up one step.
-		self.patientSupport.shiftPosition([0,0,_dstep,0,0,0])
-		# Acquire part of an image.
-		# self.
+	def _step(self,operation):
+		if self._routine.stepCounter == 0:
+			# First movement. Take over the _continueScan operation.
+			self.patientSupport.finishedMove.disconnect()
+			self.patientSupport.finishedMove.connect(partial(self._step,'imaging'))
+			self.patientSupport.imageAcquired.disconnect()
+			self.imager.imageAcquired.connect(partial(self._step,'moving'))
+			# Assume in start position. Take an image.
+			self.imager.acquireStep()
+		elif self._routine.stepCounter < self._routine.stepCounterLimit:
+			if operation == 'imaging':
+				self._routine.stepCounter += 1
+				# Move the patient up one step.
+				self.imager.acquireStep()
+			elif operation == 'moving':
+				# Move the patient up one step.
+				self.patientSupport.shiftPosition([0,0,self._routine.stepSize,0,0,0])
+		else:
+			self.imager.stitch()
+			# Routine finished. Set signals back up for next scan.
+			self._routine.stepCounter = 0
+			self.patientSupport.finishedMove.disconnect()
+			self.patientSupport.finishedMove.connect(partial(self._continueScan,'imaging'))
+			self.patientSupport.imageAcquired.disconnect()
+			self.imager.imageAcquired.connect(partial(self._continueScan,'moving'))
 
 	def _scan(self):
 		pass
@@ -208,5 +225,20 @@ class ImagingRoutine:
 	tz = [0,0]
 	dz = 0
 	preImagingPosition = None
+	"""
+	Image routine.
+	"""
 	counter = 0
 	counterLimit = 0
+	"""
+	Step routine.
+	"""
+	stepCounter = 0
+	stepCounterLimit = 0
+	stepSize = 0
+	"""
+	Scan routine.
+	"""
+	# stepCounter = 0
+	# stepCounterLimit = 0
+	# stepSize = 0

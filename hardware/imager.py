@@ -50,6 +50,7 @@ class Imager(QtCore.QObject):
 		self.detector.setParameters(params)
 
 	def acquire(self,index,metadata):
+		""" Grabs a single frame. """
 		if self.file is None:
 			logging.warning("Cannot acquire x-rays when there is no HDF5 file.")
 			return None
@@ -77,6 +78,18 @@ class Imager(QtCore.QObject):
 		self.buffer.append((_data[0],metadata))
 		# Emit a signal saying we have acquired an image.
 		self.imageAcquired.emit(index)
+
+	def acquireSingle(self):
+		pass
+
+	def acquireStep(self):
+		pass
+
+	def acquireScan(self):
+		pass
+
+	def stitch(self):
+		pass
 
 	def setPatientDataset(self,_file):
 		self.file = _file

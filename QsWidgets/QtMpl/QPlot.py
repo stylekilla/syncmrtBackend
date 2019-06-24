@@ -264,7 +264,6 @@ class QPlot:
 			elif (state is False):
 				self.overlay['patMask'].remove()
 		elif overlayType == 4:
-			print(state)
 			# Conformal Mask Overlay - Side.
 			if (self.mask == None):
 				return
