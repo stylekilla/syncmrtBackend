@@ -5,6 +5,19 @@ import numpy as np
 import logging
 
 class Imager(QtCore.QObject):
+	"""
+   This class contains information about imager hardware (detector + source).
+
+	Attributes
+	----------
+	database : str
+		A link to a *.csv file containing information about the hardware.
+	config : str
+		Pass the configuration file section relating to the imager.
+	ui : QtWidget
+		Unused. Should allow for imager controls to be set up and placed within the gui by using the ui to set a layout and imager child widgets.
+	"""
+
 	imageAcquired = QtCore.pyqtSignal(int)
 	newImageSet = QtCore.pyqtSignal(str,int)
 
@@ -37,6 +50,14 @@ class Imager(QtCore.QObject):
 			self.deviceList.add(row['Detector'])
 
 	def load(self,name):
+		"""
+		Load a detector into the imager configuration.
+
+		Attributes
+		----------
+		name : str
+			The name of the detector to look up in the database file.
+		"""
 		logging.info("Loading the {} detector.".format(name))
 		if name in self.deviceList:
 			self.detector = detector(name,self.detectors[name])
@@ -112,12 +133,17 @@ class Imager(QtCore.QObject):
 
 		logging.critical("Stitching is out of order... why?")
 		# Image.
-		image = self._stitchBuffer[0][0]
-		for i in (range(1,len(self._stitchBuffer))):
-			print("Stitching {} of {}".format(i,len(self._stitchBuffer)-1))
-			roi = self._stitchBuffer[i][0]
-			# Stack the image.
-			image = np.vstack((image,roi))
+		# image = self._stitchBuffer[0][0]
+		# for i in (range(1,len(self._stitchBuffer))):
+		# 	print("Stitching {} of {}".format(i,len(self._stitchBuffer)-1))
+		# 	roi = self._stitchBuffer[i][0]
+		# 	# Stack the image.
+		# 	image = np.vstack((image,roi))
+
+		# Stack the image.
+		image = self._stitchBuffer[-1][0]
+		for i in range(len(self._stitchBuffer)-1):
+			image = np.vstack((image,self._stitchBuffer[i][0]))
 
 		# Calculate the extent.
 		logging.critical("Extent calculation for stitching is currently wrong. Unfinished")
