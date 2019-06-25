@@ -19,6 +19,7 @@ class Imager(QtCore.QObject):
 		self.config = config
 		# Image buffer for set.
 		self.buffer = []
+		self._stitchBuffer = []
 		self.metadata = []
 		# System properties.
 		self.sid = self.config.sid
@@ -82,14 +83,68 @@ class Imager(QtCore.QObject):
 	def acquireSingle(self):
 		pass
 
-	def acquireStep(self):
-		pass
+	def acquireStep(self,beamHeight):
+		""" Grabs a small vertical section of a larger image. """
+		if self.file is None:
+			logging.warning("Cannot acquire x-rays when there is no HDF5 file.")
+			return None
+		# Define the region of interest.
+		t = int(self.detector.imageIsocenter[1] - (beamHeight/self.detector.pixelSize[1])/2)
+		b = int(self.detector.imageIsocenter[1] + (beamHeight/self.detector.pixelSize[1])/2)
+		logging.critical("Top and bottom indexes of array are: {}t {}b.".format(t,b))
+		# Get the image ROI and add it to the stitch buffer.
+		self._stitchBuffer.append(list(self.detector.acquire()))
+		self._stitchBuffer[-1][0] = self._stitchBuffer[-1][0][t:b,:]
+		# Emit a signal saying we have acquired an image.
+		logging.info("Step image acquired.")
+		self.imageAcquired.emit(-1)
 
 	def acquireScan(self):
 		pass
 
-	def stitch(self):
-		pass
+	def stitch(self,index,metadata,z,tz):
+		"""
+		Stitching assumes the middle of the beam window is the middle of the beam. No offset.
+		"""
+		# Metadata
+		finish = self._stitchBuffer[-1][1]
+		metadata.update(finish)
+
+		logging.critical("Stitching is out of order... why?")
+		# Image.
+		image = self._stitchBuffer[0][0]
+		for i in (range(1,len(self._stitchBuffer))):
+			print("Stitching {} of {}".format(i,len(self._stitchBuffer)-1))
+			roi = self._stitchBuffer[i][0]
+			# Stack the image.
+			image = np.vstack((image,roi))
+
+		# Calculate the extent.
+		logging.critical("Extent calculation for stitching is currently wrong. Unfinished")
+		l = (image.shape[1]/2)*self.detector.pixelSize[1]
+		r = -(image.shape[1]/2)*self.detector.pixelSize[1]
+		t = z + tz[1] + 0.5*self._stitchBuffer[0][0].shape[0]*self.detector.pixelSize[0]
+		b = z + tz[0] - 0.5*self._stitchBuffer[0][0].shape[0]*self.detector.pixelSize[0]
+		extent = (l,r,b,t)
+		logging.critical("Image array shape: {}.".format(image.shape))
+		# Add the transformation matrix into the images frame of reference.
+		# Imagers FOR is a RH-CS where +x propagates down the beamline.
+		M = np.identity(3)
+		t = np.deg2rad(float(metadata['Image Angle']))
+		rz = np.array([[np.cos(t),-np.sin(t),0],[np.sin(t),np.cos(t),0],[0,0,1]])
+		M = rz@M
+		metadata.update({
+				'Extent': extent,
+				'M':M,
+				'Mi':np.linalg.inv(M),
+			})
+		# Append the image and metada to to the buffer.
+		self.buffer.append((image,metadata))
+		# Clear the stitch buffer.
+		self._stitchBuffer = []
+		logging.info("Image stitched.")
+		# Emit the signal
+		self.imageAcquired.emit(index)
 
 	def setPatientDataset(self,_file):
 		self.file = _file
@@ -101,4 +156,5 @@ class Imager(QtCore.QObject):
 			self.newImageSet.emit(_name, _nims)
 		else:
 			logging.critical("Cannot save images to dataset, no HDF5 file loaded.")
+		# Clear the buffer.
 		self.buffer = []

@@ -123,6 +123,8 @@ class detector:
 		self._pv = pv
 		# PV vars.
 		self.pv = {}
+		self.pv['CAM:Acquire'] = None
+		self.pv['CAM:DataType_RBV'] = None
 		self.pv['IMAGE:ArrayData'] = None
 		self.pv['IMAGE:ArraySize0_RBV'] = None
 		self.pv['IMAGE:ArraySize0_RBV'] = None
@@ -133,24 +135,33 @@ class detector:
 
 	def _connectPVs(self):
 		# Record PV root information and connect to motors.
-		try:
-			# Read Back Value
-			self.pv['IMAGE:ArrayData'] = epics.PV(self._pv+':IMAGE:ArrayData')
-			self.pv['IMAGE:ArraySize0_RBV'] = epics.PV(self._pv+':IMAGE:ArraySize0_RBV')
-			self.pv['IMAGE:ArraySize1_RBV'] = epics.PV(self._pv+':IMAGE:ArraySize1_RBV')
-			self._connected = True
-		except:
+		self.pv['CAM:Acquire'] = epics.PV(self._pv+':CAM:Acquire',connection_timeout=1000)
+		self.pv['CAM:DataType_RBV'] = epics.PV(self._pv+':CAM:DataType_RBV',connection_timeout=1000)
+		self.pv['IMAGE:ArrayData'] = epics.PV(self._pv+':IMAGE:ArrayData',connection_timeout=1000)
+		self.pv['IMAGE:ArraySize0_RBV'] = epics.PV(self._pv+':IMAGE:ArraySize0_RBV',connection_timeout=1000)
+		self.pv['IMAGE:ArraySize1_RBV'] = epics.PV(self._pv+':IMAGE:ArraySize1_RBV',connection_timeout=1000)
+		# Connections.
+		state = []
+		for key in self.pv.keys():
+			state.append(self.pv[key].wait_for_connection(timeout=1000))
+
+		if False in state:
 			self._connected = False
-		logging.info("Detector connection status: {}".format(self._connected))
+			logging.critical("Could not connect to all the detector PV's. Refresh the connection.")
+		else:
+			self._connected = True
 
 	def reconnect(self):
-		self._connectPVs()
+		for key in self.pv.keys():
+			self.pv[key].connect(timeout=1000)
 
 	def readImage(self):
 		if self._connected is False:
 			return None
 		else:
-			image = self.pv['IMAGE:ArrayData'].get()
+			self.pv['CAM:Acquire'].put(1)
+			image = np.array(self.pv['IMAGE:ArrayData'].get(),dtype='uint16')
 			x = self.pv['IMAGE:ArraySize1_RBV'].get()
 			y = self.pv['IMAGE:ArraySize0_RBV'].get()
-			return image.reshape(x,y)
+
+			return np.flipud(image.reshape(x,y))

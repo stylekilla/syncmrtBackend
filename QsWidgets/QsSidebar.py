@@ -135,8 +135,8 @@ class QImaging(QtWidgets.QWidget):
 	def __init__(self):
 		super().__init__()
 		# Vars.
-		self.theta = [0,90]
-		self.translation = [-25,25]
+		self.theta = [-2,2]
+		self.translation = [-10,15]
 		self.thetaRange = [-90,90]
 		self.translationRange = [-100,100]
 		# Layout.

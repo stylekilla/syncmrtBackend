@@ -24,17 +24,22 @@ class detector(QtCore.QObject):
 		self._imageBuffer = []
 		# Controllers.
 		self._controller = controls.detector(pv)
+		# Setup.
+		self.setup()
 
 	def reconnect(self):
 		if self._controller is not None:
 			self._controller.reconnect()
 
-	# def setup(self):
-	# 	self._acquire = PV(self._pv+':CAM:Acquire')
-	# 	# Region of interest.
-	# 	self._roix = PV(':CAM:SizeX_RBV')
-	# 	self._roiy = PV(':CAM:SizeY_RBV')
-	# 	self.roi = [self._roix,self._roiy]
+	def setup(self):
+		epics.caput(self.pv+':CAM:ImageMode','Single')
+		epics.caput(self.pv+':CAM:AcquireTime',.055)
+		epics.caput(self.pv+':CAM:AcquirePeriod',.055)
+		epics.caput(self.pv+':TIFF:AutoSave','No')
+		# Region of interest.
+		# self._roix = PV(':CAM:SizeX_RBV')
+		# self._roiy = PV(':CAM:SizeY_RBV')
+		# self.roi = [self._roix,self._roiy]
 
 	def setParameters(self,**kwargs):
 		# Kwargs should be in the form of a dict: {'key'=value}.
@@ -53,4 +58,7 @@ class detector(QtCore.QObject):
 			'Date': time.strftime("%d/%m/%Y"),
 		}
 		# Take a dark field?
+		# Return a tuple of the image and metadata.
+		# return (self._controller.readImage(), metadata)
+		logging.critical("Turning images upside down in controller cos ruby sucks.")
 		return (self._controller.readImage(), metadata)
