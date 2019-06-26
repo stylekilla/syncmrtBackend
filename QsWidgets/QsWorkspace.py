@@ -20,12 +20,11 @@ else:
     application_path = os.path.dirname(os.path.abspath(__file__))
 image_path = application_path+'synctools/QsWidgets/QtMpl/images/'
 
-# class QPlotEnvironment(QtWidgets.QWidget):
 class QPlotEnvironment(QtWidgets.QSplitter):
-	'''
+	"""
 	An advanced widget specifically designed for plotting with MatPlotLib in Qt5.
 	It has a navbar, plot and table.
-	'''
+	"""
 	toggleSettings = QtCore.pyqtSignal()
 	subplotAdded = QtCore.pyqtSignal(int)
 	subplotRemoved = QtCore.pyqtSignal(int)
@@ -59,7 +58,10 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 	def createSubplots(self,amount):
 		nplots = self.count()
 		# Data length check.
-		if amount not in {1,2}:
+		if amount == 0:
+			self.reset()
+			return
+		elif amount not in {1,2}:
 			logging.critical('Attempting to create {} subplots. Only 1 or 2 subplots is supported.'.format(amount))
 			return
 		# Find out how many plots are needed.
@@ -147,8 +149,8 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 		return self.histogram
 
 	def reset(self):
-		for i in reversed(range(self.layout.count())): 
-			self.layout.itemAt(i).widget().setParent(None)
+		for i in reversed(range(self.count())): 
+			self.widget(i).setParent(None)
 		self.navbar = []
 		self.plot = []
 		self.tableModel = []

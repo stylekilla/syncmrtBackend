@@ -21,7 +21,8 @@ class detector(QtCore.QObject):
 		self.pixelSize = [1,1]
 		# Isocenter as a pixel location in the image.
 		self.imageIsocenter = [0,0]
-		self._imageBuffer = []
+		# Make a buffer.
+		self.buffer = []
 		# Controllers.
 		self._controller = controls.detector(pv)
 		# Setup.
@@ -32,10 +33,11 @@ class detector(QtCore.QObject):
 			self._controller.reconnect()
 
 	def setup(self):
-		epics.caput(self.pv+':CAM:ImageMode','Single')
-		epics.caput(self.pv+':CAM:AcquireTime',.055)
-		epics.caput(self.pv+':CAM:AcquirePeriod',.055)
-		epics.caput(self.pv+':TIFF:AutoSave','No')
+		if self._controller._connected:
+			epics.caput(self.pv+':CAM:ImageMode','Single')
+			epics.caput(self.pv+':CAM:AcquireTime',.055)
+			epics.caput(self.pv+':CAM:AcquirePeriod',.055)
+			epics.caput(self.pv+':TIFF:AutoSave','No')
 		# Region of interest.
 		# self._roix = PV(':CAM:SizeX_RBV')
 		# self._roiy = PV(':CAM:SizeY_RBV')
@@ -47,7 +49,7 @@ class detector(QtCore.QObject):
 			# Assumes correct value type for keyword argument.
 			epics.caput(self._pv+str(key),value)
 
-	def acquire(self):
+	def acquire(self,continous=False):
 		time = dt.now()
 		# HDF5 does not support python datetime objects.
 		metadata = {
@@ -58,7 +60,16 @@ class detector(QtCore.QObject):
 			'Date': time.strftime("%d/%m/%Y"),
 		}
 		# Take a dark field?
-		# Return a tuple of the image and metadata.
-		# return (self._controller.readImage(), metadata)
-		logging.critical("Turning images upside down in controller cos ruby sucks.")
-		return (self._controller.readImage(), metadata)
+		if continous:
+			# Assumes stage moving at constant speed.
+			# Write all to buffer, then when finished return the image and metadata.
+			return (self.buffer,metadata)
+			# pass
+
+		else:
+			# Return a tuple of the image and metadata.
+			logging.critical("Turning images upside down in controller cos ruby sucks.")
+			return (self._controller.readImage(), metadata)
+
+	def acquireContinous(self,array):
+		self.buffer.append(array)

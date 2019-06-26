@@ -35,9 +35,9 @@ class motor(QtCore.QObject):
 		# Motor order.
 		self._order = order
 		# Motor name.
-		self._name = name
+		self.name = name
 		# PV Base.
-		self._pv = pv
+		self.pv = pv
 		# Direction is +1 (forward) or -1 (reverse) for natural motor movement.
 		self._direction = direction
 		# Frame of reference local (0) or global (1).
@@ -54,7 +54,7 @@ class motor(QtCore.QObject):
 		# Interfaces (Qt and Epics).
 		self._workerThread = None
 		self._ui = None
-		self._controller = controls.motor(self._pv)
+		self._controller = controls.motor(self.pv)
 		logging.info("Loading motor {} on aixs {} with PV {}".format(name,axis,pv))
 
 	def setUi(self,ui):

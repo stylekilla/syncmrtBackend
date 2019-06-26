@@ -4,12 +4,11 @@ import numpy as np
 from functools import partial
 from PyQt5 import QtCore
 
-"""
-system.py
----------
-This module creates a treatment 'system' that is made up of imaging devices, positioning aparatus, beam delivery controls etc.
-"""
 class system(QtCore.QObject):
+	"""
+	This module creates a treatment 'system' that is made up of imaging devices, positioning aparatus, beam delivery controls etc.
+	"""
+	
 	imagesAcquired = QtCore.pyqtSignal(int)
 	newImageSet = QtCore.pyqtSignal(str)
 
@@ -27,14 +26,13 @@ class system(QtCore.QObject):
 		self.imager.newImageSet.connect(self.newImageSet)
 
 	def loadPatient(self,patient):
-		# Assumes patient has an already loaded x-ray dataset.
+		""" Assumes patient has an already loaded x-ray dataset. """
 		self.patient = patient
+		self.patient.newDXfile.connect(self.setLocalXrayFile)
 		logging.info("System has been linked with the patient data.")
 
 	def setLocalXrayFile(self,file):
-		logging.debug("Setting local x-ray file to {}".format(file))
-		self.patient.load(file,'DX')
-		# Link the patient datafile to the imager.
+		""" Link the patient datafile to the imager. """
 		self.imager.file = self.patient.dx.file
 
 	def setStage(self,name):

@@ -6,9 +6,9 @@ import logging
 
 class Imager(QtCore.QObject):
 	"""
-   This class contains information about imager hardware (detector + source).
+	A QObject class containing information about imager hardware (detector + source).
 
-	Attributes
+	Parameters
 	----------
 	database : str
 		A link to a *.csv file containing information about the hardware.
@@ -16,12 +16,31 @@ class Imager(QtCore.QObject):
 		Pass the configuration file section relating to the imager.
 	ui : QtWidget
 		Unused. Should allow for imager controls to be set up and placed within the gui by using the ui to set a layout and imager child widgets.
+
+	Attributes
+	----------
+	imageAcquired : pyqtSignal(int)
+		An image has been acquired by the imager.
+	newImageSet : pyqtSignal(str, int)
+		An image set has been acquired by the imager with set `name` and `n` images.
+	detector : object
+		A synctools.hardware.detector object.
+	file : object
+		A synctools.fileHandler.hdf5.file object. Patient HDF5 file for storing x-ray images in.
+	buffer : list
+		A buffer for image frames, these later get released as a image set (1 or 2 images).
+	sid : float
+		Source to Imager Distance in mm.
+	sad : float 
+		Source to Axis Distance in mm.
+	detectors : dict
+		Dictionary of available detectors in the system and their Epics PV's.
+	deviceList : set
+		A list of all the detector names available to the system.
 	"""
 
 	imageAcquired = QtCore.pyqtSignal(int)
 	newImageSet = QtCore.pyqtSignal(str,int)
-
-	# This needs to be re-written to accept 6DoF movements and split it up into individual movements.
 
 	def __init__(self,database,config,ui=None):
 		super().__init__()
@@ -65,19 +84,36 @@ class Imager(QtCore.QObject):
 			self.detector.pixelSize = self.config.pixelSize
 
 	def reconnect(self):
+		""" Reconnect the detector controller to Epics. Use this if the connection dropped out. """
 		self.detector.reconnect()
 
 	def setImagingParameters(self,params):
-		# As they appear on PV's.
+		""" As they appear on PV's. """
 		self.detector.setParameters(params)
 
-	def acquire(self,index,metadata):
-		""" Grabs a single frame. """
+	def acquire(self,index,metadata,continuous=False):
+		"""
+		Grabs a single image frame and loads it into the buffer. 
+
+		Parameters
+		----------
+		index : int
+			The `index` of the image (1 or 2).
+		metadata : dict
+			A dictionary of arguments that should be written into the HDF5 file as image attributes.
+		continuous : bool
+			Continuous scan, set to False by default.
+		
+		Returns
+		-------
+		imageAcquired(i) : pyqtSignal
+			Emits a signal saying that the image index `i` has been added to the image buffer with `(array, metadata)`.
+		"""
 		if self.file is None:
 			logging.warning("Cannot acquire x-rays when there is no HDF5 file.")
 			return None
 		# Get the image and update the metadata.
-		_data = self.detector.acquire()
+		_data = self.detector.acquire(continuous)
 		metadata.update(_data[1])
 		# Calculate the extent.
 		l = self.detector.imageIsocenter[0]*self.detector.pixelSize[0]
@@ -101,11 +137,20 @@ class Imager(QtCore.QObject):
 		# Emit a signal saying we have acquired an image.
 		self.imageAcquired.emit(index)
 
-	def acquireSingle(self):
-		pass
-
 	def acquireStep(self,beamHeight):
-		""" Grabs a small vertical section of a larger image. """
+		"""
+		Grabs a small vertical section of a larger image. 
+
+		Parameters
+		----------
+		beamHeight : float
+			The vertical height of the beam used for imaging. This will specify the region of the image to acquire.
+
+		Returns
+		-------
+		imageAcquired(-1) : pyqtSignal
+			Emits signal with -1 to state part of an image has been acquired.
+		"""
 		if self.file is None:
 			logging.warning("Cannot acquire x-rays when there is no HDF5 file.")
 			return None
@@ -120,12 +165,43 @@ class Imager(QtCore.QObject):
 		logging.info("Step image acquired.")
 		self.imageAcquired.emit(-1)
 
-	def acquireScan(self):
-		pass
+	def prepareScan(self,beamHeight,speed):
+		"""
+		Sets up a continuous scan over `time`.
+
+		Parameters
+		----------
+		time : float
+			The time 
+
+		"""		
+		if self.file is None:
+			logging.warning("Cannot acquire x-rays when there is no HDF5 file.")
+			return
+		# Set detector acusition time. ROI? How to port images straight to me?
+		kwargs = {
+			':CAM:AcquireTime': beamHeight/speed,
+			':CAM:AcquirePeriod': 0,
+			':CAM:ImageMode': 'Continuous',
+		}
+		self.detector.setParameters(kwargs)
+
 
 	def stitch(self,index,metadata,z,tz):
 		"""
+		The `imager._stitchBuffer` is stitched together and the complete image is sent to the `imager.buffer` along with its finalised metadata.
 		Stitching assumes the middle of the beam window is the middle of the beam. No offset.
+
+		Parameters
+		----------
+		index : int
+			Index of the image to be stitched.
+		metadata : dict
+			The metadata of the image to be included in the HDF5 file as image attributes.
+		z : float
+			The `z` (vertical) position of the patient before imaging.
+		tz : list
+			The range of vertical movement as `[-tz,+tz]` relative to the pre-imaging position `z`.
 		"""
 		# Metadata
 		finish = self._stitchBuffer[-1][1]

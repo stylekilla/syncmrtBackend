@@ -23,33 +23,42 @@ Think of this class as the interface to QPlot. As such it should
 '''
 
 class sync_dx:
-	def __init__(self,dataset):
+	def __init__(self,dataset,new=False):
 		# Read in hdf5 dataset.
-		self.file = hdf5.load(dataset[0])
-
+		if new:
+			self.file = hdf5.new(dataset)
+		else:
+			self.file = hdf5.load(dataset)
+			
 	def getImageList(self):
+		""" Reads the image names in the HDF5 file. Return as list. """
 		return list(self.file['Image'].keys())
 
 	def getImageSet(self,idx):
 		logging.debug("Reading image set {} from HDF5.".format(idx))
 		_set = self.file.getImageSet(idx)
 		imageSet = []
-		for i in range(len(_set)):
-			# Get the image and its attributes.
-			image = Image2d()
-			image.pixelArray = _set[str(i+1)][()]
-			image.extent = _set[str(i+1)].attrs['Extent']
-			image.patientIsocenter = _set[str(i+1)].attrs['Image Isocenter']
-			image.view['title'] = str(_set[str(i+1)].attrs['Image Angle'])+"\u00B0"
-			image.M = _set[str(i+1)].attrs['M']
-			image.Mi = _set[str(i+1)].attrs['Mi']
-			# Append the image.
-			imageSet.append(image)
-
+		try:
+			for i in range(len(_set)):
+				# Get the image and its attributes.
+				image = Image2d()
+				image.pixelArray = _set[str(i+1)][()]
+				image.extent = _set[str(i+1)].attrs['Extent']
+				image.patientIsocenter = _set[str(i+1)].attrs['Image Isocenter']
+				image.patientPosition = list(_set[str(i+1)].attrs['Patient Support Position']) + list(_set[str(i+1)].attrs['Patient Support Angle'])
+				image.view['title'] = str(_set[str(i+1)].attrs['Image Angle'])+"\u00B0"
+				image.M = _set[str(i+1)].attrs['M']
+				image.Mi = _set[str(i+1)].attrs['Mi']
+				# Append the image.
+				imageSet.append(image)
+		except:
+			pass
+			
 		return imageSet
 
 
 def checkDicomModality(dataset,modality):
+	""" Check the modality of each dicom file and return only the files that match the desired modality. """
 	# Start with empty list of files.
 	files = {}
 	for i in range(len(dataset)):

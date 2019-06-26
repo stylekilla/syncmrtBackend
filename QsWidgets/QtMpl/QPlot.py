@@ -67,6 +67,13 @@ class QPlot:
 
 		self.canvas._pickerActive = False
 
+	def updatePatientIsocenter(self,_x,_y):
+		""" Update the patient isocenter and refresh the overlay. """
+		self.patientIsocenter = [_x,_y]
+		if 'patIso' in self.overlay:
+			self.toggleOverlay(2,False) 
+			self.toggleOverlay(2,True)
+
 	def loadCoordinate(self,name,vector):
 		# Pull in DICOM information in XYZ mm and turn it into the current view of the dataset.
 		self.coordinate[name] = self._R@np.transpose(np.array(vector))
@@ -207,6 +214,10 @@ class QPlot:
 			self.markersListOptimised += scatter,text
 
 		self.canvas.draw()
+
+	def markers(self):
+		""" Return the points in this plot. """
+		return zip(self.pointsX,self.pointsY)
 
 	def toggleOverlay(self,overlayType,state=False):
 		'''

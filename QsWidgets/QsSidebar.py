@@ -67,23 +67,23 @@ class QAlignment(QtWidgets.QWidget):
 		# Signals and Slots
 
 		# Group 3: Checklist
-		checklistGroup = QtWidgets.QGroupBox()
-		checklistGroup.setTitle('Checklist')
-		self.widget['checkSetup'] = QtWidgets.QLabel('Alignment Setup')
-		self.widget['checkXray'] = QtWidgets.QLabel('X-ray')
-		self.widget['checkDicom'] = QtWidgets.QLabel('Dicom Image')
-		self.widget['checkRTP'] = QtWidgets.QLabel('Treatment Plan')
-		# self.widget['check'] = QtWidgets.QPushButton('Check')
-		# self.widget['align'] = QtWidgets.QPushButton('Align')
-		# Layout
-		checklistGroupLayout = QtWidgets.QFormLayout()
-		checklistGroupLayout.addRow(self.widget['checkSetup'])
-		checklistGroupLayout.addRow(self.widget['checkXray'])
-		checklistGroupLayout.addRow(self.widget['checkDicom'])
-		checklistGroupLayout.addRow(self.widget['checkRTP'])
-		# checklistGroupLayout.addRow(self.widget['check'],self.widget['align'])
-		checklistGroup.setLayout(checklistGroupLayout)
-		self.layout.addWidget(checklistGroup)
+		# checklistGroup = QtWidgets.QGroupBox()
+		# checklistGroup.setTitle('Checklist')
+		# self.widget['checkSetup'] = QtWidgets.QLabel('Alignment Setup')
+		# self.widget['checkXray'] = QtWidgets.QLabel('X-ray')
+		# self.widget['checkDicom'] = QtWidgets.QLabel('Dicom Image')
+		# self.widget['checkRTP'] = QtWidgets.QLabel('Treatment Plan')
+		# # self.widget['check'] = QtWidgets.QPushButton('Check')
+		# # self.widget['align'] = QtWidgets.QPushButton('Align')
+		# # Layout
+		# checklistGroupLayout = QtWidgets.QFormLayout()
+		# checklistGroupLayout.addRow(self.widget['checkSetup'])
+		# checklistGroupLayout.addRow(self.widget['checkXray'])
+		# checklistGroupLayout.addRow(self.widget['checkDicom'])
+		# checklistGroupLayout.addRow(self.widget['checkRTP'])
+		# # checklistGroupLayout.addRow(self.widget['check'],self.widget['align'])
+		# checklistGroup.setLayout(checklistGroupLayout)
+		# self.layout.addWidget(checklistGroup)
 		# Defaults
 		# Signals and Slots
 
@@ -311,6 +311,10 @@ class QImaging(QtWidgets.QWidget):
 	def disableAcquisition(self):
 		self.widget['acquire'].setEnabled(False)
 
+	def resetImageSetList(self):
+		logging.info("Image set list cleared.")
+		self.widget['imageList'].clear()
+
 	def addImageSet(self,_setName):
 		logging.debug("Adding {} to image set list.".format(_setName))
 		if type(_setName) is list:
@@ -322,6 +326,10 @@ class QImaging(QtWidgets.QWidget):
 		self.widget['imageList'].setCurrentIndex(self.widget['imageList'].count()-1)
 
 class QTreatment(QtWidgets.QWidget):
+	calculate = QtCore.pyqtSignal(int)
+	align = QtCore.pyqtSignal(int)
+	deliver = QtCore.pyqtSignal(int)
+
 	def __init__(self):
 		super().__init__()
 		self.widget = {}
@@ -393,7 +401,17 @@ class QTreatment(QtWidgets.QWidget):
 			self.widget['beam'][i]['interlock'].setEnabled(False)
 			self.widget['beam'][i]['deliver'].setEnabled(False)
 			# Signals and Slots
+			# Signals and Slots
+			self.widget['beam'][i]['calculate'].clicked.connect(partial(self._emitCalculate,i))
+			self.widget['beam'][i]['align'].clicked.connect(partial(self._emitAlign,i))
 			self.widget['beam'][i]['interlock'].stateChanged.connect(partial(self.treatmentInterlock,i))
+			self.widget['beam'][i]['deliver'].clicked.connect(partial(self._disableTreatmentDelivery,i))
+
+	def _emitCalculate(self,_id):
+		self.calculate.emit(_id)
+
+	def _emitAlign(self,_id):
+		self.align.emit(_id)
 
 	def treatmentInterlock(self,index):
 		'''Treatment interlock stops treatment from occuring. Requires alignment to be done first.'''
@@ -406,6 +424,10 @@ class QTreatment(QtWidgets.QWidget):
 			self.widget['beam'][index]['deliver'].setEnabled(False)
 		else:
 			self.widget['beam'][index]['deliver'].setEnabled(True)
+
+	def _disableTreatmentDelivery(self, i):
+		self.widget['beam'][i]['interlock'].setEnabled(False)
+		self.widget['beam'][i]['deliver'].setEnabled(False)
 
 	def delete(self):
 		for key, val in self.widget:

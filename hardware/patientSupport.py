@@ -128,7 +128,7 @@ class patientSupport(QtCore.QObject):
 		for motor in self.currentMotors:
 			# Read motor position and the axis it works on.
 			mpos = motor.readPosition()
-			axis = motor._axis
+			axis = motor._axis + (3*motor._type)
 			# Add value to the overall position.
 			if mpos == np.inf: 
 				mpos = 0

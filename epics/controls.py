@@ -135,15 +135,15 @@ class detector:
 
 	def _connectPVs(self):
 		# Record PV root information and connect to motors.
-		self.pv['CAM:Acquire'] = epics.PV(self._pv+':CAM:Acquire',connection_timeout=1000)
-		self.pv['CAM:DataType_RBV'] = epics.PV(self._pv+':CAM:DataType_RBV',connection_timeout=1000)
-		self.pv['IMAGE:ArrayData'] = epics.PV(self._pv+':IMAGE:ArrayData',connection_timeout=1000)
-		self.pv['IMAGE:ArraySize0_RBV'] = epics.PV(self._pv+':IMAGE:ArraySize0_RBV',connection_timeout=1000)
-		self.pv['IMAGE:ArraySize1_RBV'] = epics.PV(self._pv+':IMAGE:ArraySize1_RBV',connection_timeout=1000)
+		self.pv['CAM:Acquire'] = epics.PV(self._pv+':CAM:Acquire',connection_timeout=1)
+		self.pv['CAM:DataType_RBV'] = epics.PV(self._pv+':CAM:DataType_RBV',connection_timeout=1)
+		self.pv['IMAGE:ArrayData'] = epics.PV(self._pv+':IMAGE:ArrayData',connection_timeout=1)
+		self.pv['IMAGE:ArraySize0_RBV'] = epics.PV(self._pv+':IMAGE:ArraySize0_RBV',connection_timeout=1)
+		self.pv['IMAGE:ArraySize1_RBV'] = epics.PV(self._pv+':IMAGE:ArraySize1_RBV',connection_timeout=1)
 		# Connections.
 		state = []
 		for key in self.pv.keys():
-			state.append(self.pv[key].wait_for_connection(timeout=1000))
+			state.append(self.pv[key].wait_for_connection(timeout=1))
 
 		if False in state:
 			self._connected = False
@@ -153,7 +153,7 @@ class detector:
 
 	def reconnect(self):
 		for key in self.pv.keys():
-			self.pv[key].connect(timeout=1000)
+			self.pv[key].connect(timeout=1)
 
 	def readImage(self):
 		if self._connected is False:
