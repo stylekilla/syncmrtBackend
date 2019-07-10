@@ -17,7 +17,6 @@ else:
     application_path = os.path.dirname(os.path.abspath(__file__))
 image_path = application_path+'synctools/QsWidgets/QtMpl/images/'
 
-# class QPlotEnvironment(QtWidgets.QWidget):
 class QPlotEnvironment(QtWidgets.QSplitter):
 	'''
 	An advanced widget specifically designed for plotting with MatPlotLib in Qt5.
@@ -88,6 +87,7 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 			self.tableModel[-1].itemChanged.connect(self.plot[-1].markerUpdate)
 			# The navbar needs the plot widget and the parent widget.
 			self.navbar.append(QNavigationBar(self.plot[-1].canvas))
+			# self.navbar[-1].update()
 			self.navbar[-1].toggleImageSettings.connect(self.toggleImageSettings)
 			self.navbar[-1].clearAll.connect(self.plot[-1].removeMarker)
 			# Configure table view.
@@ -122,10 +122,11 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 			# Add editable isocenter widget.
 			self.isocenter.append(QtMpl.QEditableIsocenter(0,0))
 			self.isocenter[-1].isocenterUpdated.connect(self.plot[-1].updatePatientIsocenter)
+			logging.critical("Need to connect the selectIsocenter button to the navbar...")
+			self.isocenter[-1].selectIsocenter.connect(self.navbar[-1].pickIsocenter)
+			self.plot[-1].newIsocenter.connect(self.isocenter[-1].setIsocenter)
 			# Send a signal to say a subplot was added.
 			self.set('maxMarkers',self._maxMarkers)
-			# self.subplotAdded.emit(self.count())
-		# Set max markers.
 
 	def removeSubplot(self,amount):
 		# Take the layout item, get the widget of the item and remove it.
@@ -285,13 +286,14 @@ class QNavigationBar(NavigationToolbar2QT):
 				('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
 				('Pick', 'Click to select marker', 'help', 'pick'),
 				('Clear', 'Clear all the markers', 'help', 'clear'),
-				# ('Settings', 'Show the image settings', 'help', 'settings'),
 				(None, None, None, None),
 				('Save', 'Save the figure', 'filesave', 'save_figure'),
 			)
 		self.basedir = image_path
 		NavigationToolbar2QT.__init__(self,canvas,parent=None)
 		self.canvas = canvas
+
+		self.canvas._isocenterPickerActive = False
 
 		# actions = self.findChildren(QtWidgets.QAction)
 		# toolsBlacklist = ['Customize','Forward','Back','Subplots','Save']
@@ -323,7 +325,22 @@ class QNavigationBar(NavigationToolbar2QT):
 
 	def set_message(self, s):
 		# Set empty message method to stop it from trying to use self.locLabel
-		pass 
+		pass
+
+	def pickIsocenter(self,*args):
+		self.canvas._isocenterPickerActive = True
+
+	def press_pickIsocenter(self, event):
+		"""the press mouse button in pick mode callback"""
+		if event.button == 1:
+			self._button_pressed = 1
+		else:
+			self._button_pressed = None
+			return
+		# Press and then release the button.
+		self.press(event)
+		self.release(event)
+
 
 	def pick(self,*args):
 		if self._active == 'PICK':

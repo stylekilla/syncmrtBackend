@@ -10,9 +10,18 @@ from synctools.imageGuidance import optimiseFiducials
 from functools import partial
 import logging
 
+# For PyInstaller:
+import sys, os
+if getattr(sys, 'frozen', False):
+    # If the application is run as a bundle, the pyInstaller bootloader extends the sys module by a flag frozen=True and sets the app path into variable _MEIPASS'.
+    application_path = sys._MEIPASS
+else:
+    application_path = os.path.dirname(os.path.abspath(__file__))
+resourceFilepath = application_path+'/images/'
+
 __all__ = ['QPlot','QHistogramWindow','QEditableIsocenter']
 
-class QPlot:
+class QPlot(QtCore.QObject):
 	'''
 	Documentation for now:
 	- imageLoad(filename, pixelsize, oreitnation, imagenumber(/2), fileformat): Load image into canvas.
@@ -22,7 +31,10 @@ class QPlot:
 	- eventFilter(event): Based on the event identifier we can tell it to do something.
 	'''
 
+	newIsocenter = QtCore.pyqtSignal(float,float)
+
 	def __init__(self,tableModel):
+		super().__init__()
 		self.image = None
 		self.plotDimensions = None
 		self.pointsX = []
@@ -64,7 +76,7 @@ class QPlot:
 		self.canvas = FigureCanvas(self.fig)
 		# self.canvas.setCursor(QtGui.QCursor(QtCore.Qt.CrossCursor))
 		# self.canvas.setCursor(QtCore.Qt.CrossCursor)
-		cursor = mpl.widgets.Cursor(self.ax, useblit=True, color='red', linewidth=2)
+		# cursor = mpl.widgets.Cursor(self.ax, useblit=True, color='red', linewidth=2)
 		# Refresh the canvas.
 		self.canvas.draw()
 
@@ -99,7 +111,6 @@ class QPlot:
 		self.canvas.draw()
 		# Start Callback ID
 		self.cid = self.canvas.mpl_connect('button_press_event', self.eventFilter)
-
 
 	def applyWindow(self,imin,imax):
 		# Set the color scale to match the window.
@@ -311,6 +322,9 @@ class QPlot:
 		# If mouse button 1 is clicked (left click).
 		if (event.button == 1) & (self.canvas._pickerActive):
 			self.markerAdd(event.xdata,event.ydata)
+		elif (event.button == 1) & (self.canvas._isocenterPickerActive):
+			self.newIsocenter.emit(event.xdata,event.ydata)
+			self.canvas._isocenterPickerActive = False
 
 
 CSS_CENTER_HEADING = """
@@ -335,14 +349,10 @@ class QHistogramWindow(QtWidgets.QGroupBox):
 		self.button = []
 		self.button.append(QtWidgets.QRadioButton('Sum'))
 		self.button.append(QtWidgets.QRadioButton('Max'))
-		# options = QtWidgets.QWidget()
-		# optionsLayout = QtWidgets.QHBoxLayout()
-		# optionsLayout.addWidget(self.button[0])
-		# optionsLayout.addWidget(self.button[1])
-		# options.setLayout(optionsLayout)
 		# Layout.
 		layout = QtWidgets.QVBoxLayout()
 		layout.setContentsMargins(0,0,0,0)
+		layout.setSpacing(0)
 		layout.addWidget(self.histogram.canvas)
 		layout.addWidget(self.range[0])
 		layout.addWidget(self.range[1])
@@ -419,9 +429,20 @@ class Histogram:
 
 class QEditableIsocenter(QtWidgets.QGroupBox):
 	isocenterUpdated = QtCore.pyqtSignal(float,float)
+	selectIsocenter = QtCore.pyqtSignal()
 
 	def __init__(self,_x,_y):
 		super().__init__()
+		# Header widget.
+		_header = QtWidgets.QWidget()
+		_pb = QtWidgets.QPushButton()
+		_pb.setIcon(QtGui.QIcon(resourceFilepath+'crosshair.png'))
+		_pb.setMaximumWidth(38)
+		_layout = QtWidgets.QHBoxLayout()
+		_layout.setContentsMargins(0,0,0,0)
+		_layout.addWidget(QtWidgets.QLabel("Treatment Isocenter"),QtCore.Qt.AlignLeft)
+		_layout.addWidget(_pb,QtCore.Qt.AlignRight)
+		_header.setLayout(_layout)
 		# Labels.
 		_xlbl = QtWidgets.QLabel('x (mm): ')
 		_ylbl = QtWidgets.QLabel('y (mm): ')
@@ -438,18 +459,26 @@ class QEditableIsocenter(QtWidgets.QGroupBox):
 		self.y.setValidator(validator)
 		# Layout.
 		layout = QtWidgets.QFormLayout()
-		layout.setContentsMargins(0,0,0,0)
-		layout.addRow(QtWidgets.QLabel("Treatment Isocenter"))
+		layout.setContentsMargins(5,0,0,0)
+		layout.addRow(_header)
 		layout.addRow(_xlbl,self.x)
 		layout.addRow(_ylbl,self.y)
 		# Set layout.
 		self.setLayout(layout)
-		# self.setStyleSheet(CSS_CENTER_HEADING)
 		# Signals and slots.
+		_pb.clicked.connect(self.selectIsocenter)
 		self.x.editingFinished.connect(self.updateIsocenter)
 		self.y.editingFinished.connect(self.updateIsocenter)
 
 	def updateIsocenter(self):
+		""" Send a signal with updated x,y coordinates. """
 		_x = float(self.x.text())
 		_y = float(self.y.text())
 		self.isocenterUpdated.emit(_x,_y)
+
+	def setIsocenter(self,x,y):
+		""" Set the isocenter based off x and y coordinates. """
+		self.x.setText("{:.2f}".format(x))
+		self.y.setText("{:.2f}".format(y))
+		self.x.editingFinished.emit()
+		self.y.editingFinished.emit()
