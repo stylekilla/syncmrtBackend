@@ -52,41 +52,6 @@ class QAlignment(QtWidgets.QWidget):
 		self.widget['fiducial'].toggled.connect(self.markerMode)
 		self.widget['optimise'].toggled.connect(self.markerMode)
 
-		# Group 2: Checklist
-		# alignGroup = QtWidgets.QGroupBox()
-		# alignGroup.setTitle('Patient Alignment')
-		# self.widget['calcAlignment'] = QtWidgets.QPushButton('Calculate')
-		# self.widget['doAlignment'] = QtWidgets.QPushButton('Align')
-		# Layout
-		# alignGroupLayout = QtWidgets.QFormLayout()
-		# alignGroupLayout.addRow(self.widget['calcAlignment'],self.widget['doAlignment'])
-		# alignGroup.setLayout(alignGroupLayout)
-		# self.layout.addWidget(alignGroup)
-		# Defaults
-		# self.widget['doAlignment'].setEnabled(False)
-		# Signals and Slots
-
-		# Group 3: Checklist
-		# checklistGroup = QtWidgets.QGroupBox()
-		# checklistGroup.setTitle('Checklist')
-		# self.widget['checkSetup'] = QtWidgets.QLabel('Alignment Setup')
-		# self.widget['checkXray'] = QtWidgets.QLabel('X-ray')
-		# self.widget['checkDicom'] = QtWidgets.QLabel('Dicom Image')
-		# self.widget['checkRTP'] = QtWidgets.QLabel('Treatment Plan')
-		# self.widget['check'] = QtWidgets.QPushButton('Check')
-		# self.widget['align'] = QtWidgets.QPushButton('Align')
-		# Layout
-		# checklistGroupLayout = QtWidgets.QFormLayout()
-		# checklistGroupLayout.addRow(self.widget['checkSetup'])
-		# checklistGroupLayout.addRow(self.widget['checkXray'])
-		# checklistGroupLayout.addRow(self.widget['checkDicom'])
-		# checklistGroupLayout.addRow(self.widget['checkRTP'])
-		# checklistGroupLayout.addRow(self.widget['check'],self.widget['align'])
-		# checklistGroup.setLayout(checklistGroupLayout)
-		# self.layout.addWidget(checklistGroup)
-		# Defaults
-		# Signals and Slots
-
 		# Finish page.
 		self.layout.addStretch(1)
 		self.updateLayout()
@@ -148,19 +113,11 @@ class QImaging(QtWidgets.QWidget):
 		# Imaging settings.
 		self.group['availableImages'] = QtWidgets.QGroupBox("Imaging Sequence")
 		imagingSequence_layout = QtWidgets.QFormLayout()
-		# imagingSequence_layout.setLabelAlignment(QtCore.Qt.AlignLeft)
 		# Num images.
 		lblImages = QtWidgets.QLabel("Select Image:")
 		self.widget['imageList'] = QtWidgets.QComboBox()
 		self.widget['imageList'].setMinimumSize(65,20)
-		# self.widget['imageList'].addItem("<new>")
-		# self.widget['imageList'].valueChanged.connect()
 		imagingSequence_layout.addRow(lblImages,self.widget['imageList'])
-		# Acquire button.
-		# self.widget['load'] = QtWidgets.QPushButton("load")
-		# self.widget['load'].setEnabled(False)
-		# self.widget['load'].clicked.connect(self.loadImages)
-		# imagingSequence_layout.addRow(self.widget['load'])
 		# Set the group layout.
 		self.group['availableImages'].setLayout(imagingSequence_layout)
 
@@ -182,29 +139,6 @@ class QImaging(QtWidgets.QWidget):
 		self.widget['numImages'].valueChanged.connect(self.updateNumImages)
 		imagingSequence_layout.addRow(lblImages,self.widget['numImages'])
 		imagingSequence_layout.addRow(QHLine())
-		# Translation Range.
-		# self.widget['translation_range'] = QtWidgets.QLabel("Region Of Interest:")
-		# imagingSequence_layout.addRow(self.widget['translation_range'])
-		# translation 1
-		# self.widget['translation1_label'] = QtWidgets.QLabel("Z<sub>upper</sub> mm")
-		# self.widget['translation1'] = QtWidgets.QDoubleSpinBox()
-		# self.widget['translation1'].setMinimumSize(55,20)
-		# self.widget['translation1'].setDecimals(1)
-		# self.widget['translation1'].setMinimum(self.translationRange[0])
-		# self.widget['translation1'].setMaximum(self.translationRange[1])
-		# self.widget['translation1'].setValue(self.translation[1])
-		# imagingSequence_layout.addRow(self.widget['translation1_label'],self.widget['translation1'])
-		# translation 2
-		# self.widget['translation2_label'] = QtWidgets.QLabel("Z<sub>lower</sub> mm")
-		# self.widget['translation2'] = QtWidgets.QDoubleSpinBox()
-		# self.widget['translation2'].setMinimumSize(55,20)
-		# self.widget['translation2'].setDecimals(1)
-		# self.widget['translation2'].setMinimum(self.translationRange[0])
-		# self.widget['translation2'].setMaximum(self.translationRange[1])
-		# self.widget['translation2'].setValue(self.translation[0])
-		# imagingSequence_layout.addRow(self.widget['translation2_label'],self.widget['translation2'])
-		# Range.
-		# imagingSequence_layout.addRow(QtWidgets.QLabel("Image Angles"))
 		self.widget['theta_range'] = QtWidgets.QLabel("Angles Range ({}, {})\xB0:".format(self.thetaRange[0],self.thetaRange[1]))
 		imagingSequence_layout.addRow(self.widget['theta_range'])
 		# Theta 1
@@ -233,11 +167,6 @@ class QImaging(QtWidgets.QWidget):
 		imagingSequence_layout.addRow(self.widget['comment'])
 		imagingSequence_layout.addRow(QHLine())
 		# Acquire button.
-		# self.widget['step'] = QtWidgets.QRadioButton("Step")
-		# self.widget['step'].setChecked(True)
-		# self.widget['scan'] = QtWidgets.QRadioButton("Scan")
-		# self.widget['step'].toggled.connect(partial(self._imageModeChanged,'step'))
-		# self.widget['scan'].toggled.connect(partial(self._imageModeChanged,'scan'))
 		self.widget['acquire'] = QtWidgets.QPushButton("Acquire X-rays")
 		self.widget['acquire'].setEnabled(False)
 		self.widget['acquire'].clicked.connect(self.acquireImages)
@@ -457,22 +386,6 @@ class QSettings(QtWidgets.QWidget):
 		self.hardware = {}
 		self.layout = QtWidgets.QVBoxLayout()
 
-		# # Group 1: Controls Level
-		# controlsGroup = QtWidgets.QGroupBox()
-		# controlsGroup.setTitle('Control Complexity')
-		# self.controls['rbSimple'] = QtWidgets.QRadioButton('Simple')
-		# self.controls['rbNormal'] = QtWidgets.QRadioButton('Normal')
-		# self.controls['rbComplex'] = QtWidgets.QRadioButton('Complex')
-		# self.controls['cbReadOnly'] = QtWidgets.QCheckBox('Read Only')
-		# self.controls['complexity'] = 'simple'
-		# # Layout
-		# controlsGroupLayout = QtWidgets.QVBoxLayout()
-		# controlsGroupLayout.addWidget(self.controls['rbSimple'])
-		# controlsGroupLayout.addWidget(self.controls['rbNormal'])
-		# controlsGroupLayout.addWidget(self.controls['rbComplex'])
-		# controlsGroupLayout.addWidget(self.controls['cbReadOnly'])
-		# controlsGroup.setLayout(controlsGroupLayout)
-
 		# Group 2: Hardware
 		hardwareGroup = QtWidgets.QGroupBox()
 		hardwareGroup.setTitle('Hardware Configuration')
@@ -491,13 +404,7 @@ class QSettings(QtWidgets.QWidget):
 		hardwareGroupLayout.addWidget(self.hardware['refresh'])
 		hardwareGroup.setLayout(hardwareGroupLayout)
 
-		# Defaults
-		# self.controls['rbSimple'].setChecked(True)
-		# self.controls['cbReadOnly'].setChecked(True)
 		# Signals and Slots
-		# self.controls['rbSimple'].clicked.connect(self.controlsMode)
-		# self.controls['rbNormal'].clicked.connect(self.controlsMode)
-		# self.controls['rbComplex'].clicked.connect(self.controlsMode)
 		self.hardware['stage'].currentIndexChanged.connect(self.stageChange)
 		self.hardware['detector'].currentIndexChanged.connect(self.detectorChange)
 		self.hardware['refresh'].clicked.connect(self._refreshConnections)
@@ -507,18 +414,6 @@ class QSettings(QtWidgets.QWidget):
 		# Finish page.
 		self.layout.addStretch(1)
 		self.setLayout(self.layout)
-
-	# def controlsMode(self):
-	# 	''' Set complexity of controls. '''
-	# 	if self.controls['rbSimple'].isChecked():
-	# 		self.controls['complexity'] = 'simple'
-	# 	elif self.controls['rbNormal'].isChecked():
-	# 		self.controls['complexity'] = 'normal'
-	# 	elif self.controls['rbComplex'].isChecked():
-	# 		self.controls['complexity'] = 'complex'
-
-	# 	# Emit signal to say state has changed.
-	# 	self.modeChanged.emit(self.controls['complexity'])
 
 	def loadStages(self,stageList):
 		# stageList should be a list of strings of the stages available to choose from.
@@ -644,7 +539,7 @@ class QXrayProperties(QtWidgets.QWidget):
 		if button == 'cbCentroid': self.toggleOverlay.emit(0,setState)
 		elif button == 'cbBeamIsoc': self.toggleOverlay.emit(1,setState)
 		elif button == 'cbPatIsoc': self.toggleOverlay.emit(2,setState)
-		elif button == 'cbBeamOverlay': self.toggleOverlay.emit(5,setState)
+		elif button == 'cbBeamOverlay': self.toggleOverlay.emit(3,setState)
 
 class QCtProperties(QtWidgets.QWidget):
 	# Qt signals.

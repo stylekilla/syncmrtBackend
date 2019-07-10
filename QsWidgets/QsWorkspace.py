@@ -12,9 +12,6 @@ from functools import partial
 # For PyInstaller:
 import sys, os
 if getattr(sys, 'frozen', False):
-    # If the application is run as a bundle, the pyInstaller bootloader
-    # extends the sys module by a flag frozen=True and sets the app 
-    # path into variable _MEIPASS'.
     application_path = sys._MEIPASS
 else:
     application_path = os.path.dirname(os.path.abspath(__file__))
@@ -116,7 +113,6 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 			# Add layout to widget.
 			subplotWidget.setLayout(subplotLayout)
 			# Add widget to plotenvironment.
-			# self.layout.addWidget(subplotWidget)
 			self.addWidget(subplotWidget)
 			# Create a histogram widget for the plot.
 			self.histogram.append(QtMpl.QHistogramWindow())
@@ -192,13 +188,8 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 			pass
 
 	def toggleOverlay(self,overlay,state):
-		if overlay == 3:
-			self.plot[0].toggleOverlay(3,state)
-			self.plot[1].toggleOverlay(4,state)
-		else:
-			for i in range(len(self.plot)):
-				# Overlay = 0 (ctd), 1 (mach iso), 2 (pat iso), 3 (patient mask frontal), 4 (patient mask, side)
-				self.plot[i].toggleOverlay(overlay,state)
+		for i in range(len(self.plot)):
+			self.plot[i].toggleOverlay(overlay,state)
 
 	def toggleImageSettings(self):
 		self.toggleSettings.emit()
