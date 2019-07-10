@@ -46,6 +46,7 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 
 	def loadImages(self,image):
 		'''Load up to 2 images and send to subplots.'''
+		logging.debug("Loading image set {}.".format(image))
 		if self.count() != len(image):
 			self.createSubplots(len(image))
 		for i in range(len(image)):

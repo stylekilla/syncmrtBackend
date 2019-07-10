@@ -26,6 +26,7 @@ _xrayImageAttributes = [
 	]
 
 def new(fp):
+	logging.info("Creating {}".format(fp))
 	f = file(fp,'w') #: Create a new HDF5 file.
 	#: Set the file up.
 	f.create_group('Patient') 
@@ -46,7 +47,7 @@ class file(h5.File):
 		super().__init__(fp,mode,*args,**kwargs)
 
 	def getImageSet(self,index=-1):
-		logging.debug("Getting image set {}.".format(index))
+		logging.debug("Reading image set {}.".format(index))
 		if index == -1:
 			index = len(self['Image'])
 		try:

@@ -35,7 +35,7 @@ class sync_dx:
 		return list(self.file['Image'].keys())
 
 	def getImageSet(self,idx):
-		logging.debug("Reading image set {} from HDF5.".format(idx))
+		logging.debug("Reading image set {}.".format(idx))
 		_set = self.file.getImageSet(idx)
 		imageSet = []
 		try:
@@ -52,7 +52,7 @@ class sync_dx:
 				# Append the image.
 				imageSet.append(image)
 		except:
-			pass
+			logging.critical("Unable to load image set. Most likely does not contain the correct attributes.")
 			
 		return imageSet
 
