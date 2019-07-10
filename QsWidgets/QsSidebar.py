@@ -137,8 +137,8 @@ class QImaging(QtWidgets.QWidget):
 		# Vars.
 		self.theta = [-30,30]
 		self.translation = [-25,25]
-		self.thetaRange = [-90,90]
-		self.translationRange = [-100,100]
+		self.thetaRange = [-140,50]
+		self.translationRange = [-70,70]
 		# Layout.
 		self.layout = QtWidgets.QVBoxLayout()
 
