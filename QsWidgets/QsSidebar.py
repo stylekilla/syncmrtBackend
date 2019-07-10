@@ -53,37 +53,37 @@ class QAlignment(QtWidgets.QWidget):
 		self.widget['optimise'].toggled.connect(self.markerMode)
 
 		# Group 2: Checklist
-		alignGroup = QtWidgets.QGroupBox()
-		alignGroup.setTitle('Patient Alignment')
-		self.widget['calcAlignment'] = QtWidgets.QPushButton('Calculate')
-		self.widget['doAlignment'] = QtWidgets.QPushButton('Align')
+		# alignGroup = QtWidgets.QGroupBox()
+		# alignGroup.setTitle('Patient Alignment')
+		# self.widget['calcAlignment'] = QtWidgets.QPushButton('Calculate')
+		# self.widget['doAlignment'] = QtWidgets.QPushButton('Align')
 		# Layout
-		alignGroupLayout = QtWidgets.QFormLayout()
-		alignGroupLayout.addRow(self.widget['calcAlignment'],self.widget['doAlignment'])
-		alignGroup.setLayout(alignGroupLayout)
-		self.layout.addWidget(alignGroup)
+		# alignGroupLayout = QtWidgets.QFormLayout()
+		# alignGroupLayout.addRow(self.widget['calcAlignment'],self.widget['doAlignment'])
+		# alignGroup.setLayout(alignGroupLayout)
+		# self.layout.addWidget(alignGroup)
 		# Defaults
 		# self.widget['doAlignment'].setEnabled(False)
 		# Signals and Slots
 
 		# Group 3: Checklist
-		checklistGroup = QtWidgets.QGroupBox()
-		checklistGroup.setTitle('Checklist')
-		self.widget['checkSetup'] = QtWidgets.QLabel('Alignment Setup')
-		self.widget['checkXray'] = QtWidgets.QLabel('X-ray')
-		self.widget['checkDicom'] = QtWidgets.QLabel('Dicom Image')
-		self.widget['checkRTP'] = QtWidgets.QLabel('Treatment Plan')
+		# checklistGroup = QtWidgets.QGroupBox()
+		# checklistGroup.setTitle('Checklist')
+		# self.widget['checkSetup'] = QtWidgets.QLabel('Alignment Setup')
+		# self.widget['checkXray'] = QtWidgets.QLabel('X-ray')
+		# self.widget['checkDicom'] = QtWidgets.QLabel('Dicom Image')
+		# self.widget['checkRTP'] = QtWidgets.QLabel('Treatment Plan')
 		# self.widget['check'] = QtWidgets.QPushButton('Check')
 		# self.widget['align'] = QtWidgets.QPushButton('Align')
 		# Layout
-		checklistGroupLayout = QtWidgets.QFormLayout()
-		checklistGroupLayout.addRow(self.widget['checkSetup'])
-		checklistGroupLayout.addRow(self.widget['checkXray'])
-		checklistGroupLayout.addRow(self.widget['checkDicom'])
-		checklistGroupLayout.addRow(self.widget['checkRTP'])
+		# checklistGroupLayout = QtWidgets.QFormLayout()
+		# checklistGroupLayout.addRow(self.widget['checkSetup'])
+		# checklistGroupLayout.addRow(self.widget['checkXray'])
+		# checklistGroupLayout.addRow(self.widget['checkDicom'])
+		# checklistGroupLayout.addRow(self.widget['checkRTP'])
 		# checklistGroupLayout.addRow(self.widget['check'],self.widget['align'])
-		checklistGroup.setLayout(checklistGroupLayout)
-		self.layout.addWidget(checklistGroup)
+		# checklistGroup.setLayout(checklistGroupLayout)
+		# self.layout.addWidget(checklistGroup)
 		# Defaults
 		# Signals and Slots
 
