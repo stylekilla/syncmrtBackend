@@ -122,7 +122,6 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 			# Add editable isocenter widget.
 			self.isocenter.append(QtMpl.QEditableIsocenter(0,0))
 			self.isocenter[-1].isocenterUpdated.connect(self.plot[-1].updatePatientIsocenter)
-			logging.critical("Need to connect the selectIsocenter button to the navbar...")
 			self.isocenter[-1].selectIsocenter.connect(self.navbar[-1].pickIsocenter)
 			self.plot[-1].newIsocenter.connect(self.isocenter[-1].setIsocenter)
 			# Send a signal to say a subplot was added.

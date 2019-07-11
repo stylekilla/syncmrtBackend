@@ -436,7 +436,7 @@ class QEditableIsocenter(QtWidgets.QGroupBox):
 		# Header widget.
 		_header = QtWidgets.QWidget()
 		_pb = QtWidgets.QPushButton()
-		_pb.setIcon(QtGui.QIcon(resourceFilepath+'crosshair.png'))
+		_pb.setIcon(QtGui.QIcon(resourceFilepath+'pick.png'))
 		_pb.setMaximumWidth(38)
 		_layout = QtWidgets.QHBoxLayout()
 		_layout.setContentsMargins(0,0,0,0)

@@ -464,9 +464,13 @@ class QXrayProperties(QtWidgets.QWidget):
 		overlayGroup = QtWidgets.QGroupBox()
 		overlayGroup.setTitle('Plot Overlays')
 		self.widget['cbBeamIsoc'] = QtWidgets.QCheckBox('Beam Isocenter')
+		self.widget['cbBeamIsoc'].setToolTip("Shows the synchrotron beam centre.")
 		self.widget['cbBeamOverlay'] = QtWidgets.QCheckBox('Beam Overlay')
+		self.widget['cbBeamOverlay'].setToolTip("Shows the area to be irradiated.")
 		self.widget['cbPatIsoc'] = QtWidgets.QCheckBox('Patient Isocenter')
+		self.widget['cbPatIsoc'].setToolTip("Shows the tumour centre.")
 		self.widget['cbCentroid'] = QtWidgets.QCheckBox('Centroid Position')
+		self.widget['cbCentroid'].setToolTip("Shows the centre of mass of all selected points.")
 		# Layout
 		overlayGroupLayout = QtWidgets.QVBoxLayout()
 		overlayGroupLayout.addWidget(self.widget['cbBeamIsoc'])
@@ -518,7 +522,18 @@ class QXrayProperties(QtWidgets.QWidget):
 		# New widgets.
 		for i in range(len(widget)):
 			widget[i].setMaximumHeight(200)
-			layout.addWidget(widget[i])		
+			layout.addWidget(widget[i])
+
+	def refreshOverlays(self):
+		# Toggle them on and off to refresh them.
+		self.widget['cbBeamIsoc'].toggle()
+		self.widget['cbBeamIsoc'].toggle()
+		self.widget['cbPatIsoc'].toggle()
+		self.widget['cbPatIsoc'].toggle()
+		self.widget['cbCentroid'].toggle()
+		self.widget['cbCentroid'].toggle()
+		self.widget['cbBeamOverlay'].toggle()
+		self.widget['cbBeamOverlay'].toggle()
 
 	def addPlotHistogramWindow(self,widget):
 		# These are new ones each time. Remove old wdigets.

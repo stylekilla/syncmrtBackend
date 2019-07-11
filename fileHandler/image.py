@@ -13,8 +13,8 @@ class Image2d:
 		# Image view.
 		self.view = {
 			'title':'None',
-			'xLabel':'None',
-			'yLabel':'None',
+			'xLabel':'Horizontal (mm)',
+			'yLabel':'Vertical (mm)',
 		}
 		# Transform for getting into and out of the image frame of reference.
 		self.M = None
@@ -25,22 +25,3 @@ class Image2d:
 
 	def forOut(self,points):
 		pass
-
-# class image3d:
-# 	def __init__(self):
-# 		super()
-# 		self.orientation = None
-# 		self.fp = None
-# 		self.ds = None
-# 		'''
-# 		FOR RTPLANS
-# 		'''
-# 		# Mask Options
-# 		self.mask = None
-# 		self.maskThickness = None
-# 		# Rotation options
-# 		self.collimator = None
-# 		self.gantry = None
-# 		self.patientSupport = None
-# 		# Support mutiple views of the image?
-# 		self.views = None
