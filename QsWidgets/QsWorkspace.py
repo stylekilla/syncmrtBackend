@@ -327,7 +327,10 @@ class QNavigationBar(NavigationToolbar2QT):
 		pass
 
 	def pickIsocenter(self,*args):
-		self.canvas._isocenterPickerActive = True
+		if self.canvas._isocenterPickerActive:
+			self.canvas._isocenterPickerActive = False
+		else:
+			self.canvas._isocenterPickerActive = True
 
 	def press_pickIsocenter(self, event):
 		"""the press mouse button in pick mode callback"""

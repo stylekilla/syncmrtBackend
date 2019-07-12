@@ -464,7 +464,7 @@ class QXrayProperties(QtWidgets.QWidget):
 		overlayGroup = QtWidgets.QGroupBox()
 		overlayGroup.setTitle('Plot Overlays')
 		self.widget['cbBeamIsoc'] = QtWidgets.QCheckBox('Beam Isocenter')
-		self.widget['cbBeamIsoc'].setToolTip("Shows the synchrotron beam centre.")
+		self.widget['cbBeamIsoc'].setToolTip("Shows the synchrotron beam centre: (0,0).")
 		self.widget['cbBeamOverlay'] = QtWidgets.QCheckBox('Beam Overlay')
 		self.widget['cbBeamOverlay'].setToolTip("Shows the area to be irradiated.")
 		self.widget['cbPatIsoc'] = QtWidgets.QCheckBox('Patient Isocenter')

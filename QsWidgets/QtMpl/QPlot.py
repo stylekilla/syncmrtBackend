@@ -17,7 +17,7 @@ if getattr(sys, 'frozen', False):
     application_path = sys._MEIPASS
 else:
     application_path = os.path.dirname(os.path.abspath(__file__))
-resourceFilepath = application_path+'/images/'
+resourceFilepath = application_path+'/resources/'
 
 __all__ = ['QPlot','QHistogramWindow','QEditableIsocenter']
 
@@ -433,15 +433,22 @@ class QEditableIsocenter(QtWidgets.QGroupBox):
 
 	def __init__(self,_x,_y):
 		super().__init__()
+		# Stylesheet.
+		# _css = open(resourceFilepath+'QPlot.css')
+		# self.setStyleSheet(_css.read())
 		# Header widget.
 		_header = QtWidgets.QWidget()
-		_pb = QtWidgets.QPushButton()
-		_pb.setIcon(QtGui.QIcon(resourceFilepath+'pick.png'))
-		_pb.setMaximumWidth(38)
+		self.select = QtWidgets.QPushButton()
+		self.select.setIcon(QtGui.QIcon(resourceFilepath+'pick.png'))
+		self.select.setCheckable(True)
+		self.select.setChecked(False)
+		self.select.setMaximumWidth(38)
+		# self.select.setObjectName('isocenterPicker')
+		self.select.setToolTip("Select treatment isocentre with a mouse click.")
 		_layout = QtWidgets.QHBoxLayout()
 		_layout.setContentsMargins(0,0,0,0)
 		_layout.addWidget(QtWidgets.QLabel("Treatment Isocenter"),QtCore.Qt.AlignLeft)
-		_layout.addWidget(_pb,QtCore.Qt.AlignRight)
+		_layout.addWidget(self.select,QtCore.Qt.AlignRight)
 		_header.setLayout(_layout)
 		# Labels.
 		_xlbl = QtWidgets.QLabel('x (mm): ')
@@ -466,7 +473,7 @@ class QEditableIsocenter(QtWidgets.QGroupBox):
 		# Set layout.
 		self.setLayout(layout)
 		# Signals and slots.
-		_pb.clicked.connect(self.selectIsocenter)
+		self.select.clicked.connect(self._selectIsocenter)
 		self.x.editingFinished.connect(self.updateIsocenter)
 		self.y.editingFinished.connect(self.updateIsocenter)
 
@@ -476,8 +483,24 @@ class QEditableIsocenter(QtWidgets.QGroupBox):
 		_y = float(self.y.text())
 		self.isocenterUpdated.emit(_x,_y)
 
+	def _selectIsocenter(self):
+		"""
+		Other way of setting color:
+		palette = self.select.palette()
+		palette.setColor(QtGui.QPalette.Button,QtGui.QColor('#82FF70'))
+		self.select.setPalette(palette)
+		"""
+		if self.select.isChecked():
+			self.select.setDown(True)
+		else:
+			self.select.setDown(False)
+		# self.select.setDown(True)
+		self.selectIsocenter.emit()
+
 	def setIsocenter(self,x,y):
 		""" Set the isocenter based off x and y coordinates. """
+		self.select.setDown(False)
+		self.select.setChecked(False)
 		self.x.setText("{:.2f}".format(x))
 		self.y.setText("{:.2f}".format(y))
 		self.x.editingFinished.emit()
