@@ -182,13 +182,8 @@ class QPlotEnvironment(QtWidgets.QSplitter):
 			pass
 
 	def toggleOverlay(self,overlay,state):
-		if overlay == 3:
-			self.plot[0].toggleOverlay(3,state)
-			self.plot[1].toggleOverlay(4,state)
-		else:
-			for i in range(len(self.plot)):
-				# Overlay = 0 (ctd), 1 (mach iso), 2 (pat iso), 3 (patient mask frontal), 4 (patient mask, side)
-				self.plot[i].toggleOverlay(overlay,state)
+		for i in range(len(self.plot)):
+			self.plot[i].toggleOverlay(overlay,state)
 
 	def toggleImageSettings(self):
 		self.toggleSettings.emit()

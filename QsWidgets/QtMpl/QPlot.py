@@ -73,6 +73,9 @@ class QPlot:
 		if 'patIso' in self.overlay:
 			self.toggleOverlay(2,False) 
 			self.toggleOverlay(2,True)
+		if 'beamArea' in self.overlay:
+			self.toggleOverlay(3,False) 
+			self.toggleOverlay(3,True)
 
 	def loadCoordinate(self,name,vector):
 		# Pull in DICOM information in XYZ mm and turn it into the current view of the dataset.
@@ -229,63 +232,65 @@ class QPlot:
 		if overlayType == 0:
 			# Centroid overlay.
 			if self.ctd is not None:
+				# Remove overlay lines if they exist.
+				if 'ctd' in self.overlay:
+					for obj in self.overlay['ctd']:
+						obj.remove()
+					del(self.overlay['ctd'])
 				if state is True:
 					# Plot overlay scatter points.
 					x,y = [self.ctd[a],self.ctd[b]]
-					self.overlay['ctd'] = self.ax.scatter(self.ctd[0],self.ctd[1],c='b',marker='+',s=50)
-					self.overlay['ctdLabel'] = self.ax.text(self.ctd[0]+1,self.ctd[1]-3,'ctd',color='b')
+					self.overlay['ctd'] = [
+							self.ax.scatter(self.ctd[0],self.ctd[1],c='b',marker='+',s=50),
+							self.ax.text(self.ctd[0]+1,self.ctd[1]-3,'ctd',color='b')
+						]
 				else:
-					# Remove overlay scatter points.
-					try:
-						# This prevents a crash where the centroid is calculated whilst the overlay is toggled on and then attempts to toggle off.
-						self.overlay['ctd'].remove()
-						self.overlay['ctdLabel'].remove()
-					except:
-						pass
+					pass
 		elif overlayType == 1:
 			# Machine isocenter overlay.
+			# Remove overlay lines.
+			if 'machIsoH' in self.overlay:
+				self.overlay['machIsoH'].remove()
+				del(self.overlay['machIsoH'])
+			if 'machIsoV' in self.overlay:
+				self.overlay['machIsoV'].remove()
+				del(self.overlay['machIsoV'])
 			if state is True:
 				# Plot overlay lines.
-				self.overlay['machIsoV'] = self.ax.axvline(self.machineIsocenter[0],c='g',alpha=0.5)
-				self.overlay['machIsoH'] = self.ax.axhline(self.machineIsocenter[1],c='g',alpha=0.5)
+				self.overlay['machIsoV'] = self.ax.axvline(self.machineIsocenter[0],c='r',alpha=0.5)
+				self.overlay['machIsoH'] = self.ax.axhline(self.machineIsocenter[1],c='r',alpha=0.5)
 			else:
-				# Remove overlay lines.
-				self.overlay['machIsoH'].remove()
-				self.overlay['machIsoV'].remove()
+				pass
 		elif overlayType == 2:
-			# Patient isocenter overlay.
+			# Overlay of the patient iso.
+			# Remove the overlay lines.
+			if 'patIso' in self.overlay:
+				for obj in reversed(self.overlay['patIso']):
+					obj.remove()
+				del(self.overlay['patIso'])
 			if state is True:
-				# Plot overlay scatter points.
-				self.overlay['patIso'] = self.ax.scatter(self.patientIsocenter[0],self.patientIsocenter[1],c='y',marker='+',s=50)
-				self.overlay['patIsoLabel'] = self.ax.text(self.patientIsocenter[0]+1,self.patientIsocenter[1]-3,'ptv',color='y')
+				# Create new patches.
+				self.overlay['patIso'] = [
+						self.ax.scatter(self.patientIsocenter[0],self.patientIsocenter[1],marker='+',color='y',s=50),
+						self.ax.text(self.patientIsocenter[0]+1,self.patientIsocenter[1]-3,'ptv',color='y')
+					]
 			else:
-				try:
-					# Remove overlay lines.
-					self.overlay['patIso'].remove()
-					self.overlay['patIsoLabel'].remove()
-				except:
-					pass
+				pass
 		elif overlayType == 3:
-			# Conformal Mask Overlay - Front.
-			if (self.mask == None):
-				return
-			elif (state is True):
-				# Plot overlay scatter points.
-				self.overlay['patMask'] = self.ax.plot(self.mask.x,self.mask.y,c='y')[0]
-			elif (state is False):
-				self.overlay['patMask'].remove()
-		elif overlayType == 4:
-			# Conformal Mask Overlay - Side.
-			if (self.mask == None):
-				return
-			elif (state is True):
-				# Plot overlay scatter points.
-				self.overlay['patMaskTop'] = self.ax.axhline(max(self.mask.y),c='y')
-				self.overlay['patMaskBot'] = self.ax.axhline(min(self.mask.y),c='y')
-			elif (state is False):
-				self.overlay['patMaskTop'].remove()
-				self.overlay['patMaskBot'].remove()
-
+			# Remove it first if it already exists.
+			if 'beamArea' in self.overlay:
+				self.overlay['beamArea'].remove()
+				del(self.overlay['beamArea'])
+			# Beam area overlay.
+			if state is True:
+				# Create new patches.
+				_maskSize = 5
+				_beam = Rectangle((-_maskSize/2,-_maskSize/2), _maskSize, _maskSize,fc='r',ec='none')
+				_ptv = Rectangle((self.patientIsocenter[0]-_maskSize/2,self.patientIsocenter[1]-_maskSize/2), _maskSize, _maskSize,fc='y',ec='none')
+				pc = PatchCollection([_beam,_ptv],alpha=0.2,match_original=True)
+				self.overlay['beamArea'] = self.ax.add_collection(pc)
+			else:
+				pass
 		# Update the canvas.
 		self.canvas.draw()
 

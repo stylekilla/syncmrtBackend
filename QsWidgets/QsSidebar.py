@@ -634,6 +634,7 @@ class QXrayProperties(QtWidgets.QWidget):
 		if button == 'cbCentroid': self.toggleOverlay.emit(0,setState)
 		elif button == 'cbBeamIsoc': self.toggleOverlay.emit(1,setState)
 		elif button == 'cbPatIsoc': self.toggleOverlay.emit(2,setState)
+		elif button == 'cbBeamOverlay': self.toggleOverlay.emit(3,setState)
 
 class QCtProperties(QtWidgets.QWidget):
 	# Qt signals.
